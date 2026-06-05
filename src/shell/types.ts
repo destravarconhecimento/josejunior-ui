@@ -1,9 +1,11 @@
-import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 export type NavItem = {
   href: string;
   label: string;
-  icon?: LucideIcon;
+  /** Ícone JÁ renderizado (ex.: <Mail size={18} />). Não passe o componente
+   *  do ícone cru — funções não cruzam a fronteira Server→Client. */
+  icon?: ReactNode;
   badge?: string;
 };
 

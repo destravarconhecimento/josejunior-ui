@@ -36,13 +36,12 @@ export function TopNav({ sections }: { sections: NavSection[] }) {
               <Menu.Positioner>
                 <Menu.Content className="admin-dropdown" minW="230px" p={2} borderRadius="14px">
                   {section.items.map((item) => {
-                    const Icon = item.icon;
                     const isAct = isActiveHref(pathname, item.href);
                     return (
                       <Menu.Item key={item.href} value={item.href} asChild>
                         <Link href={item.href}>
                           <HStack gap={3} w="full">
-                            {Icon ? <Icon size={16} /> : null}
+                            {item.icon}
                             <Text
                               fontSize="sm"
                               fontWeight={isAct ? "700" : "500"}

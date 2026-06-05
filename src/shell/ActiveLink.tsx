@@ -19,7 +19,6 @@ export function ActiveLink({
 }) {
   const pathname = usePathname();
   const active = isActiveHref(pathname, item.href);
-  const Icon = item.icon;
   return (
     <Link
       href={item.href}
@@ -34,7 +33,7 @@ export function ActiveLink({
         py={2.5}
         borderRadius="10px"
       >
-        {Icon ? <Icon size={17} /> : null}
+        {item.icon}
         <Text fontSize="sm">{item.label}</Text>
         {item.badge ? (
           <Text
