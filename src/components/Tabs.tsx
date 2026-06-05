@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, HStack, NativeSelect } from "@chakra-ui/react";
+import { Box, HStack, NativeSelect, Text } from "@chakra-ui/react";
 
 export type TabDef = { value: string; label: string };
 
@@ -54,17 +54,36 @@ export function Tabs({
         })}
       </HStack>
 
-      {/* Mobile: dropdown com a aba atual */}
+      {/* Mobile: dropdown com a aba atual (estilizado como controle do painel) */}
       <Box display={{ base: "block", md: "none" }}>
-        <NativeSelect.Root size="md">
-          <NativeSelect.Field value={value} onChange={(e) => onChange(e.currentTarget.value)}>
+        <Text
+          fontSize="10px"
+          fontWeight="700"
+          textTransform="uppercase"
+          letterSpacing="1.4px"
+          color="var(--admin-text-soft)"
+          mb={1.5}
+        >
+          Seção
+        </Text>
+        <NativeSelect.Root size="lg">
+          <NativeSelect.Field
+            value={value}
+            onChange={(e) => onChange(e.currentTarget.value)}
+            bg="var(--admin-surface)"
+            borderColor="var(--admin-border)"
+            borderRadius="12px"
+            fontWeight="600"
+            color="var(--admin-primary)"
+            h="48px"
+          >
             {items.map((it) => (
               <option key={it.value} value={it.value}>
                 {it.label}
               </option>
             ))}
           </NativeSelect.Field>
-          <NativeSelect.Indicator />
+          <NativeSelect.Indicator color="var(--admin-primary)" />
         </NativeSelect.Root>
       </Box>
     </Box>
