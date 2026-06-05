@@ -13,7 +13,7 @@ export function Card({
   actions?: ReactNode;
   children: ReactNode;
   bodyProps?: BoxProps;
-} & BoxProps) {
+} & Omit<BoxProps, "title">) {
   return (
     <Box className="admin-card" p={{ base: 5, md: 6 }} {...rest}>
       {title || actions ? (
