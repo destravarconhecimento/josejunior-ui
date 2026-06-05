@@ -63,12 +63,16 @@ export function FormActions({
 }) {
   return (
     <Box
-      position="sticky"
+      // Mobile: fixa no rodapé da viewport (sempre visível). Desktop: sticky no fluxo.
+      position={{ base: "fixed", md: "sticky" }}
+      left={{ base: 0, md: "auto" }}
+      right={{ base: 0, md: "auto" }}
       bottom={0}
-      zIndex={9}
-      pt={6}
-      pb={4}
-      mt={8}
+      zIndex={30}
+      px={{ base: 3, md: 0 }}
+      pt={{ base: 3, md: 6 }}
+      pb={{ base: 3, md: 4 }}
+      mt={{ base: 0, md: 8 }}
       bg="linear-gradient(180deg, transparent 0%, var(--admin-surface-2) 30%)"
       backdropFilter="blur(10px)"
     >

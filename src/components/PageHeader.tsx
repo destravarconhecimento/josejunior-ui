@@ -45,7 +45,13 @@ export function PageHeader({
           {title}
         </Text>
         {description ? (
-          <Text color="var(--admin-text-soft)" fontSize="sm" mt={1.5} maxW="680px">
+          <Text
+            color="var(--admin-text-soft)"
+            fontSize="sm"
+            mt={1.5}
+            maxW="680px"
+            display={{ base: "none", md: "block" }}
+          >
             {description}
           </Text>
         ) : null}

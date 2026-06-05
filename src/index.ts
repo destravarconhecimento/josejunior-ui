@@ -25,3 +25,4 @@ export { EmptyState } from "./components/EmptyState";
 export { FormField, FormGrid, FormActions } from "./components/form";
 export { DataTable, TableCard, type Column } from "./components/DataTable";
 export { Modal } from "./components/Modal";
+export { Tabs, type TabDef } from "./components/Tabs";
