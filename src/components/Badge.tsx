@@ -56,7 +56,7 @@ export function DeliveryBadge({ mode }: { mode: string }) {
       bg={isCentral ? "rgba(124,110,224,0.12)" : "rgba(100,116,139,0.10)"}
       color={isCentral ? "#6d28d9" : "#475569"}
     >
-      {isCentral ? "Central" : "Self-hosted"}
+      {isCentral ? "Central" : "Próprio"}
     </Tag>
   );
 }
