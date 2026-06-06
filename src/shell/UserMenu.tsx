@@ -1,18 +1,22 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { Box, HStack, Menu, Portal, Stack, Text } from "@chakra-ui/react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, KeyRound } from "lucide-react";
 import { AdminCrest, initialsFrom } from "../theme/AdminThemeShell";
 import type { AppUser } from "./types";
 
-/** Bloco do usuário logado (Chakra Menu): iniciais + nome + dropdown com logout. */
+/** Bloco do usuário logado (Chakra Menu): iniciais + nome + dropdown com conta/logout. */
 export function UserMenu({
   user,
   logoutSlot,
+  accountHref,
 }: {
   user: AppUser;
   logoutSlot?: ReactNode;
+  /** Link da área "Conta & senha" (ex.: /conta). Sem isso, o item não aparece. */
+  accountHref?: string;
 }) {
   const initials = user.initials || initialsFrom(user.name, user.email);
   return (
@@ -48,6 +52,16 @@ export function UserMenu({
                   </Text>
                 ) : null}
               </Box>
+              {accountHref ? (
+                <Box borderTopWidth="1px" borderColor="var(--admin-divider)" pt={2}>
+                  <Link
+                    href={accountHref}
+                    style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--admin-primary)", padding: "6px 4px" }}
+                  >
+                    <KeyRound size={14} /> Conta &amp; senha
+                  </Link>
+                </Box>
+              ) : null}
               {logoutSlot ? (
                 <Box borderTopWidth="1px" borderColor="var(--admin-divider)" pt={2}>
                   {logoutSlot}

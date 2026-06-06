@@ -21,6 +21,7 @@ export function AppShell({
   user,
   logoutSlot,
   homeHref = "/dashboard",
+  accountHref,
   children,
 }: {
   brand: Brand;
@@ -28,6 +29,7 @@ export function AppShell({
   user: AppUser;
   logoutSlot?: ReactNode;
   homeHref?: string;
+  accountHref?: string;
   children: ReactNode;
 }) {
   return (
@@ -51,7 +53,7 @@ export function AppShell({
           </Box>
           <Box flex="1" display={{ base: "block", lg: "none" }} />
 
-          <UserMenu user={user} logoutSlot={logoutSlot} />
+          <UserMenu user={user} logoutSlot={logoutSlot} accountHref={accountHref} />
         </Flex>
       </Box>
 
