@@ -1,6 +1,6 @@
 import { Button as ChakraButton, type ButtonProps } from "@chakra-ui/react";
 
-export type ButtonTone = "primary" | "outline" | "ghost" | "danger";
+export type ButtonTone = "primary" | "outline" | "ghost" | "danger" | "whatsapp";
 
 const toneProps: Record<ButtonTone, ButtonProps> = {
   primary: {
@@ -23,6 +23,11 @@ const toneProps: Record<ButtonTone, ButtonProps> = {
     bg: "#dc2626",
     color: "white",
     _hover: { bg: "#b91c1c" },
+  },
+  whatsapp: {
+    bg: "#25D366",
+    color: "white",
+    _hover: { bg: "#1DA851" },
   },
 };
 

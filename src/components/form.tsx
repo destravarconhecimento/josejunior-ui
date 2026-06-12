@@ -1,5 +1,19 @@
 import type { ReactNode } from "react";
-import { Box, Field, HStack, SimpleGrid, Spinner, Text } from "@chakra-ui/react";
+import {
+  Box,
+  Field,
+  HStack,
+  Input,
+  type InputProps,
+  NativeSelect,
+  SimpleGrid,
+  Spinner,
+  Text,
+  Textarea,
+  type TextareaProps,
+} from "@chakra-ui/react";
+
+type FieldWrap = { label?: ReactNode; help?: ReactNode; error?: ReactNode; required?: boolean };
 
 /** Campo de formulário padrão: label + controle + ajuda/erro. */
 export function FormField({
@@ -31,6 +45,52 @@ export function FormField({
         <Field.HelperText fontSize="xs">{help}</Field.HelperText>
       ) : null}
     </Field.Root>
+  );
+}
+
+/** Input com label/erro padrão (FormField + Input). */
+export function FormInput({ label, help, error, required, ...input }: FieldWrap & InputProps) {
+  return (
+    <FormField label={label} help={help} error={error} required={required}>
+      <Input bg="var(--admin-surface)" {...input} />
+    </FormField>
+  );
+}
+
+/** Textarea com label/erro padrão. */
+export function FormTextarea({ label, help, error, required, ...ta }: FieldWrap & TextareaProps) {
+  return (
+    <FormField label={label} help={help} error={error} required={required}>
+      <Textarea bg="var(--admin-surface)" {...ta} />
+    </FormField>
+  );
+}
+
+/** Select nativo com label/erro padrão. `options` = [{value,label}]. */
+export function FormSelect({
+  label,
+  help,
+  error,
+  required,
+  options,
+  placeholder,
+  ...field
+}: FieldWrap & {
+  options: { value: string; label: string }[];
+  placeholder?: string;
+} & React.ComponentProps<typeof NativeSelect.Field>) {
+  return (
+    <FormField label={label} help={help} error={error} required={required}>
+      <NativeSelect.Root>
+        <NativeSelect.Field bg="var(--admin-surface)" {...field}>
+          {placeholder ? <option value="">{placeholder}</option> : null}
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </NativeSelect.Field>
+        <NativeSelect.Indicator />
+      </NativeSelect.Root>
+    </FormField>
   );
 }
 
