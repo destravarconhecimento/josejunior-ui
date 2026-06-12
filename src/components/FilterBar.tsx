@@ -31,7 +31,7 @@ export function FilterBar({
   count?: { shown: number; total: number };
 }) {
   return (
-    <HStack gap={3} flexWrap="wrap" mb={4} align="center">
+    <HStack gap={3} flexWrap="wrap" mb={3} align="center">
       <Box position="relative" flex={1} minW="220px">
         <Input
           value={search}

@@ -52,8 +52,9 @@ export function DataTable<T>({
   /** Célula de ações por linha — renderizada na coluna "Ações" (à direita). */
   actions?: (row: T) => ReactNode;
   pageSize?: number;
-  /** Desktop: limita à altura disponível da viewport com scroll interno. */
-  fillHeight?: boolean;
+  /** Desktop: limita à altura da viewport com scroll interno. `number` = offset
+   *  em px a descontar (default 340; use maior em telas com abas). `false` solta. */
+  fillHeight?: boolean | number;
 }) {
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -113,7 +114,7 @@ export function DataTable<T>({
         display={{ base: "none", md: "block" }}
         overflowY="auto"
         overflowX="auto"
-        maxH={fillHeight ? "calc(100vh - 320px)" : undefined}
+        maxH={fillHeight ? `calc(100vh - ${typeof fillHeight === "number" ? fillHeight : 340}px)` : undefined}
         minH={fillHeight ? "200px" : undefined}
       >
         <Table.Root size="md">

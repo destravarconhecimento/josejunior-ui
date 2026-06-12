@@ -22,7 +22,7 @@ export function PageHeader({
   description?: ReactNode;
 }) {
   return (
-    <Box mb={tabs ? 4 : 6}>
+    <Box mb={tabs ? 3 : 5}>
       <Stack
         direction={{ base: "column", sm: "row" }}
         justify="space-between"
@@ -46,7 +46,7 @@ export function PageHeader({
           </HStack>
         ) : null}
       </Stack>
-      {tabs ? <Box mt={3}>{tabs}</Box> : null}
+      {tabs ? <Box mt={2}>{tabs}</Box> : null}
     </Box>
   );
 }
