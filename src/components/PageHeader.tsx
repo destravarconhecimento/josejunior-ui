@@ -1,66 +1,52 @@
 import type { ReactNode } from "react";
 import { Box, HStack, Stack, Text } from "@chakra-ui/react";
 
-/** Cabeçalho padrão de página: eyebrow + título + descrição + ações à direita. */
+/**
+ * Cabeçalho ÚNICO de todas as telas logadas: só TÍTULO + AÇÕES (à direita).
+ * Padronizado de propósito — sem eyebrow nem descrição (ganho de altura e
+ * consistência). `tabs`, quando passado, renderiza as abas de contexto logo
+ * abaixo do título, ainda no topo (maior ganho de espaço vertical).
+ * `eyebrow`/`description` são aceitos por compatibilidade, mas IGNORADOS.
+ */
 export function PageHeader({
-  eyebrow,
   title,
-  description,
   actions,
+  tabs,
 }: {
-  eyebrow?: string;
   title: string;
-  description?: ReactNode;
   actions?: ReactNode;
+  tabs?: ReactNode;
+  /** @deprecated ignorado — mantido só pra não quebrar chamadas antigas. */
+  eyebrow?: string;
+  /** @deprecated ignorado — mantido só pra não quebrar chamadas antigas. */
+  description?: ReactNode;
 }) {
   return (
-    <Stack
-      direction={{ base: "column", sm: "row" }}
-      justify="space-between"
-      align={{ base: "flex-start", sm: "flex-end" }}
-      gap={4}
-      mb={6}
-    >
-      <Box minW={0}>
-        {eyebrow ? (
-          <Text
-            fontSize="xs"
-            textTransform="uppercase"
-            letterSpacing="2px"
-            fontWeight="700"
-            color="var(--admin-accent)"
-            mb={1}
-          >
-            {eyebrow}
-          </Text>
-        ) : null}
+    <Box mb={tabs ? 4 : 6}>
+      <Stack
+        direction={{ base: "column", sm: "row" }}
+        justify="space-between"
+        align={{ base: "flex-start", sm: "center" }}
+        gap={3}
+      >
         <Text
           as="h1"
           className="admin-h"
-          fontSize={{ base: "24px", md: "30px" }}
+          fontSize={{ base: "22px", md: "28px" }}
           lineHeight="1.1"
           fontWeight="700"
           color="var(--admin-primary)"
+          minW={0}
         >
           {title}
         </Text>
-        {description ? (
-          <Text
-            color="var(--admin-text-soft)"
-            fontSize="sm"
-            mt={1.5}
-            maxW="680px"
-            display={{ base: "none", md: "block" }}
-          >
-            {description}
-          </Text>
+        {actions ? (
+          <HStack gap={2} flexShrink={0} flexWrap="wrap">
+            {actions}
+          </HStack>
         ) : null}
-      </Box>
-      {actions ? (
-        <HStack gap={2} flexShrink={0} flexWrap="wrap">
-          {actions}
-        </HStack>
-      ) : null}
-    </Stack>
+      </Stack>
+      {tabs ? <Box mt={3}>{tabs}</Box> : null}
+    </Box>
   );
 }

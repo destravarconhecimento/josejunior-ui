@@ -46,16 +46,18 @@ export function MobileNav({
                 <Stack gap={5} py={2}>
                   {sections.map((section) => (
                     <Stack key={section.title} gap={1}>
-                      <Text
-                        fontSize="10px"
-                        fontWeight="700"
-                        textTransform="uppercase"
-                        letterSpacing="1.4px"
-                        color="var(--admin-text-soft)"
-                        px={3}
-                      >
-                        {section.title}
-                      </Text>
+                      {section.items.length > 1 ? (
+                        <Text
+                          fontSize="10px"
+                          fontWeight="700"
+                          textTransform="uppercase"
+                          letterSpacing="1.4px"
+                          color="var(--admin-text-soft)"
+                          px={3}
+                        >
+                          {section.title}
+                        </Text>
+                      ) : null}
                       {section.items.map((item) => (
                         <ActiveLink key={item.href} item={item} onNavigate={() => setOpen(false)} />
                       ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { HStack, Menu, Portal, Text } from "@chakra-ui/react";
+import { Box, HStack, Menu, Portal, Text } from "@chakra-ui/react";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -14,6 +14,19 @@ export function TopNav({ sections }: { sections: NavSection[] }) {
     <HStack as="nav" gap={1}>
       {sections.map((section) => {
         const active = section.items.some((it) => isActiveHref(pathname, it.href));
+        // Seção de 1 item = link DIRETO (sem dropdown). Ex.: Início/Dashboard.
+        if (section.items.length === 1) {
+          const item = section.items[0];
+          return (
+            <Box asChild key={section.title}>
+              <Link href={item.href}>
+                <HStack as="span" className="admin-navbtn" data-active={active ? "true" : "false"} gap={1} px={3} py={2} borderRadius="10px">
+                  <Text fontSize="sm" fontWeight="600">{item.label}</Text>
+                </HStack>
+              </Link>
+            </Box>
+          );
+        }
         return (
           <Menu.Root key={section.title} positioning={{ placement: "bottom-start" }}>
             <Menu.Trigger asChild>
