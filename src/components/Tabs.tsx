@@ -20,7 +20,7 @@ export function Tabs({
   items: TabDef[];
 }) {
   return (
-    <Box mb={5}>
+    <Box>
       {/* Desktop: abas */}
       <HStack
         display={{ base: "none", md: "flex" }}

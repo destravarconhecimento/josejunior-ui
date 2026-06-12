@@ -18,6 +18,7 @@ export type { NavItem, NavSection, Brand, AppUser } from "./shell/types";
 
 // Primitivos
 export { PageHeader } from "./components/PageHeader";
+export { PageBody } from "./components/PageBody";
 export { Card } from "./components/Card";
 export { Button, type ButtonTone } from "./components/Button";
 export { Tag, StatusBadge, DeliveryBadge } from "./components/Badge";
