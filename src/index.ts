@@ -28,6 +28,7 @@ export { DataTable, TableCard, type Column } from "./components/DataTable";
 export { Modal } from "./components/Modal";
 export { SidePanel } from "./components/SidePanel";
 export { ConfirmDialog } from "./components/ConfirmDialog";
+export { useConfirm } from "./components/useConfirm";
 export { FilterBar, type SelectFilter } from "./components/FilterBar";
 export { Tabs, type TabDef } from "./components/Tabs";
 export { PageTabs } from "./components/PageTabs";
