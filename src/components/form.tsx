@@ -74,14 +74,16 @@ export function FormSelect({
   required,
   options,
   placeholder,
+  disabled,
   ...field
 }: FieldWrap & {
   options: { value: string; label: string }[];
   placeholder?: string;
+  disabled?: boolean;
 } & React.ComponentProps<typeof NativeSelect.Field>) {
   return (
     <FormField label={label} help={help} error={error} required={required}>
-      <NativeSelect.Root>
+      <NativeSelect.Root disabled={disabled}>
         <NativeSelect.Field bg="var(--admin-surface)" {...field}>
           {placeholder ? <option value="">{placeholder}</option> : null}
           {options.map((o) => (
