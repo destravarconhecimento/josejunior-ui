@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Box, Flex } from "@chakra-ui/react";
 import { TopNav } from "./TopNav";
+import { SubNav } from "./SubNav";
 import { UserMenu } from "./UserMenu";
 import { MobileNav } from "./MobileNav";
 import { AdminBrandLogo } from "../theme/AdminThemeShell";
@@ -56,6 +57,8 @@ export function AppShell({
           <UserMenu user={user} logoutSlot={logoutSlot} accountHref={accountHref} />
         </Flex>
       </Box>
+
+      <SubNav sections={sections} />
 
       <Box as="main" w="full" maxW="1600px" mx="auto" px={{ base: 4, md: 6 }} py={{ base: 5, md: 7 }}>
         {children}
