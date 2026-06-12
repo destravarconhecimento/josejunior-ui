@@ -32,3 +32,4 @@ export { useConfirm } from "./components/useConfirm";
 export { FilterBar, type SelectFilter } from "./components/FilterBar";
 export { Tabs, type TabDef } from "./components/Tabs";
 export { PageTabs } from "./components/PageTabs";
+export { ChatMarkdown } from "./components/ChatMarkdown";
