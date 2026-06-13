@@ -26,6 +26,7 @@ export { EmptyState } from "./components/EmptyState";
 export { FormField, FormGrid, FormActions, FormInput, FormSelect, FormTextarea } from "./components/form";
 export { DataTable, TableCard, type Column } from "./components/DataTable";
 export { Modal } from "./components/Modal";
+export { Accordion, type AccordionItemDef } from "./components/Accordion";
 export { SidePanel } from "./components/SidePanel";
 export { ConfirmDialog } from "./components/ConfirmDialog";
 export { useConfirm } from "./components/useConfirm";
