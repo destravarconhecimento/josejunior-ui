@@ -47,6 +47,7 @@ export {
   type EntityAvatarSize,
   type EntityAvatarStatus,
 } from "./components/EntityAvatar";
+export { UserAvatar } from "./components/UserAvatar";
 export { InsightCard, type InsightTone } from "./components/InsightCard";
 export { Timeline, type TimelineItem, type TimelineTone } from "./components/Timeline";
 export {
