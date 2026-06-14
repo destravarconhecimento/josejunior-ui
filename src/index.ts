@@ -34,3 +34,18 @@ export { FilterBar, type SelectFilter } from "./components/FilterBar";
 export { Tabs, type TabDef } from "./components/Tabs";
 export { PageTabs } from "./components/PageTabs";
 export { ChatMarkdown } from "./components/ChatMarkdown";
+
+// Primitivos premium (KPIs, avatar, IA, timeline, ações rápidas)
+export { KpiCard, type KpiTone, type KpiTrendTone } from "./components/KpiCard";
+export {
+  EntityAvatar,
+  type EntityAvatarSize,
+  type EntityAvatarStatus,
+} from "./components/EntityAvatar";
+export { InsightCard, type InsightTone } from "./components/InsightCard";
+export { Timeline, type TimelineItem, type TimelineTone } from "./components/Timeline";
+export {
+  QuickActionGrid,
+  type QuickAction,
+  type QuickActionTone,
+} from "./components/QuickActionGrid";
