@@ -251,7 +251,10 @@ export function AppShell({
               <Menu.Positioner>
                 <Menu.Content className="admin-dropdown" minW="230px" p={2} borderRadius="14px">
                   {accountSlot}
-                  {logoutSlot ? <Box mt={accountSlot ? 1 : 0}>{logoutSlot}</Box> : null}
+                  {accountSlot && logoutSlot ? (
+                    <Box my={1} mx={1} borderTopWidth="1px" borderColor="var(--admin-divider)" />
+                  ) : null}
+                  {logoutSlot}
                 </Menu.Content>
               </Menu.Positioner>
             </Portal>
