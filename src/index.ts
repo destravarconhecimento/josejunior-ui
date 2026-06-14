@@ -33,6 +33,8 @@ export { ConfirmDialog } from "./components/ConfirmDialog";
 export { useConfirm } from "./components/useConfirm";
 export { FilterBar, type SelectFilter } from "./components/FilterBar";
 export { InlineSelect, type InlineSelectOption } from "./components/InlineSelect";
+export { ActionMenu, type ActionMenuItem } from "./components/ActionMenu";
+export { ColorPicker } from "./components/ColorPicker";
 export { Tabs, type TabDef } from "./components/Tabs";
 export { PageTabs } from "./components/PageTabs";
 export { ChatMarkdown } from "./components/ChatMarkdown";

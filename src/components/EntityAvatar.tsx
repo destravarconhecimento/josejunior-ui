@@ -35,20 +35,27 @@ function toneFor(name: string) {
   return PALETTE[h % PALETTE.length];
 }
 
-/** Avatar de entidade: imagem ou iniciais com cor estável por nome, + status. */
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/** Avatar de entidade: imagem ou iniciais com cor estável por nome, + status.
+ *  `color` (hex) sobrepõe a cor automática — usado p/ a cor da equipe do usuário. */
 export function EntityAvatar({
   name,
   src,
   size = "md",
   status = "none",
+  color,
 }: {
   name: string;
   src?: string | null;
   size?: EntityAvatarSize;
   status?: EntityAvatarStatus;
+  /** Cor da equipe (hex #rrggbb) — define o tom do avatar de iniciais. */
+  color?: string | null;
 }) {
   const s = SIZES[size];
-  const tone = toneFor(name || "?");
+  const tone =
+    color && HEX.test(color) ? { bg: `${color}2e`, fg: color } : toneFor(name || "?");
   return (
     <Box position="relative" flexShrink={0} w={s.box} h={s.box}>
       <Box

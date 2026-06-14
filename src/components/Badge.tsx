@@ -19,6 +19,7 @@ export function Tag({
       as="span"
       title={title}
       display="inline-block"
+      whiteSpace="nowrap"
       fontSize="xs"
       fontWeight="600"
       px={2.5}
