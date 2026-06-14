@@ -6,14 +6,18 @@ export function Tag({
   children,
   bg = "var(--admin-nav-active)",
   color = "var(--admin-primary)",
+  title,
 }: {
   children: ReactNode;
   bg?: string;
   color?: string;
+  /** Tooltip nativo (atributo HTML `title`). */
+  title?: string;
 }) {
   return (
     <Box
       as="span"
+      title={title}
       display="inline-block"
       fontSize="xs"
       fontWeight="600"
