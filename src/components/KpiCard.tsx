@@ -39,6 +39,7 @@ export function KpiCard({
   trendTone = "neutral",
   icon,
   tone = "primary",
+  size = "md",
 }: {
   label: ReactNode;
   value: ReactNode;
@@ -47,21 +48,24 @@ export function KpiCard({
   trendTone?: KpiTrendTone;
   icon?: ReactNode;
   tone?: KpiTone;
+  /** `sm` = compacto (telas com tabela: menos altura/fonte, sobra espaço pra planilha). */
+  size?: "sm" | "md";
 }) {
   const t = TONES[tone];
+  const sm = size === "sm";
   return (
     <Box
       className="admin-card"
-      p={{ base: 3, md: 5 }}
+      p={sm ? 3 : { base: 3, md: 5 }}
       position="relative"
       overflow="hidden"
       transition="transform .15s ease, box-shadow .15s ease"
       _hover={{ transform: "translateY(-2px)", boxShadow: "var(--admin-card-shadow)" }}
     >
-      <HStack justify="space-between" align="flex-start" gap={{ base: 2, md: 3 }}>
-        <VStack align="stretch" gap={{ base: 0.5, md: 1 }} flex="1" minW={0}>
+      <HStack justify="space-between" align="flex-start" gap={sm ? 2 : { base: 2, md: 3 }}>
+        <VStack align="stretch" gap={0.5} flex="1" minW={0}>
           <Text
-            fontSize={{ base: "10px", md: "xs" }}
+            fontSize="10px"
             fontWeight="600"
             color="var(--admin-text-soft)"
             textTransform="uppercase"
@@ -72,7 +76,7 @@ export function KpiCard({
           </Text>
           <HStack align="baseline" gap={2} flexWrap="wrap">
             <Text
-              fontSize={{ base: "lg", md: "2xl" }}
+              fontSize={sm ? { base: "md", md: "lg" } : { base: "lg", md: "2xl" }}
               fontWeight="700"
               lineHeight="1.15"
               color="var(--admin-text)"
@@ -81,13 +85,13 @@ export function KpiCard({
               {value}
             </Text>
             {trend != null && trend !== "" ? (
-              <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="700" color={TREND[trendTone]}>
+              <Text fontSize={sm ? "xs" : { base: "xs", md: "sm" }} fontWeight="700" color={TREND[trendTone]}>
                 {trend}
               </Text>
             ) : null}
           </HStack>
           {description != null && description !== "" ? (
-            <Text fontSize={{ base: "10px", md: "xs" }} color="var(--admin-text-soft)" lineClamp={1}>
+            <Text fontSize="10px" color="var(--admin-text-soft)" lineClamp={1}>
               {description}
             </Text>
           ) : null}
@@ -95,9 +99,9 @@ export function KpiCard({
         {icon ? (
           <Box
             flexShrink={0}
-            w={{ base: "30px", md: "44px" }}
-            h={{ base: "30px", md: "44px" }}
-            borderRadius={{ base: "10px", md: "14px" }}
+            w={sm ? "30px" : { base: "30px", md: "44px" }}
+            h={sm ? "30px" : { base: "30px", md: "44px" }}
+            borderRadius={sm ? "10px" : { base: "10px", md: "14px" }}
             bg={t.soft}
             color={t.strong}
             display="flex"

@@ -26,6 +26,7 @@ export function FilterBar({
   selects = [],
   right,
   count,
+  attached = false,
 }: {
   search: string;
   onSearch: (v: string) => void;
@@ -33,6 +34,8 @@ export function FilterBar({
   selects?: SelectFilter[];
   right?: ReactNode;
   count?: { shown: number; total: number };
+  /** Colado no topo de uma DataTable (toolbar): sem margem inferior. */
+  attached?: boolean;
 }) {
   const [showFilters, setShowFilters] = useState(false);
   // "Ativo" = valor diferente da 1ª opção (convenção: a 1ª é o "todos").
@@ -41,11 +44,12 @@ export function FilterBar({
   ).length;
 
   const selectFields = selects.map((s, i) => (
-    <NativeSelect.Root key={i} w={{ base: "full", md: s.width ?? "180px" }}>
+    <NativeSelect.Root key={i} size="sm" w={{ base: "full", md: s.width ?? "160px" }}>
       <NativeSelect.Field
         value={s.value}
         onChange={(e) => s.onChange(e.target.value)}
         bg="var(--admin-surface)"
+        fontSize="sm"
       >
         {s.options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -64,25 +68,26 @@ export function FilterBar({
   ) : null;
 
   return (
-    <Box mb={3}>
+    <Box mb={attached ? 0 : 3}>
       <HStack gap={2} align="center" flexWrap={{ base: "nowrap", md: "wrap" }}>
         <Box position="relative" flex={1} minW={0}>
           <Input
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             placeholder={placeholder}
-            pl={10}
+            size="sm"
+            pl={9}
             bg="var(--admin-surface)"
           />
           <Box
             position="absolute"
             top="50%"
-            left="12px"
+            left="10px"
             transform="translateY(-50%)"
             color="gray.400"
             pointerEvents="none"
           >
-            <Search size={16} />
+            <Search size={15} />
           </Box>
         </Box>
 
@@ -94,8 +99,8 @@ export function FilterBar({
             display={{ base: "inline-flex", md: "none" }}
             position="relative"
             flexShrink={0}
-            w="40px"
-            h="40px"
+            w="36px"
+            h="36px"
             alignItems="center"
             justifyContent="center"
             borderWidth="1px"
@@ -130,7 +135,7 @@ export function FilterBar({
         ) : null}
 
         {/* Desktop: selects inline. */}
-        <HStack gap={3} display={{ base: "none", md: "flex" }} flexWrap="wrap" align="center">
+        <HStack gap={2} display={{ base: "none", md: "flex" }} flexWrap="wrap" align="center">
           {selectFields}
           {countNode}
         </HStack>

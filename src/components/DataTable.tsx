@@ -44,6 +44,7 @@ export function DataTable<T>({
   actions,
   pageSize = PAGE_SIZE,
   fillHeight = true,
+  toolbar,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -58,6 +59,8 @@ export function DataTable<T>({
   /** Desktop: limita à altura da viewport com scroll interno. `number` = offset
    *  em px a descontar (default 340; use maior em telas com abas). `false` solta. */
   fillHeight?: boolean | number;
+  /** Barra (busca/filtros) COLADA no topo do card, acima do cabeçalho. */
+  toolbar?: ReactNode;
 }) {
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -69,10 +72,17 @@ export function DataTable<T>({
   const from = rows.length === 0 ? 0 : current * pageSize + 1;
   const to = Math.min(rows.length, (current + 1) * pageSize);
 
+  const toolbarNode = toolbar ? (
+    <Box px={3} py={2.5} borderBottomWidth="1px" borderColor="var(--admin-divider)">
+      {toolbar}
+    </Box>
+  ) : null;
+
   if (rows.length === 0) {
     return (
-      <Box className="admin-card">
-        {empty ?? <EmptyState title="Nada por aqui ainda." />}
+      <Box className="admin-card" overflow="hidden" p={0}>
+        {toolbarNode}
+        <Box p={6}>{empty ?? <EmptyState title="Nada por aqui ainda." />}</Box>
       </Box>
     );
   }
@@ -112,6 +122,7 @@ export function DataTable<T>({
 
   return (
     <Box className="admin-card" overflow="hidden" p={0}>
+      {toolbarNode}
       {/* Desktop: tabela com header sticky e altura da tela */}
       <Box
         display={{ base: "none", md: "block" }}
@@ -133,12 +144,15 @@ export function DataTable<T>({
                   textTransform="uppercase"
                   letterSpacing="0.04em"
                   color="var(--admin-text-soft)"
+                  whiteSpace="nowrap"
+                  overflow="hidden"
+                  textOverflow="ellipsis"
                 >
                   {c.header}
                 </Table.ColumnHeader>
               ))}
               {actions ? (
-                <Table.ColumnHeader textAlign="end" fontSize="xs" fontWeight="600" textTransform="uppercase" letterSpacing="0.04em" color="var(--admin-text-soft)">
+                <Table.ColumnHeader textAlign="end" fontSize="xs" fontWeight="600" textTransform="uppercase" letterSpacing="0.04em" color="var(--admin-text-soft)" whiteSpace="nowrap">
                   Ações
                 </Table.ColumnHeader>
               ) : null}
