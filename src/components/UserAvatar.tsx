@@ -36,6 +36,9 @@ export function UserAvatar({
   showTooltip?: boolean;
 }) {
   const ring = color && HEX.test(color) ? color : "#6366f1";
+  // Fallback nativo (nunca é cortado por overflow) — garante o nome no hover
+  // mesmo onde o popover bonito não couber.
+  const title = [name, funcao, perfil, email].filter(Boolean).join(" · ");
   const avatar = (
     <Box
       borderRadius="full"
@@ -45,6 +48,7 @@ export function UserAvatar({
       display="inline-flex"
       flexShrink={0}
       lineHeight={0}
+      title={title}
     >
       <EntityAvatar name={name} src={image} color={color} size={size} status={status} />
     </Box>
