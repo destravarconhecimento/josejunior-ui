@@ -81,6 +81,35 @@ export const ADMIN_STRUCTURAL_CSS = `
   outline-offset: 2px;
   border-radius: 8px;
 }
+/* ── Sidebar escura (layout premium) ──────────────────────────────────────── */
+.admin-sidebar {
+  background:
+    radial-gradient(120% 60% at 0% 0%, color-mix(in srgb, var(--admin-primary) 26%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--admin-primary-dark) 46%, #0a1020), #090d1a);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
+}
+.admin-side-title { color: rgba(255, 255, 255, 0.40); }
+.admin-side-item {
+  position: relative;
+  color: rgba(255, 255, 255, 0.70);
+  border-radius: 10px;
+  transition: background 140ms ease, color 140ms ease;
+}
+.admin-side-item:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.admin-side-item[data-active="true"] {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--admin-primary) 46%, transparent), color-mix(in srgb, var(--admin-accent) 16%, transparent));
+  color: #fff;
+  font-weight: 600;
+}
+.admin-side-item[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 6px; bottom: 6px;
+  width: 3px; border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--admin-primary), var(--admin-accent));
+}
+.admin-sidebar .admin-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); }
 .admin-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
 .admin-scroll::-webkit-scrollbar-thumb { background: var(--admin-border); border-radius: 4px; }
 .admin-scroll::-webkit-scrollbar-thumb:hover { background: var(--admin-text-soft); }
