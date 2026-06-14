@@ -24,16 +24,16 @@ export function PageHeader({
   return (
     <Box mb={tabs ? 3 : 5}>
       <Stack
-        direction={{ base: "column", sm: "row" }}
+        direction={{ base: "column", md: "row" }}
         justify="space-between"
-        align={{ base: "flex-start", sm: "center" }}
-        gap={3}
+        align={{ base: "stretch", md: "center" }}
+        gap={{ base: 2.5, md: 3 }}
       >
         <Text
           as="h1"
           className="admin-h"
-          fontSize={{ base: "22px", md: "28px" }}
-          lineHeight="1.1"
+          fontSize={{ base: "20px", md: "28px" }}
+          lineHeight="1.15"
           fontWeight="700"
           color="var(--admin-primary)"
           minW={0}
@@ -41,7 +41,18 @@ export function PageHeader({
           {title}
         </Text>
         {actions ? (
-          <HStack gap={2} flexShrink={0} flexWrap="wrap">
+          // Mobile: UMA linha que rola na horizontal (não empilha/quebra feio).
+          // Desktop (md+): alinha à direita e quebra normalmente.
+          <HStack
+            gap={2}
+            flexShrink={0}
+            flexWrap={{ base: "nowrap", md: "wrap" }}
+            justify={{ md: "flex-end" }}
+            overflowX={{ base: "auto", md: "visible" }}
+            className="admin-scroll"
+            pb={{ base: 1, md: 0 }}
+            css={{ "& > *": { flexShrink: 0 } }}
+          >
             {actions}
           </HStack>
         ) : null}
