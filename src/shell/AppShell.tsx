@@ -67,8 +67,8 @@ export function AppShell({
       aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
       title={collapsed ? "Expandir" : "Recolher"}
       justify="center"
-      w="34px"
-      h="34px"
+      w="30px"
+      h="30px"
       flexShrink={0}
       color="rgba(255,255,255,0.6)"
     >
@@ -84,16 +84,16 @@ export function AppShell({
         className="admin-sidebar"
         display={{ base: "none", lg: "flex" }}
         flexDirection="column"
-        w={collapsed ? "76px" : "264px"}
+        w={collapsed ? "84px" : "264px"}
         flexShrink={0}
         position="sticky"
         top={0}
         alignSelf="flex-start"
         h="100vh"
       >
-        {/* topo: ÍCONE anexado ao tenant + "Acesso restrito" + recolher (à direita) */}
+        {/* topo: ÍCONE anexado ao tenant + nome/"Acesso restrito" + recolher ao lado */}
         <Box px={collapsed ? 2 : 4} py={4} flexShrink={0}>
-          <HStack justify={collapsed ? "center" : "space-between"} align="center" gap={2}>
+          <HStack justify="space-between" align="center" gap={1.5}>
             <Link
               href={homeHref}
               style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}
@@ -101,8 +101,8 @@ export function AppShell({
             >
               {brand.logoUrl ? (
                 <Box
-                  w="40px"
-                  h="40px"
+                  w={collapsed ? "34px" : "40px"}
+                  h={collapsed ? "34px" : "40px"}
                   borderRadius="11px"
                   bg="rgba(255,255,255,0.95)"
                   display="flex"
@@ -119,7 +119,7 @@ export function AppShell({
                   />
                 </Box>
               ) : (
-                <AdminCrest initials={brandInitials} size={40} />
+                <AdminCrest initials={brandInitials} size={collapsed ? 34 : 40} />
               )}
               {!collapsed ? (
                 <VStack gap={0} align="stretch" minW={0}>
@@ -132,13 +132,8 @@ export function AppShell({
                 </VStack>
               ) : null}
             </Link>
-            {!collapsed ? renderToggle() : null}
+            {renderToggle()}
           </HStack>
-          {collapsed ? (
-            <Box mt={2} display="flex" justifyContent="center">
-              {renderToggle()}
-            </Box>
-          ) : null}
         </Box>
 
         {/* navegação */}
@@ -234,9 +229,9 @@ export function AppShell({
                       <Text color="white" fontSize="sm" fontWeight="600" lineClamp={1}>
                         {user.name || "Conta"}
                       </Text>
-                      {user.email ? (
+                      {user.roleLabel || user.email ? (
                         <Text color="rgba(255,255,255,0.5)" fontSize="xs" lineClamp={1}>
-                          {user.email}
+                          {user.roleLabel || user.email}
                         </Text>
                       ) : null}
                     </VStack>
@@ -249,7 +244,18 @@ export function AppShell({
             </Menu.Trigger>
             <Portal>
               <Menu.Positioner>
-                <Menu.Content className="admin-dropdown" minW="230px" p={2} borderRadius="14px">
+                <Menu.Content className="admin-dropdown" minW="240px" p={2} borderRadius="14px">
+                  <Box px={2.5} py={1.5}>
+                    <Text fontSize="sm" fontWeight="700" color="var(--admin-text)" lineClamp={1}>
+                      {user.name || "Conta"}
+                    </Text>
+                    {user.email ? (
+                      <Text fontSize="xs" color="var(--admin-text-soft)" lineClamp={1}>
+                        {user.email}
+                      </Text>
+                    ) : null}
+                  </Box>
+                  <Box mb={1} mx={1} borderTopWidth="1px" borderColor="var(--admin-divider)" />
                   {accountSlot}
                   {accountSlot && logoutSlot ? (
                     <Box my={1} mx={1} borderTopWidth="1px" borderColor="var(--admin-divider)" />
