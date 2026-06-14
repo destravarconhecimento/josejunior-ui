@@ -40,6 +40,7 @@ export function DataTable<T>({
   getRowKey,
   empty,
   onRowClick,
+  selectedKey,
   actions,
   pageSize = PAGE_SIZE,
   fillHeight = true,
@@ -49,6 +50,8 @@ export function DataTable<T>({
   getRowKey: (row: T, index: number) => string | number;
   empty?: ReactNode;
   onRowClick?: (row: T) => void;
+  /** Chave da linha atualmente selecionada (destaca com fundo suave). */
+  selectedKey?: string | number;
   /** Célula de ações por linha — renderizada na coluna "Ações" (à direita). */
   actions?: (row: T) => ReactNode;
   pageSize?: number;
@@ -129,12 +132,15 @@ export function DataTable<T>({
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {visible.map((row, i) => (
+            {visible.map((row, i) => {
+              const sel = selectedKey != null && getRowKey(row, i) === selectedKey;
+              return (
               <Table.Row
                 key={getRowKey(row, i)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 cursor={onRowClick ? "pointer" : undefined}
-                _hover={onRowClick ? { bg: "var(--admin-nav-hover)" } : undefined}
+                bg={sel ? "rgba(202,138,4,0.10)" : undefined}
+                _hover={onRowClick ? { bg: sel ? "rgba(202,138,4,0.14)" : "var(--admin-nav-hover)" } : undefined}
               >
                 {columns.map((c) => (
                   <Table.Cell key={c.key} textAlign={c.align}>
@@ -147,7 +153,8 @@ export function DataTable<T>({
                   </Table.Cell>
                 ) : null}
               </Table.Row>
-            ))}
+              );
+            })}
           </Table.Body>
         </Table.Root>
       </Box>
@@ -163,6 +170,7 @@ export function DataTable<T>({
             borderColor="var(--admin-divider)"
             onClick={onRowClick ? () => onRowClick(row) : undefined}
             cursor={onRowClick ? "pointer" : undefined}
+            bg={selectedKey != null && getRowKey(row, i) === selectedKey ? "rgba(202,138,4,0.10)" : undefined}
             _active={onRowClick ? { bg: "var(--admin-nav-hover)" } : undefined}
           >
             <Stack gap={1.5}>
