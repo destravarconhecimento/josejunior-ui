@@ -17,6 +17,9 @@ export type NavSection = {
 export type Brand = {
   name: string;
   logoUrl?: string;
+  /** Variante do ícone pra FUNDO ESCURO (sidebar). Se ausente, o `logoUrl` é
+   *  pintado de branco via filtro CSS. */
+  darkLogoUrl?: string;
 };
 
 export type AppUser = {

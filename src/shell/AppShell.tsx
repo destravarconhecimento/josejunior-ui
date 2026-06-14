@@ -100,22 +100,27 @@ export function AppShell({
               title={collapsed ? brand.name : undefined}
             >
               {brand.logoUrl ? (
+                // Fundo escuro do sidebar: SEM caixa branca. Usa a variante dark
+                // do ícone se houver; senão pinta o ícone original de branco via
+                // filtro (brightness(0) invert(1)) — limpo e profissional.
                 <Box
                   w={collapsed ? "34px" : "40px"}
                   h={collapsed ? "34px" : "40px"}
-                  borderRadius="11px"
-                  bg="rgba(255,255,255,0.95)"
                   display="flex"
                   alignItems="center"
                   justifyContent="center"
-                  overflow="hidden"
                   flexShrink={0}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={brand.logoUrl}
+                    src={brand.darkLogoUrl || brand.logoUrl}
                     alt={brand.name}
-                    style={{ maxWidth: "80%", maxHeight: "80%", objectFit: "contain" }}
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: "100%",
+                      objectFit: "contain",
+                      filter: brand.darkLogoUrl ? "none" : "brightness(0) invert(1)",
+                    }}
                   />
                 </Box>
               ) : (
