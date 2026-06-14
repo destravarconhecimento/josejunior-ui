@@ -1,4 +1,4 @@
-import { Box, Text } from "@chakra-ui/react";
+import { Box, HStack, Text } from "@chakra-ui/react";
 import { EntityAvatar, type EntityAvatarSize, type EntityAvatarStatus } from "./EntityAvatar";
 
 /**
@@ -31,34 +31,40 @@ export function UserAvatar({
   return (
     <Box role="group" position="relative" display="inline-flex" flexShrink={0}>
       {avatar}
+      {/* Cartão de hover: foto (maior) + nome + cargo. */}
       <Box
         position="absolute"
-        bottom="calc(100% + 7px)"
+        bottom="calc(100% + 9px)"
         left="50%"
-        transform="translateX(-50%)"
+        transform="translateX(-50%) translateY(4px)"
         opacity={0}
         visibility="hidden"
-        _groupHover={{ opacity: 1, visibility: "visible" }}
-        transition="opacity 0.12s ease"
-        bg="#0f172a"
-        color="white"
-        px={2.5}
-        py={1.5}
-        borderRadius="8px"
-        boxShadow="0 8px 24px rgba(15,23,42,0.28)"
+        _groupHover={{ opacity: 1, visibility: "visible", transform: "translateX(-50%) translateY(0)" }}
+        transition="opacity 0.14s ease, transform 0.14s ease"
+        bg="var(--admin-surface, #ffffff)"
+        border="1px solid var(--admin-border, #e5e7eb)"
+        borderRadius="14px"
+        boxShadow="0 14px 38px rgba(15,23,42,0.20)"
+        px={3}
+        py={2.5}
         whiteSpace="nowrap"
         pointerEvents="none"
-        zIndex={60}
-        textAlign="center"
+        zIndex={70}
       >
-        <Text fontSize="xs" fontWeight="700" lineHeight="1.25">
-          {name}
-        </Text>
-        {funcao ? (
-          <Text fontSize="10px" opacity={0.82} lineHeight="1.3">
-            {funcao}
-          </Text>
-        ) : null}
+        <HStack gap={2.5} align="center">
+          <EntityAvatar name={name} src={image} color={color} size="md" />
+          <Box textAlign="left">
+            <Text fontSize="sm" fontWeight="700" lineHeight="1.25" color="var(--admin-text, #0f172a)">
+              {name}
+            </Text>
+            {funcao ? (
+              <Text fontSize="xs" lineHeight="1.35" color="var(--admin-text-soft, #64748b)">
+                {funcao}
+              </Text>
+            ) : null}
+          </Box>
+        </HStack>
+        {/* seta */}
         <Box
           position="absolute"
           top="100%"
@@ -66,9 +72,10 @@ export function UserAvatar({
           transform="translateX(-50%)"
           w={0}
           h={0}
-          borderLeft="4px solid transparent"
-          borderRight="4px solid transparent"
-          borderTop="4px solid #0f172a"
+          borderLeft="6px solid transparent"
+          borderRight="6px solid transparent"
+          borderTop="7px solid var(--admin-surface, #ffffff)"
+          filter="drop-shadow(0 2px 1px rgba(15,23,42,0.08))"
         />
       </Box>
     </Box>
