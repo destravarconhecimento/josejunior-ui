@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Box, Portal, Stack } from "@chakra-ui/react";
 import { Check } from "lucide-react";
 
-export type InlineSelectOption = { value: string; label: string };
+export type InlineSelectOption = { value: string; label: string; icon?: ReactNode };
 
 type Placement = { top: number; left: number; width: number; up: boolean };
 
@@ -63,8 +63,10 @@ export function InlineSelect({
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
+    // Em scroll/resize REPOSICIONA (não fecha) — senão o foco no clique scrolla a
+    // célula dentro da tabela e fecha o menu na hora.
     function onMove() {
-      setOpen(false);
+      position();
     }
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
@@ -154,8 +156,9 @@ export function InlineSelect({
                   transition="background .12s ease"
                   _hover={{ bg: selected ? "var(--admin-nav-active)" : "var(--admin-nav-hover)" }}
                 >
-                  <Box as="span" lineClamp={1}>
-                    {o.label}
+                  <Box as="span" display="inline-flex" alignItems="center" gap={2} minW={0}>
+                    {o.icon ?? null}
+                    <Box as="span" lineClamp={1}>{o.label}</Box>
                   </Box>
                   {selected ? <Check size={15} style={{ flexShrink: 0 }} /> : null}
                 </Box>

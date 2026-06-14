@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Box, HStack, Menu, Portal, Stack, Text } from "@chakra-ui/react";
 import { ChevronDown, KeyRound } from "lucide-react";
-import { EntityAvatar } from "../components/EntityAvatar";
+import { UserAvatar } from "../components/UserAvatar";
 import type { AppUser } from "./types";
 
 /** Bloco do usuário logado (Chakra Menu): iniciais + nome + dropdown com conta/logout. */
@@ -33,7 +33,15 @@ export function UserMenu({
           borderRadius="10px"
           flexShrink={0}
         >
-          <EntityAvatar name={user.name || user.email || "?"} src={user.image} color={user.color} size="sm" />
+          <UserAvatar
+            name={user.name || user.email || "?"}
+            image={user.image}
+            color={user.color}
+            email={user.email}
+            perfil={user.roleLabel}
+            size="sm"
+            showTooltip={false}
+          />
           <Text display={{ base: "none", md: "block" }} fontSize="sm" fontWeight="600" maxW="160px" truncate>
             {user.name || user.email || "Conta"}
           </Text>

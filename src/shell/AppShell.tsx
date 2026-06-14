@@ -9,7 +9,7 @@ import { MobileNav } from "./MobileNav";
 import { UserMenu } from "./UserMenu";
 import { isActiveHref } from "./ActiveLink";
 import { AdminBrandLogo, AdminCrest, initialsFrom } from "../theme/AdminThemeShell";
-import { EntityAvatar } from "../components/EntityAvatar";
+import { UserAvatar } from "../components/UserAvatar";
 import type { AppUser, Brand, NavSection } from "./types";
 
 const STORAGE_KEY = "admin-sidebar-collapsed";
@@ -222,7 +222,14 @@ export function AppShell({
                 justify={collapsed ? "center" : "flex-start"}
                 title={collapsed ? user.name || "Conta" : undefined}
               >
-                <EntityAvatar name={user.name || user.email || "?"} src={user.image} color={user.color} size="sm" />
+                <UserAvatar
+                  name={user.name || user.email || "?"}
+                  image={user.image}
+                  color={user.color}
+                  email={user.email}
+                  perfil={user.roleLabel}
+                  size="sm"
+                />
                 {!collapsed ? (
                   <>
                     <VStack gap={0} align="stretch" minW={0} flex="1">
