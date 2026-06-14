@@ -72,9 +72,9 @@ export function KpiCard({
           </Text>
           <HStack align="baseline" gap={2} flexWrap="wrap">
             <Text
-              fontSize={{ base: "2xl", md: "3xl" }}
-              fontWeight="800"
-              lineHeight="1.1"
+              fontSize={{ base: "xl", md: "2xl" }}
+              fontWeight="700"
+              lineHeight="1.15"
               color="var(--admin-text)"
               fontFamily="var(--admin-font-heading)"
             >

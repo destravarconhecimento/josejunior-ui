@@ -125,45 +125,35 @@ export function FormActions({
 }) {
   return (
     <Box
-      // Barra "fora a fora": branca, sem cantos, sombra no topo. Sticky no
-      // desktop (estoura o padding do main via margem negativa); fixa na
-      // viewport no mobile. Sempre colada no rodapé.
-      position={{ base: "fixed", md: "sticky" }}
-      left={{ base: 0, md: "auto" }}
-      right={{ base: 0, md: "auto" }}
-      bottom={0}
-      zIndex={30}
-      mt={{ base: 0, md: 8 }}
-      mx={{ base: 0, md: -6 }}
+      // Barra flutuante que ACOMPANHA a largura do conteúdo (sem "fora a fora"):
+      // cartão arredondado, alinhado à esquerda, sticky no rodapé — fica colado
+      // enquanto a posição natural está fora da viewport e repousa ao chegar no fim.
+      position="sticky"
+      bottom={{ base: 3, md: 4 }}
+      zIndex={20}
+      mt={6}
       bg="var(--admin-surface)"
-      borderTopWidth="1px"
+      borderWidth="1px"
       borderColor="var(--admin-border)"
-      boxShadow="0 -10px 30px rgba(0,0,0,0.07)"
-      backdropFilter="blur(12px)"
+      borderRadius="14px"
+      boxShadow="0 12px 32px rgba(15,23,42,0.12)"
+      backdropFilter="blur(10px)"
+      px={{ base: 3, md: 4 }}
+      py={3}
     >
-      <HStack
-        justify="space-between"
-        align="center"
-        gap={4}
-        maxW="1600px"
-        mx="auto"
-        px={{ base: 4, md: 6 }}
-        py={3}
-      >
-        <HStack gap={4} flex="1" minW={0} flexWrap="wrap">
-          {loading ? (
-            <HStack gap={2} px={3} py={2} borderRadius="full" bg="var(--admin-nav-active)" color="var(--admin-primary)">
-              <Spinner size="sm" borderWidth="2px" color="var(--admin-primary)" />
-              <Text fontSize="sm" fontWeight="600">
-                {loadingLabel}
-              </Text>
-            </HStack>
-          ) : null}
-          {status}
-        </HStack>
-        <HStack gap={2} justify="flex-end" flexShrink={0}>
+      <HStack justify="flex-start" align="center" gap={3} flexWrap="wrap">
+        <HStack gap={2} flexShrink={0}>
           {actions}
         </HStack>
+        {loading ? (
+          <HStack gap={2} px={3} py={1.5} borderRadius="full" bg="var(--admin-nav-active)" color="var(--admin-primary)">
+            <Spinner size="sm" borderWidth="2px" color="var(--admin-primary)" />
+            <Text fontSize="sm" fontWeight="600">
+              {loadingLabel}
+            </Text>
+          </HStack>
+        ) : null}
+        {status}
       </HStack>
     </Box>
   );
