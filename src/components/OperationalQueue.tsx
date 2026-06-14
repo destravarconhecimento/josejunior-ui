@@ -32,16 +32,26 @@ export function OperationalQueue({
   items,
   emptyLabel = "Nada aguardando sua decisão. 🎉",
   maxHeight,
+  fill,
 }: {
   items: OperationalQueueItem[];
   emptyLabel?: ReactNode;
   maxHeight?: string | number;
+  /** Cresce e rola dentro de um card flex de altura definida (preenche o espaço). */
+  fill?: boolean;
 }) {
   if (items.length === 0) {
     return <EmptyState title={typeof emptyLabel === "string" ? emptyLabel : "Tudo em dia."} />;
   }
   return (
-    <Stack gap={0} overflowY={maxHeight ? "auto" : undefined} maxH={maxHeight} className="admin-scroll">
+    <Stack
+      gap={0}
+      flex={fill ? "1" : undefined}
+      minH={fill ? 0 : undefined}
+      overflowY={fill || maxHeight ? "auto" : undefined}
+      maxH={maxHeight}
+      className="admin-scroll"
+    >
       {items.map((it, i) => {
         const p = PRIORITY[it.priority];
         return (
