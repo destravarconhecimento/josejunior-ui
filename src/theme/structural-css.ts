@@ -84,10 +84,13 @@ export const ADMIN_STRUCTURAL_CSS = `
 /* ── Sidebar escura (layout premium) ──────────────────────────────────────── */
 .admin-sidebar {
   background:
-    radial-gradient(120% 60% at 0% 0%, color-mix(in srgb, var(--admin-primary) 26%, transparent), transparent 60%),
+    radial-gradient(120% 55% at 0% 0%, color-mix(in srgb, var(--admin-primary) 30%, transparent), transparent 58%),
+    radial-gradient(90% 40% at 100% 100%, color-mix(in srgb, var(--admin-accent) 14%, transparent), transparent 60%),
     linear-gradient(180deg, color-mix(in srgb, var(--admin-primary-dark) 46%, #0a1020), #090d1a);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05), 6px 0 32px -18px rgba(0, 0, 0, 0.6);
   color: rgba(255, 255, 255, 0.72);
+  transition: width 0.18s ease;
 }
 .admin-side-title { color: rgba(255, 255, 255, 0.40); }
 .admin-side-item {
