@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type DragEvent, type ReactNode } from "react";
 import { Box, HStack, Stack, Table, Text } from "@chakra-ui/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { EmptyState } from "./EmptyState";
 import { Button } from "./Button";
 
@@ -45,6 +45,8 @@ export function DataTable<T>({
   pageSize = PAGE_SIZE,
   fillHeight = true,
   toolbar,
+  paginate = true,
+  onReorder,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -61,16 +63,38 @@ export function DataTable<T>({
   fillHeight?: boolean | number;
   /** Barra (busca/filtros) COLADA no topo do card, acima do cabeçalho. */
   toolbar?: ReactNode;
+  /** false = sem paginação: mostra TODAS as linhas numa página só (com scroll). */
+  paginate?: boolean;
+  /** Habilita arrastar (handle) p/ reordenar; recebe a nova ordem das chaves. */
+  onReorder?: (orderedKeys: Array<string | number>) => void;
 }) {
   const [page, setPage] = useState(0);
-  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const [dragKey, setDragKey] = useState<string | number | null>(null);
+  const [overKey, setOverKey] = useState<string | number | null>(null);
+  const effPageSize = paginate ? pageSize : Math.max(rows.length, 1);
+  const pages = Math.max(1, Math.ceil(rows.length / effPageSize));
   const current = Math.min(page, pages - 1);
   const visible = useMemo(
-    () => rows.slice(current * pageSize, current * pageSize + pageSize),
-    [rows, current, pageSize],
+    () => rows.slice(current * effPageSize, current * effPageSize + effPageSize),
+    [rows, current, effPageSize],
   );
-  const from = rows.length === 0 ? 0 : current * pageSize + 1;
-  const to = Math.min(rows.length, (current + 1) * pageSize);
+  const from = rows.length === 0 ? 0 : current * effPageSize + 1;
+  const to = Math.min(rows.length, (current + 1) * effPageSize);
+
+  function handleDrop(targetKey: string | number) {
+    const dk = dragKey;
+    setDragKey(null);
+    setOverKey(null);
+    if (!onReorder || dk == null || dk === targetKey) return;
+    const keys = rows.map((r, i) => getRowKey(r, i));
+    const fromIdx = keys.indexOf(dk);
+    const toIdx = keys.indexOf(targetKey);
+    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+    const next = [...keys];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    onReorder(next);
+  }
 
   const toolbarNode = toolbar ? (
     <Box px={3} py={2.5} borderBottomWidth="1px" borderColor="var(--admin-divider)">
@@ -134,6 +158,7 @@ export function DataTable<T>({
         <Table.Root size="md">
           <Table.Header position="sticky" top={0} zIndex={1} bg="var(--admin-surface)" boxShadow="0 1px 0 var(--admin-divider)">
             <Table.Row>
+              {onReorder ? <Table.ColumnHeader width="34px" /> : null}
               {columns.map((c) => (
                 <Table.ColumnHeader
                   key={c.key}
@@ -160,15 +185,39 @@ export function DataTable<T>({
           </Table.Header>
           <Table.Body>
             {visible.map((row, i) => {
-              const sel = selectedKey != null && getRowKey(row, i) === selectedKey;
+              const rowKey = getRowKey(row, i);
+              const sel = selectedKey != null && rowKey === selectedKey;
+              const isOver = onReorder != null && dragKey != null && overKey === rowKey && dragKey !== rowKey;
               return (
               <Table.Row
-                key={getRowKey(row, i)}
+                key={rowKey}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 cursor={onRowClick ? "pointer" : undefined}
-                bg={sel ? "rgba(202,138,4,0.10)" : undefined}
+                opacity={dragKey === rowKey ? 0.4 : undefined}
+                boxShadow={isOver ? "inset 0 2px 0 var(--admin-primary)" : undefined}
+                bg={sel ? "rgba(202,138,4,0.10)" : isOver ? "var(--admin-nav-active)" : undefined}
                 _hover={onRowClick ? { bg: sel ? "rgba(202,138,4,0.14)" : "var(--admin-nav-hover)" } : undefined}
+                {...(onReorder
+                  ? {
+                      onDragOver: (e: DragEvent) => { e.preventDefault(); setOverKey(rowKey); },
+                      onDrop: () => handleDrop(rowKey),
+                    }
+                  : {})}
               >
+                {onReorder ? (
+                  <Table.Cell
+                    width="34px"
+                    onClick={(e) => e.stopPropagation()}
+                    draggable
+                    onDragStart={() => setDragKey(rowKey)}
+                    onDragEnd={() => { setDragKey(null); setOverKey(null); }}
+                    cursor="grab"
+                    color="var(--admin-text-soft)"
+                    title="Arraste para reordenar"
+                  >
+                    <GripVertical size={15} />
+                  </Table.Cell>
+                ) : null}
                 {columns.map((c) => (
                   <Table.Cell key={c.key} textAlign={c.align}>
                     {cell(c, row)}
