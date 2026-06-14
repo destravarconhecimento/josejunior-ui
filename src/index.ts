@@ -25,6 +25,7 @@ export { Tag, StatusBadge, DeliveryBadge } from "./components/Badge";
 export { EmptyState } from "./components/EmptyState";
 export { FormField, FormGrid, FormActions, FormInput, FormSelect, FormTextarea } from "./components/form";
 export { DataTable, TableCard, type Column } from "./components/DataTable";
+export { Pagination } from "./components/Pagination";
 export { Modal } from "./components/Modal";
 export { Accordion, type AccordionItemDef } from "./components/Accordion";
 export { SidePanel } from "./components/SidePanel";
