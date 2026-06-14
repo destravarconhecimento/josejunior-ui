@@ -4,7 +4,10 @@
  */
 export type AdminPalette = {
   primary: string;
+  /** Primary ESCURECIDO — hover de botão primário, gradientes. */
   primaryDark: string;
+  /** Cor de FUNDO escura da identidade (sidebar). Default = primaryDark. */
+  dark?: string;
   accent: string;
   accentSoft: string;
   text: string;
@@ -32,6 +35,7 @@ export function buildAdminTokensCss(p: AdminPalette): string {
   return `:root{
   --admin-primary:${p.primary};
   --admin-primary-dark:${p.primaryDark};
+  --admin-dark:${p.dark ?? p.primaryDark};
   --admin-accent:${p.accent};
   --admin-accent-soft:${p.accentSoft};
   --admin-text:${p.text};
