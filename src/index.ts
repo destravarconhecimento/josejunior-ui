@@ -32,6 +32,7 @@ export { SidePanel } from "./components/SidePanel";
 export { ConfirmDialog } from "./components/ConfirmDialog";
 export { useConfirm } from "./components/useConfirm";
 export { FilterBar, type SelectFilter } from "./components/FilterBar";
+export { InlineSelect, type InlineSelectOption } from "./components/InlineSelect";
 export { Tabs, type TabDef } from "./components/Tabs";
 export { PageTabs } from "./components/PageTabs";
 export { ChatMarkdown } from "./components/ChatMarkdown";
@@ -52,3 +53,23 @@ export {
 } from "./components/QuickActionGrid";
 export { DonutChart, type DonutItem } from "./components/DonutChart";
 export { LineChart, type LineSeries } from "./components/LineChart";
+
+// Central Operacional (status, fila, funil, atendimento, ações)
+export {
+  IntegrationStatusRow,
+  IntegrationStatusCard,
+  type IntegrationStatusItem,
+  type IntegrationTone,
+} from "./components/IntegrationStatusRow";
+export {
+  OperationalQueue,
+  type OperationalQueueItem,
+  type QueuePriority,
+} from "./components/OperationalQueue";
+export { ProcessFunnelCard, type FunnelStage } from "./components/ProcessFunnelCard";
+export {
+  ConversationSnapshotList,
+  type ConversationSnapshotItem,
+  type ConversationStatusTone,
+} from "./components/ConversationSnapshotCard";
+export { ActionListCard, type ActionListItem, type ActionTone } from "./components/ActionListCard";
