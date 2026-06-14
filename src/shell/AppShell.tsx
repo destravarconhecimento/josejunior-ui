@@ -9,6 +9,7 @@ import { MobileNav } from "./MobileNav";
 import { UserMenu } from "./UserMenu";
 import { isActiveHref } from "./ActiveLink";
 import { AdminBrandLogo, AdminCrest, initialsFrom } from "../theme/AdminThemeShell";
+import { EntityAvatar } from "../components/EntityAvatar";
 import type { AppUser, Brand, NavSection } from "./types";
 
 const STORAGE_KEY = "admin-sidebar-collapsed";
@@ -42,7 +43,6 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const brandInitials = initialsFrom(brand.name);
-  const userInitials = user.initials || initialsFrom(user.name, user.email);
 
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
@@ -222,7 +222,7 @@ export function AppShell({
                 justify={collapsed ? "center" : "flex-start"}
                 title={collapsed ? user.name || "Conta" : undefined}
               >
-                <AdminCrest initials={userInitials} size={34} logoUrl={user.image || undefined} />
+                <EntityAvatar name={user.name || user.email || "?"} src={user.image} color={user.color} size="sm" />
                 {!collapsed ? (
                   <>
                     <VStack gap={0} align="stretch" minW={0} flex="1">

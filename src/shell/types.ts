@@ -23,8 +23,10 @@ export type AppUser = {
   name?: string | null;
   email?: string | null;
   initials?: string;
-  /** URL da foto do usuário (avatar). Se houver, o crest mostra a imagem. */
+  /** URL da foto do usuário (avatar). Se houver, o avatar mostra a imagem. */
   image?: string | null;
+  /** Cor da equipe (hex) — tom do avatar de iniciais quando não há foto. */
+  color?: string | null;
   /** Papel para exibir sob o nome (ex.: "Administrador"). */
   roleLabel?: string | null;
 };

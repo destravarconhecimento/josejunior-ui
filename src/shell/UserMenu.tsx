@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Box, HStack, Menu, Portal, Stack, Text } from "@chakra-ui/react";
 import { ChevronDown, KeyRound } from "lucide-react";
-import { AdminCrest, initialsFrom } from "../theme/AdminThemeShell";
+import { EntityAvatar } from "../components/EntityAvatar";
 import type { AppUser } from "./types";
 
 /** Bloco do usuário logado (Chakra Menu): iniciais + nome + dropdown com conta/logout. */
@@ -21,7 +21,6 @@ export function UserMenu({
   /** Link da área "Conta & senha" (ex.: /conta). Sem isso, o item não aparece. */
   accountHref?: string;
 }) {
-  const initials = user.initials || initialsFrom(user.name, user.email);
   return (
     <Menu.Root positioning={{ placement: "bottom-end" }}>
       <Menu.Trigger asChild>
@@ -34,7 +33,7 @@ export function UserMenu({
           borderRadius="10px"
           flexShrink={0}
         >
-          <AdminCrest initials={initials} size={32} logoUrl={user.image || undefined} />
+          <EntityAvatar name={user.name || user.email || "?"} src={user.image} color={user.color} size="sm" />
           <Text display={{ base: "none", md: "block" }} fontSize="sm" fontWeight="600" maxW="160px" truncate>
             {user.name || user.email || "Conta"}
           </Text>
