@@ -49,3 +49,5 @@ export {
   type QuickAction,
   type QuickActionTone,
 } from "./components/QuickActionGrid";
+export { DonutChart, type DonutItem } from "./components/DonutChart";
+export { LineChart, type LineSeries } from "./components/LineChart";
