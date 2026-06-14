@@ -11,10 +11,13 @@ import type { AppUser } from "./types";
 export function UserMenu({
   user,
   logoutSlot,
+  accountSlot,
   accountHref,
 }: {
   user: AppUser;
   logoutSlot?: ReactNode;
+  /** Item "Meu perfil" (ex.: abre modal de conta). Tem precedência sobre accountHref. */
+  accountSlot?: ReactNode;
   /** Link da área "Conta & senha" (ex.: /conta). Sem isso, o item não aparece. */
   accountHref?: string;
 }) {
@@ -31,7 +34,7 @@ export function UserMenu({
           borderRadius="10px"
           flexShrink={0}
         >
-          <AdminCrest initials={initials} size={32} />
+          <AdminCrest initials={initials} size={32} logoUrl={user.image || undefined} />
           <Text display={{ base: "none", md: "block" }} fontSize="sm" fontWeight="600" maxW="160px" truncate>
             {user.name || user.email || "Conta"}
           </Text>
@@ -52,7 +55,11 @@ export function UserMenu({
                   </Text>
                 ) : null}
               </Box>
-              {accountHref ? (
+              {accountSlot ? (
+                <Box borderTopWidth="1px" borderColor="var(--admin-divider)" pt={2}>
+                  {accountSlot}
+                </Box>
+              ) : accountHref ? (
                 <Box borderTopWidth="1px" borderColor="var(--admin-divider)" pt={2}>
                   <Link
                     href={accountHref}

@@ -3,8 +3,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Box, Flex, HStack, Stack, Text, VStack } from "@chakra-ui/react";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Box, Flex, HStack, Menu, Portal, Stack, Text, VStack } from "@chakra-ui/react";
+import { ChevronsUpDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { MobileNav } from "./MobileNav";
 import { UserMenu } from "./UserMenu";
 import { isActiveHref } from "./ActiveLink";
@@ -25,6 +25,7 @@ export function AppShell({
   sections,
   user,
   logoutSlot,
+  accountSlot,
   homeHref = "/dashboard",
   accountHref,
   children,
@@ -33,6 +34,8 @@ export function AppShell({
   sections: NavSection[];
   user: AppUser;
   logoutSlot?: ReactNode;
+  /** Item "Meu perfil" do menu do usuário (ex.: abre modal de conta). */
+  accountSlot?: ReactNode;
   homeHref?: string;
   accountHref?: string;
   children: ReactNode;
@@ -56,6 +59,23 @@ export function AppShell({
       return next;
     });
 
+  const renderToggle = () => (
+    <HStack
+      as="button"
+      className="admin-side-item"
+      onClick={toggle}
+      aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+      title={collapsed ? "Expandir" : "Recolher"}
+      justify="center"
+      w="34px"
+      h="34px"
+      flexShrink={0}
+      color="rgba(255,255,255,0.6)"
+    >
+      {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+    </HStack>
+  );
+
   return (
     <Flex minH="100vh" align="stretch">
       {/* ── Sidebar (desktop, recolhível) ───────────────────────────────── */}
@@ -71,30 +91,54 @@ export function AppShell({
         alignSelf="flex-start"
         h="100vh"
       >
-        {/* topo: crest do tenant + "Acesso restrito" */}
-        <Box px={collapsed ? 0 : 5} py={5} flexShrink={0}>
-          <Link
-            href={homeHref}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: collapsed ? "center" : "flex-start",
-              gap: 10,
-            }}
-            title={collapsed ? brand.name : undefined}
-          >
-            <AdminCrest initials={brandInitials} size={collapsed ? 38 : 36} />
-            {!collapsed ? (
-              <VStack gap={0} align="stretch" minW={0}>
-                <Text className="admin-h" color="white" fontWeight="700" fontSize="sm" lineClamp={1}>
-                  {brand.name}
-                </Text>
-                <Text color="rgba(255,255,255,0.5)" fontSize="xs" lineClamp={1}>
-                  Acesso restrito
-                </Text>
-              </VStack>
-            ) : null}
-          </Link>
+        {/* topo: ÍCONE anexado ao tenant + "Acesso restrito" + recolher (à direita) */}
+        <Box px={collapsed ? 2 : 4} py={4} flexShrink={0}>
+          <HStack justify={collapsed ? "center" : "space-between"} align="center" gap={2}>
+            <Link
+              href={homeHref}
+              style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}
+              title={collapsed ? brand.name : undefined}
+            >
+              {brand.logoUrl ? (
+                <Box
+                  w="40px"
+                  h="40px"
+                  borderRadius="11px"
+                  bg="rgba(255,255,255,0.95)"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  overflow="hidden"
+                  flexShrink={0}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={brand.logoUrl}
+                    alt={brand.name}
+                    style={{ maxWidth: "80%", maxHeight: "80%", objectFit: "contain" }}
+                  />
+                </Box>
+              ) : (
+                <AdminCrest initials={brandInitials} size={40} />
+              )}
+              {!collapsed ? (
+                <VStack gap={0} align="stretch" minW={0}>
+                  <Text className="admin-h" color="white" fontWeight="700" fontSize="sm" lineClamp={1}>
+                    {brand.name}
+                  </Text>
+                  <Text color="rgba(255,255,255,0.5)" fontSize="xs" lineClamp={1}>
+                    Acesso restrito
+                  </Text>
+                </VStack>
+              ) : null}
+            </Link>
+            {!collapsed ? renderToggle() : null}
+          </HStack>
+          {collapsed ? (
+            <Box mt={2} display="flex" justifyContent="center">
+              {renderToggle()}
+            </Box>
+          ) : null}
         </Box>
 
         {/* navegação */}
@@ -169,46 +213,49 @@ export function AppShell({
           </Stack>
         </Box>
 
-        {/* rodapé: usuário + recolher */}
-        <Box flexShrink={0} px={collapsed ? 2 : 4} py={3} borderTopWidth="1px" borderColor="rgba(255,255,255,0.08)">
-          <HStack gap={2.5} mb={collapsed ? 2 : 3} justify={collapsed ? "center" : "flex-start"} minW={0}>
-            <AdminCrest initials={userInitials} size={34} />
-            {!collapsed ? (
-              <VStack gap={0} align="stretch" minW={0}>
-                <Text color="white" fontSize="sm" fontWeight="600" lineClamp={1}>
-                  {user.name || "Conta"}
-                </Text>
-                {user.email ? (
-                  <Text color="rgba(255,255,255,0.5)" fontSize="xs" lineClamp={1}>
-                    {user.email}
-                  </Text>
+        {/* rodapé: menu do usuário (avatar + nome + seta → Meu perfil / Sair) */}
+        <Box flexShrink={0} px={collapsed ? 2 : 3} py={3} borderTopWidth="1px" borderColor="rgba(255,255,255,0.08)">
+          <Menu.Root positioning={{ placement: collapsed ? "right-end" : "top" }}>
+            <Menu.Trigger asChild>
+              <HStack
+                as="button"
+                className="admin-side-item"
+                w="full"
+                gap={2.5}
+                px={collapsed ? 0 : 3}
+                py={2}
+                justify={collapsed ? "center" : "flex-start"}
+                title={collapsed ? user.name || "Conta" : undefined}
+              >
+                <AdminCrest initials={userInitials} size={34} logoUrl={user.image || undefined} />
+                {!collapsed ? (
+                  <>
+                    <VStack gap={0} align="stretch" minW={0} flex="1">
+                      <Text color="white" fontSize="sm" fontWeight="600" lineClamp={1}>
+                        {user.name || "Conta"}
+                      </Text>
+                      {user.email ? (
+                        <Text color="rgba(255,255,255,0.5)" fontSize="xs" lineClamp={1}>
+                          {user.email}
+                        </Text>
+                      ) : null}
+                    </VStack>
+                    <Box color="rgba(255,255,255,0.5)" flexShrink={0}>
+                      <ChevronsUpDown size={15} />
+                    </Box>
+                  </>
                 ) : null}
-              </VStack>
-            ) : null}
-          </HStack>
-
-          {!collapsed && logoutSlot ? <Box mb={2}>{logoutSlot}</Box> : null}
-
-          <HStack
-            as="button"
-            className="admin-side-item"
-            onClick={toggle}
-            aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-            title={collapsed ? "Expandir" : "Recolher"}
-            w="full"
-            gap={2}
-            px={collapsed ? 0 : 3}
-            py={2}
-            justify="center"
-            color="rgba(255,255,255,0.6)"
-          >
-            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-            {!collapsed ? (
-              <Text fontSize="xs" fontWeight="600">
-                Recolher
-              </Text>
-            ) : null}
-          </HStack>
+              </HStack>
+            </Menu.Trigger>
+            <Portal>
+              <Menu.Positioner>
+                <Menu.Content className="admin-dropdown" minW="230px" p={2} borderRadius="14px">
+                  {accountSlot}
+                  {logoutSlot ? <Box mt={accountSlot ? 1 : 0}>{logoutSlot}</Box> : null}
+                </Menu.Content>
+              </Menu.Positioner>
+            </Portal>
+          </Menu.Root>
         </Box>
       </Box>
 
@@ -236,7 +283,7 @@ export function AppShell({
             )}
           </Link>
           <Box ml="auto">
-            <UserMenu user={user} logoutSlot={logoutSlot} accountHref={accountHref} />
+            <UserMenu user={user} logoutSlot={logoutSlot} accountSlot={accountSlot} accountHref={accountHref} />
           </Box>
         </Flex>
 
