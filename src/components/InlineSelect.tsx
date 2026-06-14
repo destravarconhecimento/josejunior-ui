@@ -38,7 +38,7 @@ export function InlineSelect({
     const r = el.getBoundingClientRect();
     const below = window.innerHeight - r.bottom;
     // Abre pra cima se não couber embaixo e houver mais espaço acima.
-    const up = below < 240 && r.top > below;
+    const up = below < 340 && r.top > below;
     setPlace({
       top: up ? r.top - 6 : r.bottom + 6,
       left: r.left,
@@ -116,7 +116,7 @@ export function InlineSelect({
             left={`${place.left}px`}
             transform={place.up ? "translateY(-100%)" : undefined}
             minW={`${Math.max(place.width, 184)}px`}
-            maxH="280px"
+            maxH="400px"
             overflowY="auto"
             zIndex={1500}
             p={1.5}
