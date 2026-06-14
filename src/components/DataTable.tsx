@@ -124,11 +124,24 @@ export function DataTable<T>({
           <Table.Header position="sticky" top={0} zIndex={1} bg="var(--admin-surface)" boxShadow="0 1px 0 var(--admin-divider)">
             <Table.Row>
               {columns.map((c) => (
-                <Table.ColumnHeader key={c.key} textAlign={c.align} width={c.width}>
+                <Table.ColumnHeader
+                  key={c.key}
+                  textAlign={c.align}
+                  width={c.width}
+                  fontSize="xs"
+                  fontWeight="600"
+                  textTransform="uppercase"
+                  letterSpacing="0.04em"
+                  color="var(--admin-text-soft)"
+                >
                   {c.header}
                 </Table.ColumnHeader>
               ))}
-              {actions ? <Table.ColumnHeader textAlign="end">Ações</Table.ColumnHeader> : null}
+              {actions ? (
+                <Table.ColumnHeader textAlign="end" fontSize="xs" fontWeight="600" textTransform="uppercase" letterSpacing="0.04em" color="var(--admin-text-soft)">
+                  Ações
+                </Table.ColumnHeader>
+              ) : null}
             </Table.Row>
           </Table.Header>
           <Table.Body>

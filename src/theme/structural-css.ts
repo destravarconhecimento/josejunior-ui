@@ -16,11 +16,20 @@ export const ADMIN_STRUCTURAL_CSS = `
   border: 1px solid var(--admin-border);
   border-radius: 16px;
   box-shadow: var(--admin-card-shadow);
+  transition: box-shadow 170ms ease, transform 170ms ease, border-color 170ms ease;
+}
+/* Cards clicáveis (data-interactive) ganham elevação no hover — o resto fica estático. */
+.admin-card[data-interactive="true"] { cursor: pointer; }
+.admin-card[data-interactive="true"]:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--admin-primary) 32%, var(--admin-border));
+  box-shadow: 0 14px 34px -16px rgba(2, 6, 23, 0.28);
 }
 .admin-topbar {
-  background: var(--admin-surface);
+  background: color-mix(in srgb, var(--admin-surface) 82%, transparent);
   border-bottom: 1px solid var(--admin-border);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 .admin-navbtn {
   cursor: pointer;
@@ -49,18 +58,35 @@ export const ADMIN_STRUCTURAL_CSS = `
 }
 .admin-nav-item:hover { background: var(--admin-nav-hover); }
 .admin-nav-item[data-active="true"] {
-  background: var(--admin-nav-active);
+  background: linear-gradient(90deg, var(--admin-nav-active), color-mix(in srgb, var(--admin-nav-active) 25%, transparent));
   color: var(--admin-primary);
   font-weight: 600;
 }
+/* Barra de destaque com gradiente roxo→dourado (premium) no item ativo. */
 .admin-nav-item[data-active="true"]::before {
   content: "";
   position: absolute;
-  left: 0; top: 7px; bottom: 7px;
+  left: 0; top: 6px; bottom: 6px;
   width: 3px;
-  border-radius: 2px;
-  background: var(--admin-accent);
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--admin-primary), var(--admin-accent));
 }
-.admin-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-.admin-scroll::-webkit-scrollbar-thumb { background: var(--admin-border); border-radius: 3px; }
+/* Foco acessível e consistente em tudo que é interativo no painel. */
+.admin-shell a:focus-visible,
+.admin-shell button:focus-visible,
+.admin-navbtn:focus-visible,
+.admin-nav-item:focus-visible,
+.admin-card[data-interactive="true"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--admin-primary) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.admin-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.admin-scroll::-webkit-scrollbar-thumb { background: var(--admin-border); border-radius: 4px; }
+.admin-scroll::-webkit-scrollbar-thumb:hover { background: var(--admin-text-soft); }
+.admin-scroll { scrollbar-width: thin; scrollbar-color: var(--admin-border) transparent; }
+/* Respeita quem prefere menos movimento (acessibilidade). */
+@media (prefers-reduced-motion: reduce) {
+  .admin-card, .admin-card[data-interactive="true"]:hover { transition: none; transform: none; }
+}
 `;
