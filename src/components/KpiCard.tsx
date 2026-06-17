@@ -81,6 +81,7 @@ export function KpiCard({
               lineHeight="1.15"
               color="var(--admin-text)"
               fontFamily="var(--admin-font-heading)"
+              whiteSpace="nowrap"
             >
               {value}
             </Text>
