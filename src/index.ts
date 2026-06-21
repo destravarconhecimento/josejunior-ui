@@ -13,6 +13,7 @@ export { AppShell } from "./shell/AppShell";
 export { TopNav } from "./shell/TopNav";
 export { UserMenu } from "./shell/UserMenu";
 export { MobileNav } from "./shell/MobileNav";
+export { BottomNav } from "./shell/BottomNav";
 export { ActiveLink, isActiveHref } from "./shell/ActiveLink";
 export type { NavItem, NavSection, Brand, AppUser } from "./shell/types";
 

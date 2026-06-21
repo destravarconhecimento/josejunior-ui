@@ -3,11 +3,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Box, Flex, HStack, Menu, Portal, Stack, Text, VStack } from "@chakra-ui/react";
-import { ChevronsUpDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Box, Flex, HStack, Input, Menu, Portal, Stack, Text, VStack } from "@chakra-ui/react";
+import { ChevronsUpDown, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { MobileNav } from "./MobileNav";
+import { BottomNav } from "./BottomNav";
 import { UserMenu } from "./UserMenu";
 import { isActiveHref } from "./ActiveLink";
+import { filterSections } from "./navFilter";
 import { AdminBrandLogo, AdminCrest, initialsFrom } from "../theme/AdminThemeShell";
 import { UserAvatar } from "../components/UserAvatar";
 import type { AppUser, Brand, NavSection } from "./types";
@@ -43,6 +45,9 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const brandInitials = initialsFrom(brand.name);
+
+  const [query, setQuery] = useState("");
+  const visibleSections = filterSections(sections, query);
 
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
@@ -141,10 +146,49 @@ export function AppShell({
           </HStack>
         </Box>
 
+        {/* busca no menu (só expandido — recolhido não cabe) */}
+        {!collapsed ? (
+          <Box px={4} pb={2} flexShrink={0}>
+            <HStack
+              gap={2}
+              px={3}
+              h="38px"
+              borderRadius="10px"
+              bg="rgba(255,255,255,0.06)"
+              borderWidth="1px"
+              borderColor="rgba(255,255,255,0.12)"
+            >
+              <Box color="rgba(255,255,255,0.5)" flexShrink={0} display="flex">
+                <Search size={15} />
+              </Box>
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.currentTarget.value)}
+                placeholder="Buscar no menu…"
+                aria-label="Buscar no menu"
+                variant="subtle"
+                unstyled
+                flex="1"
+                minW={0}
+                h="full"
+                fontSize="sm"
+                color="white"
+                _placeholder={{ color: "rgba(255,255,255,0.45)" }}
+                _focusVisible={{ outline: "none" }}
+              />
+            </HStack>
+          </Box>
+        ) : null}
+
         {/* navegação */}
         <Box flex="1" overflowY="auto" overflowX="hidden" className="admin-scroll" px={collapsed ? 2 : 3} pb={3}>
+          {!collapsed && visibleSections.length === 0 ? (
+            <Text px={3} py={4} fontSize="sm" color="rgba(255,255,255,0.5)">
+              Nada encontrado.
+            </Text>
+          ) : null}
           <Stack gap={collapsed ? 1 : 4}>
-            {sections.map((section, si) => (
+            {(collapsed ? sections : visibleSections).map((section, si) => (
               <Stack key={section.title} gap={0.5}>
                 {!collapsed ? (
                   <Text
@@ -308,9 +352,19 @@ export function AppShell({
           </Box>
         </Flex>
 
-        <Box as="main" w="full" maxW="1500px" mx="auto" px={{ base: 4, md: 7 }} py={{ base: 5, md: 7 }}>
+        <Box
+          as="main"
+          w="full"
+          maxW="1500px"
+          mx="auto"
+          px={{ base: 4, md: 7 }}
+          py={{ base: 5, md: 7 }}
+          pb={{ base: "78px", lg: 7 }}
+        >
           {children}
         </Box>
+        {/* Navegação inferior (mobile) — fixa; conteúdo ganha padding-bottom acima. */}
+        <BottomNav brand={brand} sections={sections} logoutSlot={logoutSlot} />
       </Flex>
     </Flex>
   );
