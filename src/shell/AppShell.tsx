@@ -166,11 +166,12 @@ export function AppShell({
                 onChange={(e) => setQuery(e.currentTarget.value)}
                 placeholder="Buscar no menu…"
                 aria-label="Buscar no menu"
-                variant="subtle"
                 unstyled
                 flex="1"
                 minW={0}
                 h="full"
+                bg="transparent"
+                border="none"
                 fontSize="sm"
                 color="white"
                 _placeholder={{ color: "rgba(255,255,255,0.45)" }}
