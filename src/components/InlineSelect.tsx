@@ -16,16 +16,20 @@ type Placement = { top: number; left: number; width: number; up: boolean };
  */
 export function InlineSelect({
   value,
-  options,
+  options = [],
   onChange,
   render,
   disabled,
+  menu,
 }: {
   value: string | null;
-  options: InlineSelectOption[];
-  onChange: (value: string) => void;
+  options?: InlineSelectOption[];
+  onChange?: (value: string) => void;
   render: (value: string | null) => ReactNode;
   disabled?: boolean;
+  /** Conteúdo custom do dropdown (ex.: sliders). Quando dado, ignora `options`.
+   *  Recebe `close` p/ fechar o popover após a ação. */
+  menu?: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [place, setPlace] = useState<Placement | null>(null);
@@ -109,17 +113,17 @@ export function InlineSelect({
         <Portal>
           <Stack
             ref={menuRef}
-            role="listbox"
-            gap={0.5}
+            role={menu ? "dialog" : "listbox"}
+            gap={menu ? 2 : 0.5}
             position="fixed"
             top={`${place.top}px`}
             left={`${place.left}px`}
             transform={place.up ? "translateY(-100%)" : undefined}
-            minW={`${Math.max(place.width, 184)}px`}
+            minW={`${Math.max(place.width, menu ? 248 : 184)}px`}
             maxH="400px"
             overflowY="auto"
             zIndex={1500}
-            p={1.5}
+            p={menu ? 3 : 1.5}
             bg="var(--admin-surface)"
             borderWidth="1px"
             borderColor="var(--admin-border)"
@@ -127,7 +131,7 @@ export function InlineSelect({
             boxShadow="0 16px 40px rgba(15,23,42,0.18)"
             onClick={(e) => e.stopPropagation()}
           >
-            {options.map((o) => {
+            {menu ? menu(() => setOpen(false)) : options.map((o) => {
               const selected = o.value === value;
               return (
                 <Box
@@ -138,7 +142,7 @@ export function InlineSelect({
                   onClick={(e) => {
                     e.stopPropagation();
                     setOpen(false);
-                    if (o.value !== value) onChange(o.value);
+                    if (o.value !== value) onChange?.(o.value);
                   }}
                   display="flex"
                   alignItems="center"

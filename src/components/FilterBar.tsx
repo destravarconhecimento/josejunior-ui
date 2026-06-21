@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Box, HStack, Input, NativeSelect, Stack, Text } from "@chakra-ui/react";
+import { Box, HStack, Input, NativeSelect, Stack } from "@chakra-ui/react";
 import { Search, SlidersHorizontal } from "lucide-react";
 
 export type SelectFilter = {
@@ -13,7 +13,7 @@ export type SelectFilter = {
 
 /**
  * Barra de filtro PADRÃO das telas de operação (Clientes, Agendamentos, Atos…):
- * busca com ícone + N selects + ações à direita + contador. Estilo único.
+ * busca com ícone + N selects + ações à direita. Estilo único.
  *
  * Mobile: a busca ocupa a linha e os selects ficam atrás de um ÍCONE de filtro
  * ao lado dela (abre/fecha); badge mostra quantos filtros estão ativos. Desktop
@@ -25,7 +25,6 @@ export function FilterBar({
   placeholder = "Buscar…",
   selects = [],
   right,
-  count,
   attached = false,
 }: {
   search: string;
@@ -33,7 +32,6 @@ export function FilterBar({
   placeholder?: string;
   selects?: SelectFilter[];
   right?: ReactNode;
-  count?: { shown: number; total: number };
   /** Colado no topo de uma DataTable (toolbar): sem margem inferior. */
   attached?: boolean;
 }) {
@@ -60,12 +58,6 @@ export function FilterBar({
       <NativeSelect.Indicator />
     </NativeSelect.Root>
   ));
-
-  const countNode = count ? (
-    <Text fontSize="sm" color="var(--admin-text-soft)" whiteSpace="nowrap">
-      {count.shown} de {count.total}
-    </Text>
-  ) : null;
 
   return (
     <Box mb={attached ? 0 : 3}>
@@ -137,7 +129,6 @@ export function FilterBar({
         {/* Desktop: selects inline. */}
         <HStack gap={2} display={{ base: "none", md: "flex" }} flexWrap="wrap" align="center">
           {selectFields}
-          {countNode}
         </HStack>
 
         {right ? (
@@ -151,10 +142,7 @@ export function FilterBar({
       {selects.length > 0 ? (
         <Stack display={{ base: showFilters ? "flex" : "none", md: "none" }} gap={2} mt={2}>
           {selectFields}
-          <HStack justify="space-between">
-            {countNode}
-            {right ? <Box>{right}</Box> : null}
-          </HStack>
+          {right ? <HStack justify="flex-end">{right}</HStack> : null}
         </Stack>
       ) : null}
     </Box>
