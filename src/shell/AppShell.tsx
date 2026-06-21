@@ -31,6 +31,7 @@ export function AppShell({
   accountSlot,
   homeHref = "/dashboard",
   accountHref,
+  version,
   children,
 }: {
   brand: Brand;
@@ -41,6 +42,8 @@ export function AppShell({
   accountSlot?: ReactNode;
   homeHref?: string;
   accountHref?: string;
+  /** Versão exibida no rodapé do sidebar (canto inferior esquerdo). */
+  version?: string;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -323,6 +326,21 @@ export function AppShell({
             </Portal>
           </Menu.Root>
         </Box>
+
+        {/* versão (canto inferior esquerdo, discreto) */}
+        {version ? (
+          <Box flexShrink={0} px={collapsed ? 1 : 4} pb={2}>
+            <Text
+              fontSize="10px"
+              color="rgba(255,255,255,0.32)"
+              textAlign={collapsed ? "center" : "left"}
+              lineClamp={1}
+              title={`Versão ${version}`}
+            >
+              {collapsed ? version.split(" ")[0] : `v${version}`}
+            </Text>
+          </Box>
+        ) : null}
       </Box>
 
       {/* ── Conteúdo ────────────────────────────────────────────────────── */}
