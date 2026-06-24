@@ -7,6 +7,8 @@ export type NavItem = {
    *  do ícone cru — funções não cruzam a fronteira Server→Client. */
   icon?: ReactNode;
   badge?: string;
+  /** Subtítulo opcional exibido sob o label (só na sidebar do AppShell). */
+  description?: string;
 };
 
 export type NavSection = {

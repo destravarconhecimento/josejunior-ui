@@ -231,9 +231,16 @@ export function AppShell({
                           ) : null}
                           {!collapsed ? (
                             <>
-                              <Text fontSize="sm" fontWeight={active ? "600" : "500"} lineClamp={1}>
-                                {item.label}
-                              </Text>
+                              <VStack gap={0} align="start" minW={0}>
+                                <Text fontSize="sm" fontWeight={active ? "600" : "500"} lineClamp={1}>
+                                  {item.label}
+                                </Text>
+                                {item.description ? (
+                                  <Text fontSize="10px" color="var(--admin-text-soft)" lineClamp={1}>
+                                    {item.description}
+                                  </Text>
+                                ) : null}
+                              </VStack>
                               {item.badge ? (
                                 <Box
                                   ml="auto"
