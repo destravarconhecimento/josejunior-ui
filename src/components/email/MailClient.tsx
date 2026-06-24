@@ -1229,7 +1229,8 @@ function Mailbox({
       borderRadius="16px"
       overflow="hidden"
       bg="var(--admin-card)"
-      minH="600px"
+      minH="560px"
+      h={{ base: "auto", md: "calc(100dvh - 132px)" }}
       direction={{ base: "column", md: "row" }}
     >
       {/* Sidebar */}
@@ -1291,7 +1292,7 @@ function Mailbox({
         borderColor="var(--admin-border)"
         gap={0}
         display={{ base: selected || compose ? "none" : "flex", md: "flex" }}
-        maxH={{ md: "calc(100vh - 200px)" }}
+        maxH={{ base: "560px", md: "100%" }}
         overflowY="auto"
       >
         <HStack justify="space-between" px={4} py={3} borderBottomWidth="1px" borderColor="var(--admin-border)">
