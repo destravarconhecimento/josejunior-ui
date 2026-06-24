@@ -25,6 +25,13 @@ export { Button, type ButtonTone } from "./components/Button";
 export { Tag, StatusBadge, DeliveryBadge } from "./components/Badge";
 export { EmptyState } from "./components/EmptyState";
 export { EmailHtmlView } from "./components/EmailHtmlView";
+export {
+  EmailManager,
+  type EmailAccountView,
+  type EmailMessageView,
+  type EmailAttachment,
+  type EmailComposePayload,
+} from "./components/EmailManager";
 export { FormField, FormGrid, FormActions, FormInput, FormSelect, FormTextarea } from "./components/form";
 export { DataTable, TableCard, type Column } from "./components/DataTable";
 export { Pagination } from "./components/Pagination";
