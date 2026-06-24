@@ -26,12 +26,20 @@ export { Tag, StatusBadge, DeliveryBadge } from "./components/Badge";
 export { EmptyState } from "./components/EmptyState";
 export { EmailHtmlView } from "./components/EmailHtmlView";
 export {
-  EmailManager,
-  type EmailAccountView,
-  type EmailMessageView,
-  type EmailAttachment,
-  type EmailComposePayload,
-} from "./components/EmailManager";
+  MailClient,
+  type MailResult,
+  type MailProvider,
+  type MailConnEditor,
+  type MailDnsRecord,
+  type MailDomain,
+  type MailDomainOption,
+  type MailUserOption,
+  type MailAccountRow,
+  type MailInboxAccount,
+  type MailAttachment,
+  type MailMessage,
+  type MailCallbacks,
+} from "./components/email/MailClient";
 export { FormField, FormGrid, FormActions, FormInput, FormSelect, FormTextarea } from "./components/form";
 export { DataTable, TableCard, type Column } from "./components/DataTable";
 export { Pagination } from "./components/Pagination";
