@@ -169,6 +169,15 @@ export function AppShell({
                 onChange={(e) => setQuery(e.currentTarget.value)}
                 placeholder="Buscar no menu…"
                 aria-label="Buscar no menu"
+                type="text"
+                name="busca-menu"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                data-1p-ignore
+                data-lpignore="true"
+                data-form-type="other"
                 unstyled
                 flex="1"
                 minW={0}
