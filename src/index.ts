@@ -58,6 +58,7 @@ export { ColorPicker } from "./components/ColorPicker";
 export { Tabs, type TabDef } from "./components/Tabs";
 export { PageTabs } from "./components/PageTabs";
 export { ChatMarkdown } from "./components/ChatMarkdown";
+export { AiAssistantFab } from "./components/AiAssistantFab";
 
 // Primitivos premium (KPIs, avatar, IA, timeline, ações rápidas)
 export { KpiCard, type KpiTone, type KpiTrendTone } from "./components/KpiCard";
