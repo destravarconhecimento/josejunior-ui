@@ -605,7 +605,7 @@ function ProviderCard({
       borderRadius="14px"
       borderWidth="2px"
       borderColor={active ? "var(--admin-primary)" : "var(--admin-border)"}
-      bg={active ? "var(--admin-surface-2)" : "var(--admin-card)"}
+      bg={active ? "var(--admin-surface-2)" : "var(--admin-surface)"}
       p={4}
       transition="all 0.15s"
       _hover={{ borderColor: "var(--admin-primary)" }}
@@ -1200,7 +1200,7 @@ function Mailbox({
         borderRadius="16px"
         borderWidth="1px"
         borderColor="var(--admin-border)"
-        bg="var(--admin-card)"
+        bg="var(--admin-surface)"
       >
         <EmptyState
           icon={Mail}
@@ -1228,7 +1228,7 @@ function Mailbox({
       borderColor="var(--admin-border)"
       borderRadius="16px"
       overflow="hidden"
-      bg="var(--admin-card)"
+      bg="var(--admin-surface)"
       minH="560px"
       h={{ base: "auto", md: "calc(100dvh - 132px)" }}
       direction={{ base: "column", md: "row" }}
@@ -1257,7 +1257,7 @@ function Mailbox({
             options={accounts.map((a) => ({ value: a.id, label: a.address }))}
           />
         ) : (
-          <Box px={3} py={2.5} borderRadius="10px" bg="var(--admin-card)" borderWidth="1px" borderColor="var(--admin-border)">
+          <Box px={3} py={2.5} borderRadius="10px" bg="var(--admin-surface)" borderWidth="1px" borderColor="var(--admin-border)">
             <Text fontSize="sm" fontWeight="700" lineHeight="1.2" truncate>
               {account.name ?? account.address.split("@")[0]}
             </Text>
@@ -1426,10 +1426,10 @@ function FolderButton({
       px={3}
       py={2}
       borderRadius="10px"
-      bg={active ? "var(--admin-card)" : "transparent"}
+      bg={active ? "var(--admin-surface)" : "transparent"}
       color={active ? "var(--admin-primary)" : "var(--admin-text-soft)"}
       fontWeight={active ? "700" : "500"}
-      _hover={{ bg: "var(--admin-card)" }}
+      _hover={{ bg: "var(--admin-surface)" }}
       justify="space-between"
       cursor="pointer"
     >
