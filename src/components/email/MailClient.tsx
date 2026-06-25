@@ -204,6 +204,8 @@ export function MailClient(props: {
   users: MailUserOption[];
   messages: MailMessage[];
   callbacks: MailCallbacks;
+  /** Ações extras no cabeçalho (ex.: botão "Templates" no sistema). */
+  headerActions?: React.ReactNode;
 }) {
   const [view, setView] = useState<"inbox" | "settings">(props.initialView);
   const hasAccounts = props.inboxAccounts.length > 0;
@@ -225,6 +227,7 @@ export function MailClient(props: {
                   ? "Gmail conectado"
                   : "Provedor não configurado"}
             </Tag>
+            {props.headerActions}
             {props.isAdmin ? (
               view === "settings" ? (
                 <Button tone="outline" onClick={() => setView("inbox")} disabled={!hasAccounts}>
