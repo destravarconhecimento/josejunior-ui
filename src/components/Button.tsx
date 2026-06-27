@@ -31,10 +31,32 @@ const toneProps: Record<ButtonTone, ButtonProps> = {
   },
 };
 
-/** Botão padrão do painel. `tone` aplica o estilo da marca (lê --admin-*). */
+/**
+ * Botão padrão do painel. `tone` aplica o estilo da marca (lê --admin-*).
+ *
+ * Ponte de compatibilidade: se o chamador usar a API antiga do Chakra
+ * (`variant`/`colorPalette`) SEM `tone`, o botão respeita esses props (assim a
+ * migração de telas legadas é só trocar o import, sem reescrever cada botão).
+ * Em código novo, use `tone`.
+ */
 export function Button({
-  tone = "primary",
+  tone,
+  variant,
+  colorPalette,
   ...props
 }: { tone?: ButtonTone } & ButtonProps) {
-  return <ChakraButton borderRadius="10px" fontWeight="600" {...toneProps[tone]} {...props} />;
+  if (!tone && (variant || colorPalette)) {
+    return (
+      <ChakraButton
+        borderRadius="10px"
+        fontWeight="600"
+        variant={variant}
+        colorPalette={colorPalette}
+        {...props}
+      />
+    );
+  }
+  return (
+    <ChakraButton borderRadius="10px" fontWeight="600" {...toneProps[tone ?? "primary"]} {...props} />
+  );
 }

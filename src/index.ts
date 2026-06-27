@@ -1,3 +1,17 @@
+// Primitivos de layout (re-export fino do Chakra — apps importam daqui, nunca do Chakra)
+export * from "./primitives";
+// Controles DO design-system (componentes do ui, estilo --admin embutido)
+export {
+  Input, Textarea, IconButton, Field, NativeSelect, Switch, Badge,
+  type InputProps, type TextareaProps, type IconButtonProps, type BadgeProps,
+} from "./components/controls";
+// Escape hatches do Chakra — SÓ para telas PÚBLICAS; proibido em painel (app)
+export * from "./chakra-controls";
+
+// Provider único de UI (next-themes + Chakra) + fábrica de system (cor do chamador)
+export { UiProvider } from "./provider/UiProvider";
+export { createUiSystem, getUiSystem, type UiSystem } from "./provider/system";
+
 // Tema / shell visual
 export {
   AdminThemeShell,
@@ -56,6 +70,7 @@ export { MonthPicker } from "./components/MonthPicker";
 export { ActionMenu, type ActionMenuItem } from "./components/ActionMenu";
 export { ColorPicker } from "./components/ColorPicker";
 export { Tabs, type TabDef } from "./components/Tabs";
+export { PanelTabs } from "./components/PanelTabs";
 export { PageTabs } from "./components/PageTabs";
 export { ChatMarkdown } from "./components/ChatMarkdown";
 export { AiAssistantFab } from "./components/AiAssistantFab";

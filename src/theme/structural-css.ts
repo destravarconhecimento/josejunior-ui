@@ -14,7 +14,7 @@ export const ADMIN_STRUCTURAL_CSS = `
 .admin-card {
   background: var(--admin-surface);
   border: 1px solid var(--admin-border);
-  border-radius: 16px;
+  border-radius: 14px;
   box-shadow: var(--admin-card-shadow);
   transition: box-shadow 170ms ease, transform 170ms ease, border-color 170ms ease;
 }
@@ -47,7 +47,7 @@ export const ADMIN_STRUCTURAL_CSS = `
 .admin-dropdown {
   background: var(--admin-surface);
   border: 1px solid var(--admin-border);
-  border-radius: 14px;
+  border-radius: 12px;
   box-shadow: var(--admin-card-shadow);
   backdrop-filter: blur(14px);
 }
