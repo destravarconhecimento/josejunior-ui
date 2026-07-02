@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import {
   Box,
   chakra,
@@ -20,6 +20,7 @@ import {
   Globe,
   Inbox,
   Mail,
+  Paperclip,
   PenLine,
   RefreshCw,
   Reply,
@@ -155,7 +156,10 @@ export type MailCallbacks = {
     html: string;
     inReplyTo: string | null;
     threadId: string | null;
+    attachments: MailAttachment[];
   }) => Promise<MailResult<{ id: string; resendId: string | null }>>;
+  /** Sobe um anexo (Blob) e devolve a URL pública + nome. */
+  onUploadAttachment?: (file: File) => Promise<{ ok: true; url: string; filename: string } | { ok: false; error: string }>;
   onSync: () => Promise<MailResult<{ synced: number }>>;
   onMarkRead: (id: string, read: boolean) => Promise<MailResult>;
   // recarregar a tela (router.refresh no app)
@@ -163,6 +167,17 @@ export type MailCallbacks = {
 };
 
 type Folder = "inbox" | "sent";
+
+type ComposeState = {
+  fromAccountId: string;
+  to: string;
+  cc: string;
+  subject: string;
+  html: string;
+  inReplyTo: string | null;
+  threadId: string | null;
+  attachments: MailAttachment[];
+};
 
 const REGIONS = ["us-east-1", "eu-west-1", "sa-east-1", "ap-northeast-1"];
 
@@ -1126,17 +1141,11 @@ function Mailbox({
   onGoSettings?: () => void;
 }) {
   const [pending, start] = useTransition();
-  const [accountId, setAccountId] = useState<string | null>(accounts[0]?.id ?? null);
+  const ALL = "__all__";
+  const [accountId, setAccountId] = useState<string>(accounts.length > 1 ? ALL : (accounts[0]?.id ?? ""));
   const [folder, setFolder] = useState<Folder>("inbox");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [compose, setCompose] = useState<null | {
-    to: string;
-    cc: string;
-    subject: string;
-    html: string;
-    inReplyTo: string | null;
-    threadId: string | null;
-  }>(null);
+  const [compose, setCompose] = useState<null | ComposeState>(null);
 
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
@@ -1154,10 +1163,11 @@ function Mailbox({
   }
 
   const account = accounts.find((a) => a.id === accountId) ?? null;
+  const isAll = accountId === ALL;
 
   const accountMessages = useMemo(
-    () => messages.filter((m) => m.accountId === accountId),
-    [messages, accountId],
+    () => (isAll ? messages : messages.filter((m) => m.accountId === accountId)),
+    [messages, accountId, isAll],
   );
   const folderMessages = useMemo(
     () =>
@@ -1166,6 +1176,12 @@ function Mailbox({
         .sort((a, b) => +new Date(b.date) - +new Date(a.date)),
     [accountMessages, folder],
   );
+  /** Não-lidas por conta (para o seletor) + total. */
+  const unreadByAccount = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const m of messages) if (m.direction === "inbound" && !m.read) map[m.accountId] = (map[m.accountId] ?? 0) + 1;
+    return map;
+  }, [messages]);
   const unreadCount = accountMessages.filter((m) => m.direction === "inbound" && !m.read).length;
   const selected = folderMessages.find((m) => m.id === selectedId) ?? null;
 
@@ -1181,23 +1197,29 @@ function Mailbox({
 
   function startCompose() {
     setSelectedId(null);
-    setCompose({ to: "", cc: "", subject: "", html: "", inReplyTo: null, threadId: null });
+    setCompose({
+      fromAccountId: isAll ? (accounts[0]?.id ?? "") : accountId,
+      to: "", cc: "", subject: "", html: "", inReplyTo: null, threadId: null, attachments: [],
+    });
   }
 
   function startReply(m: MailMessage) {
     const replyTo = m.direction === "inbound" ? m.fromAddress : m.toAddresses[0] ?? "";
     const subj = m.subject ?? "";
     setCompose({
+      // responde PELA conta que recebeu (ou a atual, se enviado)
+      fromAccountId: m.accountId || (isAll ? (accounts[0]?.id ?? "") : accountId),
       to: replyTo,
       cc: "",
       subject: subj.toLowerCase().startsWith("re:") ? subj : `Re: ${subj}`,
       html: "",
       inReplyTo: m.resendId ?? m.inReplyTo ?? null,
       threadId: m.threadId ?? m.resendId ?? null,
+      attachments: [],
     });
   }
 
-  if (!account) {
+  if (!accounts.length) {
     return (
       <Box
         borderRadius="16px"
@@ -1252,20 +1274,23 @@ function Mailbox({
 
         {accounts.length > 1 ? (
           <FormSelect
-            value={accountId ?? ""}
+            value={accountId}
             onChange={(e) => {
               setAccountId(e.currentTarget.value);
               setSelectedId(null);
             }}
-            options={accounts.map((a) => ({ value: a.id, label: a.address }))}
+            options={[
+              { value: ALL, label: `📥 Todas as contas${Object.values(unreadByAccount).reduce((a, b) => a + b, 0) ? ` (${Object.values(unreadByAccount).reduce((a, b) => a + b, 0)})` : ""}` },
+              ...accounts.map((a) => ({ value: a.id, label: `${a.address}${unreadByAccount[a.id] ? ` (${unreadByAccount[a.id]})` : ""}` })),
+            ]}
           />
         ) : (
           <Box px={3} py={2.5} borderRadius="10px" bg="var(--admin-surface)" borderWidth="1px" borderColor="var(--admin-border)">
             <Text fontSize="sm" fontWeight="700" lineHeight="1.2" truncate>
-              {account.name ?? account.address.split("@")[0]}
+              {(account ?? accounts[0]).name ?? (account ?? accounts[0]).address.split("@")[0]}
             </Text>
-            <Text fontSize="xs" color="var(--admin-text-soft)" truncate title={account.address}>
-              {account.address}
+            <Text fontSize="xs" color="var(--admin-text-soft)" truncate title={(account ?? accounts[0]).address}>
+              {(account ?? accounts[0]).address}
             </Text>
           </Box>
         )}
@@ -1383,12 +1408,13 @@ function Mailbox({
       <Box flex="1" minW={0} display={{ base: selected || compose ? "block" : "none", md: "block" }}>
         {compose ? (
           <Composer
-            account={account}
+            accounts={accounts}
             compose={compose}
             setCompose={setCompose}
             pending={pending}
             start={start}
             onSend={callbacks.onSend}
+            onUploadAttachment={callbacks.onUploadAttachment}
             onSent={() => { setCompose(null); callbacks.onRefresh(); }}
           />
         ) : selected ? (
@@ -1531,55 +1557,63 @@ function MessageView({
 }
 
 function Composer({
-  account,
+  accounts,
   compose,
   setCompose,
   pending,
   start,
   onSend,
+  onUploadAttachment,
   onSent,
 }: {
-  account: MailInboxAccount;
-  compose: {
-    to: string;
-    cc: string;
-    subject: string;
-    html: string;
-    inReplyTo: string | null;
-    threadId: string | null;
-  };
-  setCompose: React.Dispatch<
-    React.SetStateAction<null | {
-      to: string;
-      cc: string;
-      subject: string;
-      html: string;
-      inReplyTo: string | null;
-      threadId: string | null;
-    }>
-  >;
+  accounts: MailInboxAccount[];
+  compose: ComposeState;
+  setCompose: React.Dispatch<React.SetStateAction<null | ComposeState>>;
   pending: boolean;
   start: (cb: () => void | Promise<void>) => void;
   onSend: MailCallbacks["onSend"];
+  onUploadAttachment?: MailCallbacks["onUploadAttachment"];
   onSent: () => void;
 }) {
   const [err, setErr] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const from = accounts.find((a) => a.id === compose.fromAccountId) ?? accounts[0] ?? null;
 
-  function patch(p: Partial<typeof compose>) {
+  function patch(p: Partial<ComposeState>) {
     setCompose((c) => (c ? { ...c, ...p } : c));
+  }
+
+  async function onPickFiles(files: FileList | null) {
+    if (!files?.length || !onUploadAttachment) return;
+    setErr(null);
+    setUploading(true);
+    for (const file of Array.from(files)) {
+      if (file.size > 20 * 1024 * 1024) { setErr(`"${file.name}" passa de 20MB.`); continue; }
+      const r = await onUploadAttachment(file);
+      if (r.ok) setCompose((c) => (c ? { ...c, attachments: [...c.attachments, { filename: r.filename, url: r.url }] } : c));
+      else setErr(r.error);
+    }
+    setUploading(false);
+  }
+
+  function removeAttachment(i: number) {
+    patch({ attachments: compose.attachments.filter((_, j) => j !== i) });
   }
 
   function send() {
     setErr(null);
+    if (!from) { setErr("Selecione a conta remetente."); return; }
     start(async () => {
       const r = await onSend({
-        accountId: account.id,
+        accountId: from.id,
         to: compose.to,
         cc: compose.cc,
         subject: compose.subject,
         html: compose.html ? compose.html.replace(/\n/g, "<br/>") : "",
         inReplyTo: compose.inReplyTo,
         threadId: compose.threadId,
+        attachments: compose.attachments,
       });
       if (r.ok) onSent();
       else setErr(r.error);
@@ -1597,46 +1631,57 @@ function Composer({
         </IconButton>
       </HStack>
 
-      <Stack gap={3} p={5} flex="1">
-        <Text fontSize="xs" color="var(--admin-text-soft)">
-          De: <strong>{account.name ? `${account.name} <${account.address}>` : account.address}</strong>
-        </Text>
-        <FormInput
-          placeholder="Para (separe múltiplos por vírgula)"
-          value={compose.to}
-          onChange={(e) => patch({ to: e.target.value })}
-        />
-        <FormInput
-          placeholder="Cc (opcional)"
-          value={compose.cc}
-          onChange={(e) => patch({ cc: e.target.value })}
-        />
-        <FormInput
-          placeholder="Assunto"
-          value={compose.subject}
-          onChange={(e) => patch({ subject: e.target.value })}
-        />
-        <FormTextarea
-          placeholder="Escreva sua mensagem..."
-          value={compose.html}
-          onChange={(e) => patch({ html: e.target.value })}
-          rows={12}
-          resize="vertical"
-        />
-        {err ? (
-          <Text color="red.600" fontSize="sm">
-            {err}
+      <Stack gap={3} p={5} flex="1" overflowY="auto">
+        {accounts.length > 1 ? (
+          <FormSelect
+            value={compose.fromAccountId}
+            onChange={(e) => patch({ fromAccountId: e.currentTarget.value })}
+            options={accounts.map((a) => ({ value: a.id, label: `De: ${a.name ? `${a.name} <${a.address}>` : a.address}` }))}
+          />
+        ) : (
+          <Text fontSize="xs" color="var(--admin-text-soft)">
+            De: <strong>{from ? (from.name ? `${from.name} <${from.address}>` : from.address) : "—"}</strong>
           </Text>
+        )}
+        <FormInput placeholder="Para (separe múltiplos por vírgula)" value={compose.to} onChange={(e) => patch({ to: e.target.value })} />
+        <FormInput placeholder="Cc (opcional)" value={compose.cc} onChange={(e) => patch({ cc: e.target.value })} />
+        <FormInput placeholder="Assunto" value={compose.subject} onChange={(e) => patch({ subject: e.target.value })} />
+        <FormTextarea placeholder="Escreva sua mensagem..." value={compose.html} onChange={(e) => patch({ html: e.target.value })} rows={12} resize="vertical" />
+
+        {compose.attachments.length ? (
+          <HStack gap={2} flexWrap="wrap">
+            {compose.attachments.map((a, i) => (
+              <HStack key={i} gap={1.5} px={3} py={1.5} borderRadius="8px" borderWidth="1px" borderColor="var(--admin-border)" bg="var(--admin-surface-2)">
+                <Paperclip size={13} />
+                <Text fontSize="xs" maxW="180px" truncate>{a.filename}</Text>
+                <Box as="button" onClick={() => removeAttachment(i)} color="var(--admin-text-soft)" _hover={{ color: "red.500" }} aria-label="Remover">
+                  <X size={13} />
+                </Box>
+              </HStack>
+            ))}
+          </HStack>
         ) : null}
+
+        {err ? <Text color="red.600" fontSize="sm">{err}</Text> : null}
       </Stack>
 
-      <HStack justify="flex-end" px={5} py={4} borderTopWidth="1px" borderColor="var(--admin-border)" gap={3}>
-        <Button tone="ghost" onClick={() => setCompose(null)}>
-          Descartar
-        </Button>
-        <Button tone="primary" onClick={send} loading={pending} disabled={!compose.to.trim()}>
-          <Send size={15} /> Enviar
-        </Button>
+      <HStack justify="space-between" px={5} py={4} borderTopWidth="1px" borderColor="var(--admin-border)" gap={3}>
+        <HStack gap={2}>
+          {onUploadAttachment ? (
+            <>
+              <input ref={fileRef} type="file" multiple hidden onChange={(e) => { onPickFiles(e.target.files); e.target.value = ""; }} />
+              <Button tone="outline" size="sm" loading={uploading} onClick={() => fileRef.current?.click()}>
+                <Paperclip size={14} /> Anexar
+              </Button>
+            </>
+          ) : null}
+        </HStack>
+        <HStack gap={3}>
+          <Button tone="ghost" onClick={() => setCompose(null)}>Descartar</Button>
+          <Button tone="primary" onClick={send} loading={pending} disabled={!compose.to.trim() || uploading}>
+            <Send size={15} /> Enviar
+          </Button>
+        </HStack>
       </HStack>
     </Stack>
   );

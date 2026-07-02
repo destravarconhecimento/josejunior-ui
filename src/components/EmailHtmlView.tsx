@@ -18,17 +18,19 @@ export function EmailHtmlView({
   minHeight?: number;
 }) {
   if (html) {
+    // height:100% faz o corpo OCUPAR toda a coluna de leitura (o container é flex="1");
+    // e-mails longos rolam dentro do próprio iframe. minHeight é só um piso.
     return (
       <iframe
         title="conteúdo do e-mail"
         sandbox="allow-popups allow-popups-to-escape-sandbox"
         srcDoc={`<base target="_blank"><meta charset="utf-8">${html}`}
-        style={{ width: "100%", minHeight, border: "none", background: "white", borderRadius: 8 }}
+        style={{ width: "100%", height: "100%", minHeight, border: "none", background: "white", borderRadius: 8, display: "block" }}
       />
     );
   }
   return (
-    <Box p={2} whiteSpace="pre-wrap" fontSize="sm">
+    <Box p={5} whiteSpace="pre-wrap" fontSize="sm" h="100%">
       {text || "(sem conteúdo)"}
     </Box>
   );
