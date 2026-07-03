@@ -47,6 +47,7 @@ export function DataTable<T>({
   toolbar,
   paginate = true,
   onReorder,
+  dense = false,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -67,6 +68,8 @@ export function DataTable<T>({
   paginate?: boolean;
   /** Habilita arrastar (handle) p/ reordenar; recebe a nova ordem das chaves. */
   onReorder?: (orderedKeys: Array<string | number>) => void;
+  /** Linhas compactas (cabe mais na tela) — telas de alta densidade. */
+  dense?: boolean;
 }) {
   const [page, setPage] = useState(0);
   const [dragKey, setDragKey] = useState<string | number | null>(null);
@@ -155,7 +158,7 @@ export function DataTable<T>({
         maxH={fillHeight ? `calc(100vh - ${typeof fillHeight === "number" ? fillHeight : 340}px)` : undefined}
         minH={fillHeight ? "200px" : undefined}
       >
-        <Table.Root size="md">
+        <Table.Root size={dense ? "sm" : "md"}>
           <Table.Header position="sticky" top={0} zIndex={1} bg="var(--admin-surface)" boxShadow="0 1px 0 var(--admin-divider)">
             <Table.Row>
               {onReorder ? <Table.ColumnHeader width="34px" /> : null}
