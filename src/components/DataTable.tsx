@@ -180,7 +180,22 @@ export function DataTable<T>({
                 </Table.ColumnHeader>
               ))}
               {actions ? (
-                <Table.ColumnHeader textAlign="end" fontSize="xs" fontWeight="600" textTransform="uppercase" letterSpacing="0.04em" color="var(--admin-text-soft)" whiteSpace="nowrap">
+                // CONGELADA à direita: some o problema de "ações fora da tela" quando
+                // a tabela rola na horizontal (sem overflow, fica igual a antes).
+                <Table.ColumnHeader
+                  textAlign="end"
+                  fontSize="xs"
+                  fontWeight="600"
+                  textTransform="uppercase"
+                  letterSpacing="0.04em"
+                  color="var(--admin-text-soft)"
+                  whiteSpace="nowrap"
+                  position="sticky"
+                  right={0}
+                  zIndex={2}
+                  bg="var(--admin-surface)"
+                  boxShadow="inset 1px 0 0 var(--admin-divider)"
+                >
                   Ações
                 </Table.ColumnHeader>
               ) : null}
@@ -227,7 +242,15 @@ export function DataTable<T>({
                   </Table.Cell>
                 ))}
                 {actions ? (
-                  <Table.Cell textAlign="end" onClick={(e) => e.stopPropagation()}>
+                  <Table.Cell
+                    textAlign="end"
+                    onClick={(e) => e.stopPropagation()}
+                    position="sticky"
+                    right={0}
+                    zIndex={1}
+                    bg={sel ? "rgba(202,138,4,0.10)" : "var(--admin-surface)"}
+                    boxShadow="inset 1px 0 0 var(--admin-divider)"
+                  >
                     <HStack gap={1} justify="flex-end">{actions(row)}</HStack>
                   </Table.Cell>
                 ) : null}
