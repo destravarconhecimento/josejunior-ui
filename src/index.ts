@@ -44,6 +44,7 @@ export {
   type MailResult,
   type MailProvider,
   type MailConnEditor,
+  type MailConnectionRow,
   type MailDnsRecord,
   type MailDomain,
   type MailDomainOption,

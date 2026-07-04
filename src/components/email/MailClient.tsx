@@ -62,6 +62,16 @@ export type MailConnEditor = {
   source: "db" | "env" | "none";
 };
 
+/** Uma conta Resend (multi-conta). Só o sistema usa; tenants ficam mono-conta. */
+export type MailConnectionRow = {
+  id: string;
+  label: string;
+  region: string;
+  hasApiKey: boolean;
+  hasWebhookSecret: boolean;
+  domainCount: number;
+};
+
 export type MailDnsRecord = {
   record?: string;
   type: string;
@@ -80,6 +90,9 @@ export type MailDomain = {
   inboundEnabled: boolean;
   region: string | null;
   dnsRecords: MailDnsRecord[];
+  /** Conta Resend dona do domínio (multi-conta). */
+  connectionId?: string | null;
+  connectionLabel?: string | null;
 };
 
 export type MailDomainOption = { id: string; domain: string; verified: boolean };
@@ -133,8 +146,25 @@ export type MailCallbacks = {
   onTestKey: (
     apiKey: string,
   ) => Promise<{ ok: true; domains: number } | { ok: false; error: string }>;
-  // domínios
-  onAddDomain: (domain: string) => Promise<MailResult<{ id: string }>>;
+  // contas Resend (multi-conta — só o sistema passa; opcionais)
+  onCreateConnection?: (input: {
+    label: string;
+    resendApiKey: string;
+    resendRegion?: string;
+    resendWebhookSecret?: string;
+  }) => Promise<MailResult<{ id: string }>>;
+  onUpdateConnection?: (
+    id: string,
+    input: {
+      label?: string;
+      resendApiKey?: string;
+      resendRegion?: string;
+      resendWebhookSecret?: string;
+    },
+  ) => Promise<MailResult>;
+  onRemoveConnection?: (id: string) => Promise<MailResult>;
+  // domínios (connectionId opcional → escolhe a conta Resend dona)
+  onAddDomain: (domain: string, connectionId?: string) => Promise<MailResult<{ id: string }>>;
   onSyncDomain: (id: string) => Promise<MailResult<{ verified: boolean }>>;
   onRemoveDomain: (id: string) => Promise<MailResult>;
   // contas
@@ -219,6 +249,9 @@ export function MailClient(props: {
   users: MailUserOption[];
   messages: MailMessage[];
   callbacks: MailCallbacks;
+  /** Contas Resend (multi-conta). Quando presente, as Configurações mostram o
+   *  gerenciador de contas em vez do "1 provedor". Ausente = mono-conta (tenants). */
+  connections?: MailConnectionRow[];
   /** Ações extras no cabeçalho (ex.: botão "Templates" no sistema). */
   headerActions?: React.ReactNode;
 }) {
@@ -266,6 +299,7 @@ export function MailClient(props: {
             domains={props.domains}
             accounts={props.accounts}
             users={props.users}
+            connections={props.connections}
             callbacks={cb}
           />
         ) : (
@@ -291,6 +325,7 @@ function SettingsView(props: {
   domains: MailDomain[];
   accounts: MailAccountRow[];
   users: MailUserOption[];
+  connections?: MailConnectionRow[];
   callbacks: MailCallbacks;
 }) {
   const domainOptions: MailDomainOption[] = props.domains.map((d) => ({
@@ -298,28 +333,54 @@ function SettingsView(props: {
     domain: d.domain,
     verified: d.verified,
   }));
-  const connected = props.conn.provider === "resend" && props.conn.hasResendApiKey;
+  // Multi-conta quando o app passa `connections` + o callback de criar conta.
+  const multi = Boolean(props.connections && props.callbacks.onCreateConnection);
+  const anyConnKey = (props.connections ?? []).some((c) => c.hasApiKey);
+  const connected = multi
+    ? anyConnKey
+    : props.conn.provider === "resend" && props.conn.hasResendApiKey;
   const verified = props.domains.filter((d) => d.verified).length;
 
   const items: AccordionItemDef[] = [
-    {
-      value: "provider",
-      title: "1. Provedor & API key",
-      meta: connected ? (
-        <Tag bg="rgba(34,197,94,0.12)" color="#15803d">conectado</Tag>
-      ) : (
-        <Tag bg="rgba(234,179,8,0.14)" color="#a16207">pendente</Tag>
-      ),
-      content: (
-        <ConnectProviderForm
-          initial={props.conn}
-          webhookUrl={props.webhookUrl}
-          callbacks={props.callbacks}
-        />
-      ),
-    },
+    multi
+      ? {
+          value: "provider",
+          title: "1. Contas Resend",
+          meta: (
+            <Tag
+              bg={anyConnKey ? "rgba(34,197,94,0.12)" : "rgba(234,179,8,0.14)"}
+              color={anyConnKey ? "#15803d" : "#a16207"}
+            >
+              {(props.connections ?? []).length} conta(s)
+            </Tag>
+          ),
+          content: (
+            <ConnectionsManager
+              connections={props.connections ?? []}
+              webhookUrl={props.webhookUrl}
+              callbacks={props.callbacks}
+            />
+          ),
+        }
+      : {
+          value: "provider",
+          title: "1. Provedor & API key",
+          meta: connected ? (
+            <Tag bg="rgba(34,197,94,0.12)" color="#15803d">conectado</Tag>
+          ) : (
+            <Tag bg="rgba(234,179,8,0.14)" color="#a16207">pendente</Tag>
+          ),
+          content: (
+            <ConnectProviderForm
+              initial={props.conn}
+              webhookUrl={props.webhookUrl}
+              callbacks={props.callbacks}
+            />
+          ),
+        },
   ];
-  if (props.conn.provider === "resend") {
+  const showDomains = multi ? true : props.conn.provider === "resend";
+  if (showDomains) {
     items.push({
       value: "domains",
       title: "2. Domínios & DNS",
@@ -331,7 +392,13 @@ function SettingsView(props: {
           {props.domains.length === 0 ? "nenhum" : `${verified}/${props.domains.length} verificado(s)`}
         </Tag>
       ),
-      content: <DomainManager domains={props.domains} callbacks={props.callbacks} />,
+      content: (
+        <DomainManager
+          domains={props.domains}
+          connections={multi ? props.connections : undefined}
+          callbacks={props.callbacks}
+        />
+      ),
     });
     items.push({
       value: "accounts",
@@ -648,6 +715,290 @@ function ProviderCard({
 }
 
 // ============================================================
+// Contas Resend (multi-conta) — só o sistema
+// ============================================================
+
+function WebhookBox({ webhookUrl }: { webhookUrl: string }) {
+  const [copied, setCopied] = useState(false);
+  function copy() {
+    navigator.clipboard
+      .writeText(webhookUrl)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {});
+  }
+  return (
+    <FormField
+      label="URL do webhook (cole a MESMA em TODAS as contas Resend)"
+      help={
+        <>
+          No Resend de cada conta → Webhooks → Add Endpoint, cole esta URL, marque{" "}
+          <code>email.received</code> (e os de entrega). Cole o Signing secret de cada
+          conta no campo da conta correspondente abaixo.
+        </>
+      }
+    >
+      <HStack gap={2} align="stretch" w="full">
+        <Input
+          bg="var(--admin-surface)"
+          value={webhookUrl}
+          readOnly
+          onFocus={(e) => e.currentTarget.select()}
+          fontSize="sm"
+        />
+        <Button tone="outline" onClick={copy} flexShrink={0}>
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+          {copied ? "Copiado" : "Copiar"}
+        </Button>
+      </HStack>
+    </FormField>
+  );
+}
+
+function ConnectionsManager({
+  connections,
+  webhookUrl,
+  callbacks,
+}: {
+  connections: MailConnectionRow[];
+  webhookUrl: string;
+  callbacks: MailCallbacks;
+}) {
+  const { confirm, confirmDialog } = useConfirm();
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+
+  // form de nova conta
+  const [nLabel, setNLabel] = useState("");
+  const [nKey, setNKey] = useState("");
+  const [nRegion, setNRegion] = useState("us-east-1");
+  const [nSecret, setNSecret] = useState("");
+
+  // form de edição (por conta aberta)
+  const [eLabel, setELabel] = useState("");
+  const [eKey, setEKey] = useState("");
+  const [eRegion, setERegion] = useState("us-east-1");
+  const [eSecret, setESecret] = useState("");
+
+  function openEdit(c: MailConnectionRow) {
+    setEditId(c.id);
+    setELabel(c.label);
+    setEKey("");
+    setERegion(c.region || "us-east-1");
+    setESecret("");
+    setErr(null);
+    setMsg(null);
+  }
+
+  function create() {
+    if (!callbacks.onCreateConnection) return;
+    setErr(null);
+    setMsg(null);
+    start(async () => {
+      const r = await callbacks.onCreateConnection!({
+        label: nLabel,
+        resendApiKey: nKey,
+        resendRegion: nRegion,
+        resendWebhookSecret: nSecret,
+      });
+      if (r.ok) {
+        setNLabel("");
+        setNKey("");
+        setNSecret("");
+        setMsg("Conta conectada. Adicione o domínio dela na seção de Domínios.");
+        callbacks.onRefresh();
+      } else {
+        setErr(r.error);
+      }
+    });
+  }
+
+  function saveEdit(id: string) {
+    if (!callbacks.onUpdateConnection) return;
+    setErr(null);
+    setMsg(null);
+    start(async () => {
+      const r = await callbacks.onUpdateConnection!(id, {
+        label: eLabel,
+        resendApiKey: eKey,
+        resendRegion: eRegion,
+        resendWebhookSecret: eSecret,
+      });
+      if (r.ok) {
+        setEditId(null);
+        setMsg("Conta atualizada.");
+        callbacks.onRefresh();
+      } else {
+        setErr(r.error);
+      }
+    });
+  }
+
+  async function remove(c: MailConnectionRow) {
+    if (c.domainCount > 0) {
+      setErr(`A conta "${c.label}" tem ${c.domainCount} domínio(s). Remova-os antes.`);
+      return;
+    }
+    if (!callbacks.onRemoveConnection) return;
+    if (!(await confirm({ title: `Remover a conta ${c.label}?`, description: "A conexão Resend será desvinculada da plataforma.", confirmLabel: "Remover", tone: "danger" }))) return;
+    setErr(null);
+    setMsg(null);
+    start(async () => {
+      const r = await callbacks.onRemoveConnection!(c.id);
+      if (r.ok) callbacks.onRefresh();
+      else setErr(r.error);
+    });
+  }
+
+  return (
+    <Card>
+      <Stack gap={5}>
+        <Stack gap={1}>
+          <Text fontWeight="700" color="var(--admin-primary)">
+            Contas Resend conectadas
+          </Text>
+          <Text fontSize="sm" color="var(--admin-text-soft)">
+            Cada conta Resend tem sua API key, seus domínios e seu webhook. O envio
+            automático escolhe a conta pelo domínio do remetente.
+          </Text>
+        </Stack>
+
+        {webhookUrl ? <WebhookBox webhookUrl={webhookUrl} /> : null}
+
+        {err && <Text color="red.600" fontSize="sm">{err}</Text>}
+        {msg && <Text color="green.600" fontSize="sm">{msg}</Text>}
+
+        {connections.length === 0 ? (
+          <Text fontSize="sm" color="var(--admin-text-soft)">
+            Nenhuma conta ainda. Adicione a primeira abaixo.
+          </Text>
+        ) : (
+          <Stack gap={3}>
+            {connections.map((c) => (
+              <Box key={c.id} borderWidth="1px" borderColor="var(--admin-border)" borderRadius="12px" p={4}>
+                <HStack justify="space-between" flexWrap="wrap" gap={2}>
+                  <HStack gap={3} flexWrap="wrap">
+                    <Text fontWeight="600">{c.label}</Text>
+                    <Tag
+                      bg={c.hasApiKey ? "rgba(34,197,94,0.12)" : "rgba(234,179,8,0.14)"}
+                      color={c.hasApiKey ? "#15803d" : "#a16207"}
+                    >
+                      {c.hasApiKey ? "key ok" : "sem key"}
+                    </Tag>
+                    <Tag
+                      bg={c.hasWebhookSecret ? "rgba(59,130,246,0.12)" : "rgba(100,116,139,0.14)"}
+                      color={c.hasWebhookSecret ? "#1d4ed8" : "#475569"}
+                    >
+                      {c.hasWebhookSecret ? "webhook ok" : "sem webhook"}
+                    </Tag>
+                    <Tag bg="rgba(100,116,139,0.14)" color="#475569">{c.region}</Tag>
+                    <Tag bg="rgba(100,116,139,0.14)" color="#475569">{c.domainCount} domínio(s)</Tag>
+                  </HStack>
+                  <HStack gap={2}>
+                    <Button size="sm" tone="outline" onClick={() => (editId === c.id ? setEditId(null) : openEdit(c))}>
+                      {editId === c.id ? "Fechar" : "Editar"}
+                    </Button>
+                    <Button size="sm" tone="ghost" color="#dc2626" onClick={() => remove(c)} loading={pending}>
+                      <Trash2 size={14} />
+                    </Button>
+                  </HStack>
+                </HStack>
+
+                {editId === c.id ? (
+                  <Stack gap={3} mt={4}>
+                    <FormInput label="Nome da conta" value={eLabel} onChange={(e) => setELabel(e.target.value)} autoComplete="off" />
+                    <FormInput
+                      label="Nova API key (deixe em branco pra manter)"
+                      type="password"
+                      value={eKey}
+                      placeholder="re_..."
+                      onChange={(e) => setEKey(e.target.value)}
+                      autoComplete="off"
+                    />
+                    <Box maxW="260px">
+                      <FormSelect
+                        label="Região"
+                        value={eRegion}
+                        onChange={(e) => setERegion(e.currentTarget.value)}
+                        options={REGIONS.map((r) => ({ value: r, label: r }))}
+                      />
+                    </Box>
+                    <FormInput
+                      label="Novo Signing secret (deixe em branco pra manter)"
+                      type="password"
+                      value={eSecret}
+                      placeholder="whsec_..."
+                      onChange={(e) => setESecret(e.target.value)}
+                      autoComplete="off"
+                    />
+                    <HStack justify="flex-end">
+                      <Button tone="primary" onClick={() => saveEdit(c.id)} loading={pending}>
+                        Salvar alterações
+                      </Button>
+                    </HStack>
+                  </Stack>
+                ) : null}
+              </Box>
+            ))}
+          </Stack>
+        )}
+
+        <Box borderTopWidth="1px" borderColor="var(--admin-border)" pt={4}>
+          <Text fontWeight="700" color="var(--admin-primary)" mb={3}>
+            Adicionar conta Resend
+          </Text>
+          <Stack gap={3}>
+            <FormInput
+              label="Nome da conta"
+              value={nLabel}
+              placeholder="josejunior.com.br"
+              onChange={(e) => setNLabel(e.target.value)}
+              autoComplete="off"
+              help="Só pra você identificar (ex.: o domínio principal dela)."
+            />
+            <FormInput
+              label="API key do Resend"
+              type="password"
+              value={nKey}
+              placeholder="re_..."
+              onChange={(e) => setNKey(e.target.value)}
+              autoComplete="off"
+            />
+            <Box maxW="260px">
+              <FormSelect
+                label="Região"
+                value={nRegion}
+                onChange={(e) => setNRegion(e.currentTarget.value)}
+                options={REGIONS.map((r) => ({ value: r, label: r }))}
+              />
+            </Box>
+            <FormInput
+              label="Signing secret do webhook (whsec_…)"
+              type="password"
+              value={nSecret}
+              placeholder="whsec_..."
+              onChange={(e) => setNSecret(e.target.value)}
+              autoComplete="off"
+              help="Opcional agora; sem ele os eventos entram best-effort. Cole depois de criar o webhook."
+            />
+            <HStack justify="flex-end">
+              <Button tone="primary" onClick={create} loading={pending} disabled={!nLabel.trim() || !nKey.trim()}>
+                Conectar conta
+              </Button>
+            </HStack>
+          </Stack>
+        </Box>
+      </Stack>
+      {confirmDialog}
+    </Card>
+  );
+}
+
+// ============================================================
 // Domínios
 // ============================================================
 
@@ -666,14 +1017,18 @@ function domStatusLabel(status: string, verified: boolean) {
 
 function DomainManager({
   domains,
+  connections,
   callbacks,
 }: {
   domains: MailDomain[];
+  connections?: MailConnectionRow[];
   callbacks: MailCallbacks;
 }) {
   const { confirm, confirmDialog } = useConfirm();
   const [pending, start] = useTransition();
   const [newDomain, setNewDomain] = useState("");
+  const connOptions = (connections ?? []).filter((c) => c.hasApiKey);
+  const [connId, setConnId] = useState<string>(connOptions[0]?.id ?? "");
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -682,7 +1037,7 @@ function DomainManager({
     setErr(null);
     setMsg(null);
     start(async () => {
-      const r = await callbacks.onAddDomain(newDomain);
+      const r = await callbacks.onAddDomain(newDomain, connId || undefined);
       if (r.ok) {
         setNewDomain("");
         setMsg("Domínio adicionado. Publique os registros DNS abaixo e clique em Verificar.");
@@ -750,6 +1105,16 @@ function DomainManager({
               autoComplete="off"
             />
           </Box>
+          {connOptions.length > 1 ? (
+            <Box minW="220px">
+              <FormSelect
+                label="Conta Resend"
+                value={connId}
+                onChange={(e) => setConnId(e.currentTarget.value)}
+                options={connOptions.map((c) => ({ value: c.id, label: c.label }))}
+              />
+            </Box>
+          ) : null}
           <Button tone="primary" onClick={add} loading={pending} disabled={!newDomain.trim()}>
             Adicionar domínio
           </Button>
@@ -781,13 +1146,16 @@ function DomainManager({
                 p={4}
               >
                 <HStack justify="space-between" flexWrap="wrap" gap={2}>
-                  <HStack gap={3}>
+                  <HStack gap={3} flexWrap="wrap">
                     <Text fontWeight="600">{d.domain}</Text>
                     <Tag {...domStatusTone(d.status, d.verified)}>
                       {domStatusLabel(d.status, d.verified)}
                     </Tag>
                     {d.inboundEnabled ? (
                       <Tag bg="rgba(59,130,246,0.12)" color="#1d4ed8">recebe e-mails</Tag>
+                    ) : null}
+                    {connections && d.connectionLabel ? (
+                      <Tag bg="rgba(100,116,139,0.14)" color="#475569">{d.connectionLabel}</Tag>
                     ) : null}
                   </HStack>
                   <HStack gap={2}>
