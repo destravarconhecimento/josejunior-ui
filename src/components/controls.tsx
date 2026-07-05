@@ -44,10 +44,12 @@ function wantsAutofill(ac: unknown): boolean {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(props, ref) {
   const off = !wantsAutofill(props.autoComplete);
+  // senha: o Chrome IGNORA autoComplete="off" e oferece a senha salva; "new-password" é o que ele respeita.
+  const offValue = props.type === "password" ? "new-password" : "off";
   return (
     <ChakraInput
       ref={ref}
-      autoComplete={off ? "off" : undefined}
+      autoComplete={off ? offValue : undefined}
       data-1p-ignore={off ? "true" : undefined}
       data-lpignore={off ? "true" : undefined}
       data-bwignore={off ? "true" : undefined}

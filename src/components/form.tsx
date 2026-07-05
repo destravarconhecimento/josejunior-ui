@@ -1,17 +1,9 @@
 import type { ReactNode } from "react";
-import {
-  Box,
-  Field,
-  HStack,
-  Input,
-  type InputProps,
-  NativeSelect,
-  SimpleGrid,
-  Spinner,
-  Text,
-  Textarea,
-  type TextareaProps,
-} from "@chakra-ui/react";
+import { Box, Field, HStack, SimpleGrid, Spinner, Text } from "@chakra-ui/react";
+// Controles ui-owned (anti-autofill + estilo --admin embutidos). NÃO usar o
+// Input/Textarea/NativeSelect CRU do Chakra aqui: eles não bloqueiam o autofill
+// do navegador/gerenciador de senha e enchiam campos que deviam ficar vazios.
+import { Input, type InputProps, NativeSelect, Textarea, type TextareaProps } from "./controls";
 
 type FieldWrap = { label?: ReactNode; help?: ReactNode; error?: ReactNode; required?: boolean };
 
