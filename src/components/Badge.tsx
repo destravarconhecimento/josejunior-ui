@@ -18,8 +18,17 @@ export function Tag({
     <Box
       as="span"
       title={title}
-      display="inline-block"
+      // inline-FLEX (não inline-block): o preflight do Chakra força `svg{display:block}`,
+      // e um filho block dentro de fluxo inline quebra a linha (empurra o texto pra
+      // baixo do ícone) — `whiteSpace:nowrap` não segura block. Flex força ícone+texto
+      // na mesma linha. overflow/maxW = rede de segurança em coluna estreita (trunca em vez de vazar).
+      display="inline-flex"
+      alignItems="center"
+      gap="1"
+      maxW="100%"
       whiteSpace="nowrap"
+      overflow="hidden"
+      textOverflow="ellipsis"
       fontSize="xs"
       fontWeight="600"
       px={2.5}
