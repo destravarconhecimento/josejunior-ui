@@ -60,6 +60,12 @@ export { DataTable, TableCard, type Column } from "./components/DataTable";
 export { Pagination } from "./components/Pagination";
 export { Modal } from "./components/Modal";
 export { CrudManager } from "./components/CrudManager";
+export {
+  EvolucoesManager,
+  type EvolucoesManagerProps,
+  type EvolucaoItem,
+  type EvolucaoSaveData,
+} from "./components/EvolucoesManager";
 export { Toaster, toaster, toast } from "./components/Toast";
 export { Accordion, type AccordionItemDef } from "./components/Accordion";
 export { SidePanel } from "./components/SidePanel";
@@ -117,6 +123,7 @@ export { ActionListCard, type ActionListItem, type ActionTone } from "./componen
 // Editor de Flyers (canvas puro + editor client + galeria) — apps/site
 export { SlidePage, type SlidePageProps, type SlideMode } from "./flyer/SlidePage";
 export { FlyerEditor, type FlyerEditorProps, type FlyerSaveData } from "./flyer/FlyerEditor";
+export type { FlyerComparison } from "./flyer/types";
 export { FlyersGallery, type FlyersGalleryProps } from "./flyer/FlyersGallery";
 export { FlyerPublicView, type FlyerPublicViewProps } from "./flyer/FlyerPublicView";
 export {

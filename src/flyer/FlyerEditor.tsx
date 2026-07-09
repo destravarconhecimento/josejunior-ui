@@ -8,13 +8,14 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft, Copy, Download, FileText, Globe, ImagePlus, Link2, Plus, Redo2,
+  ArrowLeft, Copy, Download, FileText, Globe, ImagePlus, Images, Link2, Plus, Redo2,
   Save, Square, Trash2, Type, Undo2,
 } from "lucide-react";
-import { Box, Flex, Heading, HStack, Stack, Text } from "../primitives";
+import { Box, Flex, Heading, HStack, SimpleGrid, Stack, Text } from "../primitives";
 import { Input } from "../components/controls";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
+import { Modal } from "../components/Modal";
 import { toaster } from "../components/Toast";
 import { CANVAS_W, CANVAS_H } from "./constants";
 import { useHistory, type SetMode } from "./history";
@@ -24,7 +25,7 @@ import {
 import { SlidePage } from "./SlidePage";
 import { Inspector } from "./Inspector";
 import { CropModal } from "./CropModal";
-import type { FlyerBrand, FlyerDocument, FlyerElement, FlyerPage } from "./types";
+import type { FlyerBrand, FlyerComparison, FlyerDocument, FlyerElement, FlyerPage } from "./types";
 
 const RIGHT_W = 340;
 
@@ -42,6 +43,8 @@ export type FlyerEditorProps = {
   onUpload: (file: File | Blob, filename: string) => Promise<string>;
   onPublish: (next: boolean, data: FlyerSaveData) => Promise<{ url: string; published: boolean }>;
   onExport: (kind: "png" | "pdf", data: FlyerSaveData & { pageIndex: number }) => Promise<void>;
+  /** Comparações antes/depois (módulo Evoluções) — só chega quando o módulo está ligado. */
+  comparisons?: FlyerComparison[];
 };
 
 function deepClonePage(pg: FlyerPage): FlyerPage {
@@ -68,7 +71,9 @@ export function FlyerEditor(props: FlyerEditorProps) {
   const [published, setPublished] = useState(props.published);
   const [publicUrl, setPublicUrl] = useState<string | null>(props.publicUrl);
   const [cropOpen, setCropOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   const cropTargetRef = useRef<string | null>(null);
+  const comparisons = props.comparisons ?? [];
 
   const pageIndexRef = useRef(0);
   pageIndexRef.current = Math.min(pageIndex, doc.pages.length - 1);
@@ -176,6 +181,66 @@ export function FlyerEditor(props: FlyerEditorProps) {
         };
       });
       setSelectedId((cur) => (cur === id ? null : cur));
+    },
+    [hist],
+  );
+
+  /**
+   * Insere uma comparação (antes/depois) inteira na página atual num único passo
+   * de histórico: as duas fotos lado a lado + rótulos + título/subtítulo. O usuário
+   * reposiciona/edita cada peça depois, como qualquer elemento.
+   */
+  const insertComparison = useCallback(
+    (cmp: FlyerComparison) => {
+      const M = 60; // margem lateral
+      const GAP = 40; // espaço entre as fotos
+      const imgW = Math.round((CANVAS_W - M * 2 - GAP) / 2); // retrato lado a lado
+      const imgH = Math.round((imgW * 4) / 3); // proporção 3:4
+      const imgY = 340;
+      const beforeX = M;
+      const afterX = M + imgW + GAP;
+      const labelY = imgY - 52;
+      const titleY = imgY + imgH + 28;
+      const subY = titleY + 96;
+
+      const els: FlyerElement[] = [
+        createTextElement({
+          x: beforeX, y: labelY, w: imgW, h: 44,
+          text: "ANTES", fontSize: 26, fontWeight: "700",
+          color: "#e6e9f2", align: "center", letterSpacing: 2, lineHeight: 1.1,
+        }),
+        createTextElement({
+          x: afterX, y: labelY, w: imgW, h: 44,
+          text: "DEPOIS", fontSize: 26, fontWeight: "700",
+          color: "#ffffff", align: "center", letterSpacing: 2, lineHeight: 1.1,
+        }),
+        createImageElement({ x: beforeX, y: imgY, w: imgW, h: imgH, src: cmp.beforeUrl, radius: 18, shadow: true }),
+        createImageElement({ x: afterX, y: imgY, w: imgW, h: imgH, src: cmp.afterUrl, radius: 18, shadow: true }),
+        createTextElement({
+          x: M, y: titleY, w: CANVAS_W - M * 2, h: 90,
+          text: cmp.title || "Evolução", fontSize: 52, fontWeight: "900",
+          color: "#ffffff", align: "center", lineHeight: 1.05,
+        }),
+      ];
+      if (cmp.subtitle && cmp.subtitle.trim()) {
+        els.push(
+          createTextElement({
+            x: M + 20, y: subY, w: CANVAS_W - (M + 20) * 2, h: 80,
+            text: cmp.subtitle, fontSize: 30, fontWeight: "600",
+            color: "#e6e9f2", align: "center", lineHeight: 1.25,
+          }),
+        );
+      }
+
+      hist.set((d) => {
+        const pi = pageIndexRef.current;
+        return {
+          ...d,
+          pages: d.pages.map((pg, i) => (i === pi ? { ...pg, elements: [...pg.elements, ...els] } : pg)),
+        };
+      });
+      setSelectedId(els[els.length - 1].id);
+      setCompareOpen(false);
     },
     [hist],
   );
@@ -487,6 +552,11 @@ export function FlyerEditor(props: FlyerEditorProps) {
             <Button tone="outline" size="sm" onClick={() => addElement(createShapeElement())}>
               <Square size={16} /> Forma
             </Button>
+            {comparisons.length > 0 ? (
+              <Button tone="outline" size="sm" onClick={() => setCompareOpen(true)} title="Inserir uma evolução (antes/depois)">
+                <Images size={16} /> Comparação
+              </Button>
+            ) : null}
           </HStack>
 
           {/* Papel */}
@@ -615,6 +685,41 @@ export function FlyerEditor(props: FlyerEditorProps) {
         onClose={() => setCropOpen(false)}
         onCropped={onCropped}
       />
+
+      <Modal open={compareOpen} onClose={() => setCompareOpen(false)} title="Inserir uma evolução" size="lg">
+        {comparisons.length === 0 ? (
+          <Text fontSize="sm" color="var(--admin-text-soft)">
+            Nenhuma comparação com as duas fotos ainda. Cadastre em Evoluções.
+          </Text>
+        ) : (
+          <SimpleGrid columns={{ base: 2, md: 3 }} gap={3}>
+            {comparisons.map((c) => (
+              <Box
+                key={c.id}
+                as="button"
+                type="button"
+                onClick={() => insertComparison(c)}
+                textAlign="left"
+                borderWidth="1px"
+                borderColor="var(--admin-border)"
+                borderRadius="12px"
+                overflow="hidden"
+                bg="var(--admin-surface)"
+                cursor="pointer"
+                _hover={{ borderColor: "var(--admin-primary)" }}
+              >
+                <HStack gap={0}>
+                  <Box flex="1" style={{ aspectRatio: "3 / 4" }} bgImage={`url(${c.beforeUrl})`} bgSize="cover" bgPosition="center" />
+                  <Box flex="1" style={{ aspectRatio: "3 / 4" }} bgImage={`url(${c.afterUrl})`} bgSize="cover" bgPosition="center" />
+                </HStack>
+                <Text fontSize="xs" fontWeight="600" p={2} lineClamp={1} title={c.title}>
+                  {c.title}
+                </Text>
+              </Box>
+            ))}
+          </SimpleGrid>
+        )}
+      </Modal>
     </Stack>
   );
 }

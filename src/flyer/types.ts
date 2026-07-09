@@ -76,6 +76,19 @@ export type FlyerBrand = {
   siteUrl?: string;
 };
 
+/**
+ * Comparação "antes e depois" (módulo Evoluções) disponível para o editor puxar
+ * pro flyer. O app só passa isto quando o tenant tem o módulo `evolucoes` ligado;
+ * o editor insere as duas fotos + título/subtítulo num clique.
+ */
+export type FlyerComparison = {
+  id: number;
+  title: string;
+  subtitle: string | null;
+  beforeUrl: string;
+  afterUrl: string;
+};
+
 /** Linha resumida de flyer para a galeria/lista. */
 export type FlyerSummary = {
   id: number;
