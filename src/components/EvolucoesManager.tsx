@@ -282,10 +282,10 @@ function Thumb({ url, label, accent }: { url: string | null; label: string; acce
         <Box
           position="absolute"
           inset="0"
-          bgImage={`url(${url})`}
-          bgSize="cover"
-          bgPosition="center"
-          bgRepeat="no-repeat"
+          backgroundImage={`url(${url})`}
+          backgroundSize="cover"
+          backgroundPosition="center"
+          backgroundRepeat="no-repeat"
         />
       ) : (
         <Flex align="center" justify="center" h="100%" color="whiteAlpha.500">
@@ -344,9 +344,9 @@ function ImageDrop({
       </Text>
       <Box
         as="button"
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={busy}
+        onClick={() => {
+          if (!busy) inputRef.current?.click();
+        }}
         position="relative"
         w="100%"
         style={{ aspectRatio: "3 / 4" }}
@@ -355,9 +355,9 @@ function ImageDrop({
         borderStyle="dashed"
         borderColor="var(--admin-border)"
         bg="var(--admin-surface)"
-        bgImage={url ? `url(${url})` : undefined}
-        bgSize="cover"
-        bgPosition="center"
+        backgroundImage={url ? `url(${url})` : undefined}
+        backgroundSize="cover"
+        backgroundPosition="center"
         overflow="hidden"
         cursor={busy ? "wait" : "pointer"}
         display="flex"

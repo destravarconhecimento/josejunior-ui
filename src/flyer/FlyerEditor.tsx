@@ -697,7 +697,6 @@ export function FlyerEditor(props: FlyerEditorProps) {
               <Box
                 key={c.id}
                 as="button"
-                type="button"
                 onClick={() => insertComparison(c)}
                 textAlign="left"
                 borderWidth="1px"
@@ -709,8 +708,8 @@ export function FlyerEditor(props: FlyerEditorProps) {
                 _hover={{ borderColor: "var(--admin-primary)" }}
               >
                 <HStack gap={0}>
-                  <Box flex="1" style={{ aspectRatio: "3 / 4" }} bgImage={`url(${c.beforeUrl})`} bgSize="cover" bgPosition="center" />
-                  <Box flex="1" style={{ aspectRatio: "3 / 4" }} bgImage={`url(${c.afterUrl})`} bgSize="cover" bgPosition="center" />
+                  <Box flex="1" style={{ aspectRatio: "3 / 4" }} backgroundImage={`url(${c.beforeUrl})`} backgroundSize="cover" backgroundPosition="center" />
+                  <Box flex="1" style={{ aspectRatio: "3 / 4" }} backgroundImage={`url(${c.afterUrl})`} backgroundSize="cover" backgroundPosition="center" />
                 </HStack>
                 <Text fontSize="xs" fontWeight="600" p={2} lineClamp={1} title={c.title}>
                   {c.title}
