@@ -1,0 +1,620 @@
+"use client";
+/**
+ * Editor visual do flyer (o coração — §2/§4/§6 do doc). Client puro; guarda o
+ * documento no histórico (undo/redo), calcula a escala a partir da largura REAL
+ * do container (ResizeObserver), e faz seleção/arrastar/redimensionar por cima do
+ * `SlidePage`. As ações de servidor (salvar/publicar/exportar/upload) chegam por
+ * props — o editor nunca fala com o backend direto.
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowLeft, Copy, Download, FileText, Globe, ImagePlus, Link2, Plus, Redo2,
+  Save, Square, Trash2, Type, Undo2,
+} from "lucide-react";
+import { Box, Flex, Heading, HStack, Stack, Text } from "../primitives";
+import { Input } from "../components/controls";
+import { Button } from "../components/Button";
+import { Card } from "../components/Card";
+import { toaster } from "../components/Toast";
+import { CANVAS_W, CANVAS_H } from "./constants";
+import { useHistory, type SetMode } from "./history";
+import {
+  blankPage, cloneElementShifted, createImageElement, createShapeElement, createTextElement, flyerId,
+} from "./seed";
+import { SlidePage } from "./SlidePage";
+import { Inspector } from "./Inspector";
+import { CropModal } from "./CropModal";
+import type { FlyerBrand, FlyerDocument, FlyerElement, FlyerPage } from "./types";
+
+const RIGHT_W = 340;
+
+export type FlyerSaveData = { title: string; document: FlyerDocument };
+
+export type FlyerEditorProps = {
+  brand: FlyerBrand;
+  initialTitle: string;
+  initialDocument: FlyerDocument;
+  published: boolean;
+  publicUrl: string | null;
+  onBack: () => void;
+  onSave: (data: FlyerSaveData) => Promise<void>;
+  /** Sobe arquivo/blob e devolve a URL pública. */
+  onUpload: (file: File | Blob, filename: string) => Promise<string>;
+  onPublish: (next: boolean, data: FlyerSaveData) => Promise<{ url: string; published: boolean }>;
+  onExport: (kind: "png" | "pdf", data: FlyerSaveData & { pageIndex: number }) => Promise<void>;
+};
+
+function deepClonePage(pg: FlyerPage): FlyerPage {
+  return {
+    id: flyerId("pg"),
+    background: { ...pg.background },
+    elements: pg.elements.map((el) => ({ ...el, id: flyerId(el.id.split("_")[0] || "el") })),
+  };
+}
+
+export function FlyerEditor(props: FlyerEditorProps) {
+  const { brand } = props;
+  const hist = useHistory<FlyerDocument>(props.initialDocument);
+  const doc = hist.state;
+
+  const [title, setTitle] = useState(props.initialTitle);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [scale, setScale] = useState(0.5);
+  const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [exporting, setExporting] = useState<"png" | "pdf" | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [published, setPublished] = useState(props.published);
+  const [publicUrl, setPublicUrl] = useState<string | null>(props.publicUrl);
+  const [cropOpen, setCropOpen] = useState(false);
+  const cropTargetRef = useRef<string | null>(null);
+
+  const pageIndexRef = useRef(0);
+  pageIndexRef.current = Math.min(pageIndex, doc.pages.length - 1);
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
+
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const pendingUpload = useRef<{ kind: "add" | "replace" | "logo"; id?: string } | null>(null);
+  const dragRef = useRef<
+    | null
+    | { kind: "move" | "resize"; id: string; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number }
+  >(null);
+
+  const page = doc.pages[pageIndexRef.current] ?? doc.pages[0];
+  const selected = page?.elements.find((e) => e.id === selectedId) ?? null;
+
+  // ---- escala pela largura REAL do container (gotcha §7 do doc) ----
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const recompute = () => {
+      const availW = el.clientWidth - 32;
+      const availH = (typeof window !== "undefined" ? window.innerHeight : 900) - 220;
+      const s = Math.max(0.15, Math.min(availW / CANVAS_W, availH / CANVAS_H, 0.85));
+      setScale(s);
+    };
+    recompute();
+    const ro = new ResizeObserver(recompute);
+    ro.observe(el);
+    window.addEventListener("resize", recompute);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", recompute);
+    };
+  }, []);
+
+  // ---- mutações do documento ----
+  const patchElement = useCallback(
+    (id: string, patch: Partial<FlyerElement>, opts?: SetMode) => {
+      hist.set((d) => {
+        const pi = pageIndexRef.current;
+        return {
+          ...d,
+          pages: d.pages.map((pg, i) =>
+            i === pi
+              ? { ...pg, elements: pg.elements.map((el) => (el.id === id ? ({ ...el, ...patch } as FlyerElement) : el)) }
+              : pg,
+          ),
+        };
+      }, opts);
+    },
+    [hist],
+  );
+
+  const setLogoSrc = useCallback(
+    (src: string) => {
+      hist.set((d) => ({
+        ...d,
+        pages: d.pages.map((pg) => ({
+          ...pg,
+          elements: pg.elements.map((el) => (el.type === "image" && el.isLogo ? { ...el, src } : el)),
+        })),
+      }));
+    },
+    [hist],
+  );
+
+  const setBackground = useCallback(
+    (value: string, opts?: SetMode) => {
+      hist.set((d) => {
+        const pi = pageIndexRef.current;
+        return {
+          ...d,
+          pages: d.pages.map((pg, i) =>
+            i === pi ? { ...pg, background: { type: "color", value } } : pg,
+          ),
+        };
+      }, opts);
+    },
+    [hist],
+  );
+
+  const addElement = useCallback(
+    (el: FlyerElement) => {
+      hist.set((d) => {
+        const pi = pageIndexRef.current;
+        return {
+          ...d,
+          pages: d.pages.map((pg, i) => (i === pi ? { ...pg, elements: [...pg.elements, el] } : pg)),
+        };
+      });
+      setSelectedId(el.id);
+    },
+    [hist],
+  );
+
+  const removeElement = useCallback(
+    (id: string) => {
+      hist.set((d) => {
+        const pi = pageIndexRef.current;
+        return {
+          ...d,
+          pages: d.pages.map((pg, i) => (i === pi ? { ...pg, elements: pg.elements.filter((e) => e.id !== id) } : pg)),
+        };
+      });
+      setSelectedId((cur) => (cur === id ? null : cur));
+    },
+    [hist],
+  );
+
+  const duplicateElement = useCallback(
+    (id: string) => {
+      const src = doc.pages[pageIndexRef.current]?.elements.find((e) => e.id === id);
+      if (!src) return;
+      const clone = cloneElementShifted(src);
+      addElement(clone);
+    },
+    [doc, addElement],
+  );
+
+  const reorderElement = useCallback(
+    (id: string, dir: 1 | -1) => {
+      hist.set((d) => {
+        const pi = pageIndexRef.current;
+        return {
+          ...d,
+          pages: d.pages.map((pg, i) => {
+            if (i !== pi) return pg;
+            const idx = pg.elements.findIndex((e) => e.id === id);
+            if (idx < 0) return pg;
+            const j = idx + dir;
+            if (j < 0 || j >= pg.elements.length) return pg;
+            const arr = pg.elements.slice();
+            const [it] = arr.splice(idx, 1);
+            arr.splice(j, 0, it);
+            return { ...pg, elements: arr };
+          }),
+        };
+      });
+    },
+    [hist],
+  );
+
+  // ---- páginas ----
+  const addPage = () => {
+    hist.set((d) => ({ ...d, pages: [...d.pages, blankPage(brand)] }));
+    setPageIndex(doc.pages.length);
+    setSelectedId(null);
+  };
+  const duplicatePage = () => {
+    const src = doc.pages[pageIndexRef.current];
+    if (!src) return;
+    const clone = deepClonePage(src);
+    hist.set((d) => {
+      const arr = d.pages.slice();
+      arr.splice(pageIndexRef.current + 1, 0, clone);
+      return { ...d, pages: arr };
+    });
+    setPageIndex(pageIndexRef.current + 1);
+    setSelectedId(null);
+  };
+  const deletePage = () => {
+    if (doc.pages.length <= 1) return;
+    const pi = pageIndexRef.current;
+    hist.set((d) => ({ ...d, pages: d.pages.filter((_, i) => i !== pi) }));
+    setPageIndex(Math.max(0, pi - 1));
+    setSelectedId(null);
+  };
+
+  // ---- drag / resize (transient — 1 snapshot por gesto) ----
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const d = dragRef.current;
+      if (!d) return;
+      const s = scaleRef.current || 1;
+      const dx = (e.clientX - d.sx) / s;
+      const dy = (e.clientY - d.sy) / s;
+      if (d.kind === "move") {
+        patchElement(d.id, { x: Math.round(d.ox + dx), y: Math.round(d.oy + dy) }, { transient: true });
+      } else {
+        patchElement(d.id, { w: Math.max(20, Math.round(d.ow + dx)), h: Math.max(20, Math.round(d.oh + dy)) }, { transient: true });
+      }
+    };
+    const onUp = () => {
+      if (dragRef.current) {
+        dragRef.current = null;
+        hist.endTransient();
+      }
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [patchElement, hist]);
+
+  const startGesture = (kind: "move" | "resize", id: string, e: React.PointerEvent) => {
+    const el = doc.pages[pageIndexRef.current]?.elements.find((x) => x.id === id);
+    if (!el) return;
+    setSelectedId(id);
+    hist.beginTransient();
+    dragRef.current = { kind, id, sx: e.clientX, sy: e.clientY, ox: el.x, oy: el.y, ow: el.w, oh: el.h };
+  };
+
+  // ---- teclado ----
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) hist.redo();
+        else hist.undo();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        hist.redo();
+        return;
+      }
+      if (typing) return;
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+        e.preventDefault();
+        removeElement(selectedId);
+        return;
+      }
+      if (selectedId && e.key.startsWith("Arrow")) {
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        const cur = doc.pages[pageIndexRef.current]?.elements.find((x) => x.id === selectedId);
+        if (!cur) return;
+        const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+        const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+        patchElement(selectedId, { x: cur.x + dx, y: cur.y + dy }, { coalesce: "nudge" });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [hist, selectedId, removeElement, patchElement, doc]);
+
+  // ---- upload ----
+  const openFilePicker = (action: { kind: "add" | "replace" | "logo"; id?: string }) => {
+    pendingUpload.current = action;
+    fileRef.current?.click();
+  };
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const action = pendingUpload.current;
+    e.target.value = "";
+    if (!file || !action) return;
+    setUploading(true);
+    try {
+      const url = await props.onUpload(file, file.name);
+      if (action.kind === "add") {
+        addElement(createImageElement({ x: (CANVAS_W - 480) / 2, y: 320, w: 480, h: 480, src: url }));
+      } else if (action.kind === "logo") {
+        setLogoSrc(url);
+      } else if (action.id) {
+        const el = doc.pages[pageIndexRef.current]?.elements.find((x) => x.id === action.id);
+        if (el && el.type === "image" && el.isLogo) setLogoSrc(url);
+        else patchElement(action.id, { src: url });
+      }
+    } catch (err) {
+      toaster.create({ title: "Falha no upload", description: String(err), type: "error" });
+    } finally {
+      setUploading(false);
+      pendingUpload.current = null;
+    }
+  };
+
+  const onCropped = async (blob: Blob) => {
+    const id = cropTargetRef.current;
+    if (!id) return;
+    setUploading(true);
+    try {
+      const url = await props.onUpload(blob, `${id}-crop.png`);
+      const el = doc.pages[pageIndexRef.current]?.elements.find((x) => x.id === id);
+      if (el && el.type === "image" && el.isLogo) setLogoSrc(url);
+      else patchElement(id, { src: url });
+    } catch (err) {
+      toaster.create({ title: "Falha ao recortar", description: String(err), type: "error" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // ---- servidor ----
+  const saveData = (): FlyerSaveData => ({ title: title.trim() || "Sem título", document: doc });
+  const doSave = async () => {
+    setSaving(true);
+    try {
+      await props.onSave(saveData());
+      toaster.create({ title: "Flyer salvo", type: "success" });
+    } catch (err) {
+      toaster.create({ title: "Falha ao salvar", description: String(err), type: "error" });
+    } finally {
+      setSaving(false);
+    }
+  };
+  const doPublish = async (next: boolean) => {
+    setPublishing(true);
+    try {
+      await props.onSave(saveData());
+      const r = await props.onPublish(next, saveData());
+      setPublished(r.published);
+      setPublicUrl(r.url);
+      toaster.create({ title: next ? "Página publicada" : "Publicação removida", type: "success" });
+    } catch (err) {
+      toaster.create({ title: "Falha ao publicar", description: String(err), type: "error" });
+    } finally {
+      setPublishing(false);
+    }
+  };
+  const doExport = async (kind: "png" | "pdf") => {
+    setExporting(kind);
+    try {
+      await props.onSave(saveData());
+      await props.onExport(kind, { ...saveData(), pageIndex: pageIndexRef.current });
+    } catch (err) {
+      toaster.create({ title: "Falha ao exportar", description: String(err), type: "error" });
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const copyLink = async () => {
+    if (!publicUrl) return;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      toaster.create({ title: "Link copiado", type: "success" });
+    } catch {
+      toaster.create({ title: publicUrl, type: "info" });
+    }
+  };
+
+  const scaledW = Math.round(CANVAS_W * scale);
+  const scaledH = Math.round(CANVAS_H * scale);
+  const pageThumbScale = 84 / CANVAS_W;
+
+  const inspectorEl = useMemo(() => selected, [selected]);
+
+  return (
+    <Stack gap={3} h="100%">
+      {/* Barra superior */}
+      <Flex align="center" gap={3} flexWrap="wrap">
+        <Button tone="ghost" size="sm" onClick={props.onBack}>
+          <ArrowLeft size={16} /> Voltar
+        </Button>
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Título do flyer"
+          maxW="280px"
+          fontWeight="600"
+        />
+        <HStack gap={1}>
+          <Button tone="ghost" size="sm" onClick={hist.undo} disabled={!hist.canUndo} title="Desfazer (Ctrl+Z)">
+            <Undo2 size={16} />
+          </Button>
+          <Button tone="ghost" size="sm" onClick={hist.redo} disabled={!hist.canRedo} title="Refazer (Ctrl+Shift+Z)">
+            <Redo2 size={16} />
+          </Button>
+        </HStack>
+        <Box flex="1" />
+        <Button tone="outline" size="sm" onClick={() => doExport("png")} loading={exporting === "png"}>
+          <Download size={16} /> PNG
+        </Button>
+        <Button tone="outline" size="sm" onClick={() => doExport("pdf")} loading={exporting === "pdf"}>
+          <FileText size={16} /> PDF
+        </Button>
+        <Button
+          tone={published ? "whatsapp" : "outline"}
+          size="sm"
+          onClick={() => doPublish(!published)}
+          loading={publishing}
+        >
+          <Globe size={16} /> {published ? "Publicado" : "Publicar página"}
+        </Button>
+        <Button tone="primary" size="sm" onClick={doSave} loading={saving}>
+          <Save size={16} /> Salvar
+        </Button>
+      </Flex>
+
+      {/* Link público */}
+      {published && publicUrl ? (
+        <HStack gap={2} px={3} py={2} bg="var(--admin-nav-hover)" borderRadius="10px" flexWrap="wrap">
+          <Link2 size={16} />
+          <Text fontSize="sm" fontFamily="mono" truncate maxW="60%">
+            {publicUrl}
+          </Text>
+          <Button tone="ghost" size="xs" onClick={copyLink}>
+            Copiar
+          </Button>
+          <a href={publicUrl} target="_blank" rel="noreferrer">
+            <Button tone="ghost" size="xs">
+              Abrir
+            </Button>
+          </a>
+        </HStack>
+      ) : null}
+
+      <Flex gap={4} flex="1" minH="0" align="stretch" flexWrap={{ base: "wrap", lg: "nowrap" }}>
+        {/* Coluna do papel */}
+        <Stack gap={3} flex="1" minW="0">
+          {/* Adicionar elementos */}
+          <HStack gap={2} flexWrap="wrap">
+            <Button tone="outline" size="sm" onClick={() => addElement(createTextElement({ text: "Novo texto" }))}>
+              <Type size={16} /> Texto
+            </Button>
+            <Button tone="outline" size="sm" onClick={() => openFilePicker({ kind: "add" })} loading={uploading}>
+              <ImagePlus size={16} /> Imagem
+            </Button>
+            <Button tone="outline" size="sm" onClick={() => addElement(createShapeElement())}>
+              <Square size={16} /> Forma
+            </Button>
+          </HStack>
+
+          {/* Papel */}
+          <Box
+            ref={wrapRef}
+            flex="1"
+            minH="0"
+            overflow="auto"
+            bg="var(--admin-bg, #eef1f6)"
+            borderRadius="14px"
+            p={4}
+            display="flex"
+            justifyContent="center"
+            alignItems="flex-start"
+          >
+            {page ? (
+              <Box
+                style={{ width: scaledW, height: scaledH }}
+                position="relative"
+                borderRadius="6px"
+                overflow="hidden"
+                boxShadow="0 12px 40px rgba(15,23,42,0.25)"
+                flex="none"
+              >
+                <SlidePage
+                  page={page}
+                  scale={scale}
+                  mode="edit"
+                  selectedId={selectedId}
+                  onBackgroundPointerDown={() => setSelectedId(null)}
+                  onElementPointerDown={(id, e) => startGesture("move", id, e)}
+                  onResizePointerDown={(id, e) => startGesture("resize", id, e)}
+                  onElementDoubleClick={(id) => {
+                    const el = page.elements.find((x) => x.id === id);
+                    if (el?.type === "image") openFilePicker({ kind: "replace", id });
+                  }}
+                  onDuplicateEl={duplicateElement}
+                  onDeleteEl={removeElement}
+                  onBringForward={(id) => reorderElement(id, 1)}
+                  onSendBackward={(id) => reorderElement(id, -1)}
+                />
+              </Box>
+            ) : null}
+          </Box>
+
+          {/* Tira de páginas */}
+          <HStack gap={2} overflowX="auto" py={1}>
+            {doc.pages.map((pg, i) => {
+              const active = i === pageIndexRef.current;
+              return (
+                <Box
+                  key={pg.id}
+                  as="button"
+                  onClick={() => {
+                    setPageIndex(i);
+                    setSelectedId(null);
+                  }}
+                  flex="none"
+                  borderRadius="8px"
+                  overflow="hidden"
+                  borderWidth="2px"
+                  borderColor={active ? "var(--admin-primary)" : "var(--admin-border)"}
+                  position="relative"
+                  style={{ width: 84, height: Math.round(CANVAS_H * pageThumbScale) }}
+                  title={`Página ${i + 1}`}
+                >
+                  <SlidePage page={pg} scale={pageThumbScale} />
+                  <Box position="absolute" bottom="0" right="0" bg="rgba(0,0,0,0.6)" color="white" fontSize="10px" px={1}>
+                    {i + 1}
+                  </Box>
+                </Box>
+              );
+            })}
+            <Stack gap={1}>
+              <Button tone="outline" size="xs" onClick={addPage} title="Nova página">
+                <Plus size={14} /> Página
+              </Button>
+              <HStack gap={1}>
+                <Button tone="ghost" size="xs" onClick={duplicatePage} title="Duplicar página">
+                  <Copy size={14} />
+                </Button>
+                <Button tone="ghost" size="xs" onClick={deletePage} disabled={doc.pages.length <= 1} title="Excluir página">
+                  <Trash2 size={14} />
+                </Button>
+              </HStack>
+            </Stack>
+          </HStack>
+        </Stack>
+
+        {/* Inspetor */}
+        <Box flex="none" w={{ base: "100%", lg: `${RIGHT_W}px` }} minW="0">
+          <Card>
+            <Stack gap={4}>
+              <Heading size="sm" color="var(--admin-primary)">
+                {inspectorEl
+                  ? inspectorEl.type === "text"
+                    ? "Texto"
+                    : inspectorEl.type === "image"
+                      ? "Imagem"
+                      : "Forma"
+                  : "Página"}
+              </Heading>
+              <Inspector
+                element={inspectorEl}
+                background={page?.background ?? { type: "color", value: "#0b1220" }}
+                onPatch={(patch, opts) => selectedId && patchElement(selectedId, patch, opts)}
+                onBackground={setBackground}
+                onReplaceImage={() => selectedId && openFilePicker({ kind: "replace", id: selectedId })}
+                onCropImage={() => {
+                  if (!selected || selected.type !== "image" || !selected.src) return;
+                  cropTargetRef.current = selected.id;
+                  setCropOpen(true);
+                }}
+                onDuplicate={() => selectedId && duplicateElement(selectedId)}
+                onDelete={() => selectedId && removeElement(selectedId)}
+              />
+            </Stack>
+          </Card>
+        </Box>
+      </Flex>
+
+      <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFileChange} />
+      <CropModal
+        open={cropOpen}
+        src={selected?.type === "image" ? selected.src : null}
+        onClose={() => setCropOpen(false)}
+        onCropped={onCropped}
+      />
+    </Stack>
+  );
+}

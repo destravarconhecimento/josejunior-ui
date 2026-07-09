@@ -113,3 +113,38 @@ export {
   type ConversationStatusTone,
 } from "./components/ConversationSnapshotCard";
 export { ActionListCard, type ActionListItem, type ActionTone } from "./components/ActionListCard";
+
+// Editor de Flyers (canvas puro + editor client + galeria) — apps/site
+export { SlidePage, type SlidePageProps, type SlideMode } from "./flyer/SlidePage";
+export { FlyerEditor, type FlyerEditorProps, type FlyerSaveData } from "./flyer/FlyerEditor";
+export { FlyersGallery, type FlyersGalleryProps } from "./flyer/FlyersGallery";
+export { FlyerPublicView, type FlyerPublicViewProps } from "./flyer/FlyerPublicView";
+export {
+  CANVAS_W as FLYER_CANVAS_W,
+  CANVAS_H as FLYER_CANVAS_H,
+  GOLD_GRADIENT,
+  GOLD_SOLID,
+  FLYER_FONTS,
+  FONT_WEIGHTS,
+  FLYER_DOC_VERSION,
+} from "./flyer/constants";
+export {
+  flyerId,
+  createTextElement,
+  createImageElement,
+  createShapeElement,
+  blankPage,
+  seedFlyerDocument,
+  cloneElementShifted,
+} from "./flyer/seed";
+export type {
+  FlyerBackground,
+  FlyerTextElement,
+  FlyerImageElement,
+  FlyerShapeElement,
+  FlyerElement,
+  FlyerPage,
+  FlyerDocument,
+  FlyerBrand,
+  FlyerSummary,
+} from "./flyer/types";
