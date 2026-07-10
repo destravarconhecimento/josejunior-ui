@@ -11,6 +11,7 @@ import {
   Check,
   Copy,
   Download,
+  FlipHorizontal2,
   ImageOff,
   RotateCcw,
   Sparkles,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { Box, Flex, HStack, Stack, Text } from "../primitives";
 import { Button } from "../components/Button";
+import { Accordion } from "../components/Accordion";
 import { FormInput, FormSelect } from "../components/form";
 import { ColorPicker } from "../components/ColorPicker";
 import { SidePanel } from "../components/SidePanel";
@@ -235,7 +237,8 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
   };
 
   const generate = async () => {
-    if (!name.trim()) {
+    const hideTitle = Boolean(config.hideTitle);
+    if (!hideTitle && !name.trim()) {
       toaster.create({ title: "Dê um nome para o avatar", type: "warning" });
       return;
     }
@@ -243,19 +246,21 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
       toaster.create({ title: "Envie a foto da pessoa", type: "warning" });
       return;
     }
+    // "Sem nome": não escreve o nome no avatar, mas o card ainda precisa de um rótulo.
+    const recordName = name.trim() || "Avatar sem nome";
     setGenerating(true);
     try {
       const { blob, objectUrl } = await composeAvatar({
         size,
         config,
         presets,
-        title: name.trim(),
+        title: hideTitle ? "" : name.trim(),
         subtitle: subtitle.trim(),
       });
-      const url = await onUpload(blob, "result", `${slug(name)}-${size}.png`);
+      const url = await onUpload(blob, "result", `${slug(recordName)}-${size}.png`);
       const saved = await onSave({
         id: avatarId,
-        name: name.trim(),
+        name: recordName,
         subtitle: subtitle.trim() || null,
         size,
         resultUrl: url,
@@ -332,7 +337,7 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
             tone="primary"
             onClick={generate}
             loading={generating}
-            disabled={busy || !name.trim() || !config.photoUrl}
+            disabled={busy || (!config.hideTitle && !name.trim()) || !config.photoUrl}
             w="100%"
           >
             <Sparkles size={18} /> {avatarId && !result ? "Regerar avatar" : "Gerar avatar"}
@@ -356,40 +361,24 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
           <Stack gap={3} align="center">
             <AvatarCanvas
               config={config}
-              title={name || "Nome"}
+              title={config.hideTitle ? "" : name || "Nome"}
               subtitle={subtitle}
               presets={presets}
               interactive
               onPhotoChange={(photo) => patch({ photo })}
+              onTitleMove={(o) => patch({ titleOffsetX: o.x, titleOffsetY: o.y })}
+              onLogoMove={(pos) => patch({ logoPos: pos })}
               maxSize={520}
             />
-            {config.photoUrl ? (
-              <Stack gap={1} w="100%" maxW="520px">
-                <HStack justify="space-between">
-                  <Text fontSize="xs" color="var(--admin-text-soft)">
-                    Zoom da foto — arraste a foto para posicionar
-                  </Text>
-                  <Button
-                    size="xs"
-                    tone="ghost"
-                    onClick={() => patch({ photo: { offsetX: 0, offsetY: 0, zoom: 1 } })}
-                  >
-                    <RotateCcw size={13} /> Centralizar
-                  </Button>
-                </HStack>
-                <Range
-                  value={config.photo.zoom}
-                  min={0.5}
-                  max={4}
-                  step={0.02}
-                  onChange={(zoom) => patch({ photo: { ...config.photo, zoom } })}
-                />
-              </Stack>
-            ) : (
+            <Text fontSize="xs" color="var(--admin-text-soft)" textAlign="center">
+              Dica: arraste a <b>foto</b>, o <b>nome</b> e a <b>logo</b> direto na prévia.
+              Zoom e ajustes ficam nas seções ao lado.
+            </Text>
+            {!config.photoUrl ? (
               <Text fontSize="xs" color="var(--admin-text-soft)" textAlign="center">
-                Envie a foto da pessoa para começar.
+                Envie a foto da pessoa (seção “Foto da pessoa”) para começar.
               </Text>
-            )}
+            ) : null}
           </Stack>
         </Box>
 

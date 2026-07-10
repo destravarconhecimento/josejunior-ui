@@ -242,6 +242,12 @@ function drawPhoto(
       const dh = ih * scale;
       const dx = cx - dw / 2 + scene.photo.offsetX * rP;
       const dy = cy - dh / 2 + scene.photo.offsetY * rP;
+      // Espelho horizontal (opcional) — reflete em torno do centro do círculo.
+      if (scene.photo.flipH) {
+        ctx.translate(cx, 0);
+        ctx.scale(-1, 1);
+        ctx.translate(-cx, 0);
+      }
       ctx.drawImage(scene.photoImg, dx, dy, dw, dh);
     }
   } else {

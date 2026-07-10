@@ -49,6 +49,8 @@ export type AvatarPhotoTransform = {
   offsetY: number;
   /** Multiplicador de zoom (1 = "cover" exato do círculo). */
   zoom: number;
+  /** Espelha a foto na horizontal (efeito "selfie"). Ausente/false = normal. */
+  flipH?: boolean;
 };
 
 /**
@@ -88,6 +90,11 @@ export type AvatarConfig = {
   subtitleColor: string;
   /** Nome e legenda em CAIXA ALTA (padrão do estilo "cara pintada"). */
   uppercase: boolean;
+  /**
+   * Não escreve o NOME no avatar (só foto + moldura + logo + legenda). Para um
+   * visual mais limpo/profissional sem texto grande. Ausente/false = escreve o nome.
+   */
+  hideTitle?: boolean;
   /**
    * Legenda fixa desenhada CURVADA (acompanhando o redondo da moldura) em vez de
    * reta no rodapé. Ausente/false = reta. Opcional pra não quebrar configs antigas.
