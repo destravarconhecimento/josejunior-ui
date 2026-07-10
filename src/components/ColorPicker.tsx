@@ -4,6 +4,10 @@ import { Box, chakra, HStack, SimpleGrid, Text } from "@chakra-ui/react";
 import { Check, Wand2 } from "lucide-react";
 
 const lc = (c: string) => c.trim().toLowerCase();
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/** Estilo em degradê selecionável (ex.: "rasta") — o `id` vira o `value`. */
+export type ColorScheme = { id: string; label: string; gradient: string };
 
 /**
  * Seletor de cor "inteligente": grade de swatches pré-definidos. A cor atual fica
@@ -18,6 +22,7 @@ export function ColorPicker({
   usedColors = [],
   columns = 10,
   allowCustom = true,
+  schemes,
 }: {
   value: string;
   onChange: (hex: string) => void;
@@ -26,10 +31,14 @@ export function ColorPicker({
   usedColors?: string[];
   columns?: number;
   allowCustom?: boolean;
+  /** Estilos em degradê ("rasta" etc.) — mostrados numa fileira acima da grade. */
+  schemes?: readonly ColorScheme[];
 }) {
   const used = new Set(usedColors.map(lc));
   const selected = lc(value);
   const inPalette = colors.some((c) => lc(c) === selected);
+  const selectedScheme = schemes?.find((s) => lc(s.id) === selected) ?? null;
+  const safeHex = HEX.test(value) ? value : "#6366f1";
 
   const pickAuto = () => {
     const free = colors.find((c) => !used.has(lc(c)) && lc(c) !== selected);
@@ -38,6 +47,46 @@ export function ColorPicker({
 
   return (
     <Box>
+      {schemes && schemes.length ? (
+        <Box mb={3}>
+          <Text fontSize="10px" fontWeight="700" textTransform="uppercase" letterSpacing="0.08em" color="var(--admin-text-soft)" mb={1.5}>
+            Estilos
+          </Text>
+          <HStack gap={1.5} flexWrap="wrap">
+            {schemes.map((sch) => {
+              const isSel = lc(sch.id) === selected;
+              return (
+                <chakra.button
+                  key={sch.id}
+                  type="button"
+                  aria-label={`Estilo ${sch.label}`}
+                  title={sch.label}
+                  onClick={() => onChange(sch.id)}
+                  position="relative"
+                  w="26px"
+                  h="26px"
+                  borderRadius="8px"
+                  cursor="pointer"
+                  style={{ backgroundImage: sch.gradient }}
+                  boxShadow={
+                    isSel
+                      ? "0 0 0 2px var(--admin-surface), 0 0 0 4px var(--admin-primary)"
+                      : "inset 0 0 0 1px rgba(0,0,0,0.08)"
+                  }
+                  transition="transform .08s ease"
+                  _hover={{ transform: "scale(1.12)" }}
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  {isSel ? <Check size={14} color="#fff" strokeWidth={3} /> : null}
+                </chakra.button>
+              );
+            })}
+          </HStack>
+        </Box>
+      ) : null}
+
       <SimpleGrid columns={columns} gap={1.5}>
         {colors.map((c) => {
           const isSel = lc(c) === selected;
@@ -102,10 +151,17 @@ export function ColorPicker({
         </chakra.button>
 
         <HStack gap={2} align="center">
-          <Box w="18px" h="18px" borderRadius="6px" bg={value} boxShadow="inset 0 0 0 1px rgba(0,0,0,0.12)" />
-          <Text fontFamily="mono" fontSize="xs" color="var(--admin-text-soft)">
-            {value}
-            {!inPalette ? " · custom" : ""}
+          <Box
+            w="18px"
+            h="18px"
+            borderRadius="6px"
+            bg={selectedScheme ? undefined : value}
+            style={selectedScheme ? { backgroundImage: selectedScheme.gradient } : undefined}
+            boxShadow="inset 0 0 0 1px rgba(0,0,0,0.12)"
+          />
+          <Text fontFamily={selectedScheme ? undefined : "mono"} fontSize="xs" color="var(--admin-text-soft)">
+            {selectedScheme ? selectedScheme.label : value}
+            {!inPalette && !selectedScheme ? " · custom" : ""}
           </Text>
         </HStack>
 
@@ -113,7 +169,7 @@ export function ColorPicker({
           <Box as="label" display="inline-flex" alignItems="center" gap={1.5} cursor="pointer">
             <input
               type="color"
-              value={value}
+              value={safeHex}
               onChange={(e) => onChange(e.target.value)}
               aria-label="Cor personalizada"
               style={{ width: 26, height: 26, border: "none", background: "transparent", cursor: "pointer", padding: 0 }}

@@ -81,7 +81,7 @@ export { InlineSelect, type InlineSelectOption } from "./components/InlineSelect
 export { SearchSelect, type SearchSelectOption } from "./components/SearchSelect";
 export { MonthPicker } from "./components/MonthPicker";
 export { ActionMenu, type ActionMenuItem } from "./components/ActionMenu";
-export { ColorPicker } from "./components/ColorPicker";
+export { ColorPicker, type ColorScheme } from "./components/ColorPicker";
 export { Tabs, type TabDef } from "./components/Tabs";
 export { PanelTabs } from "./components/PanelTabs";
 export { PageTabs } from "./components/PageTabs";
@@ -97,6 +97,12 @@ export {
   type EntityAvatarStatus,
 } from "./components/EntityAvatar";
 export { UserAvatar } from "./components/UserAvatar";
+export {
+  AVATAR_SCHEMES,
+  type AvatarScheme,
+  resolveAvatarScheme,
+  isAvatarSchemeId,
+} from "./components/avatarSchemes";
 export { InsightCard, type InsightTone } from "./components/InsightCard";
 export { Timeline, type TimelineItem, type TimelineTone } from "./components/Timeline";
 export {
@@ -191,6 +197,8 @@ export {
   avatarPresets,
   recipeOf,
   resolveAvatarPreset,
+  bgSpreadOf,
+  withBgSpread,
   type AvatarFont,
 } from "./avatar/constants";
 export type {
@@ -199,6 +207,7 @@ export type {
   AvatarFramePreset,
   AvatarFrameChoice,
   AvatarBackground,
+  AvatarBackgroundSpread,
   AvatarPhotoTransform,
   AvatarLogoCorner,
   AvatarConfig,

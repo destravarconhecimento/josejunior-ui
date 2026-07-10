@@ -1,5 +1,7 @@
 /** Constantes do Gerador de Avatares. Puro — sem React, seguro server+client. */
 import type {
+  AvatarBackground,
+  AvatarBackgroundSpread,
   AvatarConfig,
   AvatarFramePreset,
   AvatarPreset,
@@ -168,9 +170,11 @@ export function defaultAvatarConfig(settings: AvatarRecipe, brandLogoUrl?: strin
   const frame: AvatarConfig["frame"] = defaultFrameUrl
     ? { kind: "image", url: defaultFrameUrl }
     : { kind: "preset", presetId: framePresetId };
+  const bgSpread: AvatarBackgroundSpread = settings.defaultBackgroundSpread ?? "circle";
+  const bgColor = settings.defaultBackgroundColor || "#0b1220";
   const background: AvatarConfig["background"] = settings.backgroundUrl
-    ? { kind: "image", url: settings.backgroundUrl }
-    : { kind: "color", color: settings.defaultBackgroundColor || "#0b1220" };
+    ? { kind: "image", url: settings.backgroundUrl, spread: bgSpread, baseColor: bgColor }
+    : { kind: "color", color: bgColor, spread: bgSpread };
   const logoUrl = (settings.logoUrl || brandLogoUrl || "").trim() || null;
   // O "padrão da agência" é herdado POR INTEIRO: cor, caixa, posição, tamanho —
   // tudo que a agência salvou já vem pronto no avatar novo (só falta foto + nome).
@@ -205,6 +209,16 @@ export const DEFAULT_AVATAR_SETTINGS: AvatarSettings = {
   presets: [],
 };
 
+/** Lê a cobertura de um fundo (padrão "circle"; transparente também é "circle"). */
+export function bgSpreadOf(bg: AvatarBackground): AvatarBackgroundSpread {
+  return bg.kind === "none" ? "circle" : bg.spread ?? "circle";
+}
+
+/** Aplica a cobertura a um fundo, preservando o resto (no-op se transparente). */
+export function withBgSpread(bg: AvatarBackground, spread: AvatarBackgroundSpread): AvatarBackground {
+  return bg.kind === "none" ? bg : { ...bg, spread };
+}
+
 /** Extrai só os campos de RECEITA (sem frames/presets) de um settings ou padrão. */
 export function recipeOf(r: AvatarRecipe): AvatarRecipe {
   return {
@@ -213,6 +227,7 @@ export function recipeOf(r: AvatarRecipe): AvatarRecipe {
     fixedSubtitle: r.fixedSubtitle,
     defaultFont: r.defaultFont,
     defaultBackgroundColor: r.defaultBackgroundColor,
+    defaultBackgroundSpread: r.defaultBackgroundSpread,
     defaultFramePresetId: r.defaultFramePresetId,
     defaultFrameUrl: r.defaultFrameUrl,
     defaultLogoCorner: r.defaultLogoCorner,

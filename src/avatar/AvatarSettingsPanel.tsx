@@ -27,6 +27,7 @@ import {
   resolveAvatarPreset,
 } from "./constants";
 import type {
+  AvatarBackgroundSpread,
   AvatarBrand,
   AvatarFramePreset,
   AvatarLogoCorner,
@@ -596,6 +597,31 @@ export function AvatarSettingsPanel(props: AvatarSettingsPanelProps) {
                         colors={AVATAR_COLORS}
                         columns={9}
                       />
+                    </Stack>
+                    <Stack gap={1}>
+                      <Text fontSize="xs" color="var(--admin-text-soft)">Cobertura do fundo</Text>
+                      <HStack gap={1} flexWrap="wrap">
+                        {(
+                          [
+                            { value: "circle", label: "Só no círculo" },
+                            { value: "full", label: "Preencher tudo" },
+                          ] as { value: AvatarBackgroundSpread; label: string }[]
+                        ).map((o) => (
+                          <Button
+                            key={o.value}
+                            type="button"
+                            size="xs"
+                            tone={(sel.defaultBackgroundSpread ?? "circle") === o.value ? "primary" : "outline"}
+                            onClick={() => patchSel({ defaultBackgroundSpread: o.value })}
+                          >
+                            {o.label}
+                          </Button>
+                        ))}
+                      </HStack>
+                      <Help>
+                        “Só no círculo” deixa os cantos transparentes (avatar redondo). “Preencher
+                        tudo” cobre o quadrado inteiro — vira um card com fundo cheio.
+                      </Help>
                     </Stack>
                   </Stack>
                 ),

@@ -146,9 +146,10 @@ function coverRect(
 }
 
 /**
- * Desenha o fundo DENTRO do círculo (o resto do quadrado fica transparente — avatar
- * circular limpo). O fundo enviado é recortado ao círculo: é "fundo dentro da
- * moldura", exatamente atrás da foto/recorte da pessoa.
+ * Desenha o fundo. Por padrão (`spread` ausente/"circle") recorta ao CÍRCULO — o
+ * resto do quadrado fica transparente (avatar redondo limpo), fundo exatamente
+ * atrás da foto. Com `spread: "full"` o fundo PEGA TUDO: preenche o quadrado
+ * inteiro (cantos inclusos), dando o visual de "card"/selo com fundo cheio.
  */
 function drawBackground(
   ctx: CanvasRenderingContext2D,
@@ -162,15 +163,24 @@ function drawBackground(
   const bg = scene.background;
   if (bg.kind === "none") return; // transparente dentro do círculo também.
 
+  const full = bg.spread === "full";
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, rP, 0, Math.PI * 2);
-  ctx.closePath();
-  ctx.clip();
+  if (!full) {
+    // Cobertura "círculo": recorta o desenho ao redondo da foto.
+    ctx.beginPath();
+    ctx.arc(cx, cy, rP, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+  }
 
-  const box = { x: cx - rP, y: cy - rP, s: rP * 2 };
-  if (bg.kind === "image" && scene.backgroundImg) {
-    coverRect(ctx, scene.backgroundImg, box.x, box.y, box.s, box.s);
+  // Retângulo de preenchimento: o quadrado inteiro ("tudo") ou a caixa do círculo.
+  const box = full ? { x: 0, y: 0, s: S } : { x: cx - rP, y: cy - rP, s: rP * 2 };
+  if (bg.kind === "image") {
+    // Cor por trás SEMPRE: se a imagem tiver transparência (ou ainda não carregou),
+    // o fundo nunca fica vazio — pinta a base e depois a imagem por cima.
+    ctx.fillStyle = bg.baseColor || "#0b1220";
+    ctx.fillRect(box.x, box.y, box.s, box.s);
+    if (scene.backgroundImg) coverRect(ctx, scene.backgroundImg, box.x, box.y, box.s, box.s);
   } else if (bg.kind === "color") {
     ctx.fillStyle = bg.color;
     ctx.fillRect(box.x, box.y, box.s, box.s);
@@ -179,10 +189,6 @@ function drawBackground(
     g.addColorStop(0, bg.from);
     g.addColorStop(1, bg.to);
     ctx.fillStyle = g;
-    ctx.fillRect(box.x, box.y, box.s, box.s);
-  } else if (bg.kind === "image") {
-    // imagem pedida mas ainda não carregou → miolo neutro pra não "piscar" branco.
-    ctx.fillStyle = "#0b1220";
     ctx.fillRect(box.x, box.y, box.s, box.s);
   }
   ctx.restore();

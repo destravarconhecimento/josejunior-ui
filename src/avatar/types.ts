@@ -34,11 +34,30 @@ export type AvatarFrameChoice =
   | { kind: "image"; url: string }
   | { kind: "none" };
 
-/** FUNDO do avatar (atrás da foto), preenche o quadrado inteiro. */
+/**
+ * COBERTURA do fundo: só o CÍRCULO (atrás da foto — padrão, avatar redondo limpo
+ * com cantos transparentes) ou o QUADRADO INTEIRO ("pega tudo", cantos preenchidos
+ * → visual de "card"/selo). Ausente = "circle" (compat com configs já salvas).
+ */
+export type AvatarBackgroundSpread = "circle" | "full";
+
+/**
+ * FUNDO do avatar (atrás da foto). Por padrão preenche só o círculo; com
+ * `spread: "full"` cobre o quadrado inteiro (cantos inclusos).
+ */
 export type AvatarBackground =
-  | { kind: "color"; color: string }
-  | { kind: "gradient"; from: string; to: string }
-  | { kind: "image"; url: string }
+  | { kind: "color"; color: string; spread?: AvatarBackgroundSpread }
+  | { kind: "gradient"; from: string; to: string; spread?: AvatarBackgroundSpread }
+  | {
+      kind: "image";
+      url: string;
+      spread?: AvatarBackgroundSpread;
+      /**
+       * Cor pintada ATRÁS da imagem — garante que uma PNG com transparência (ex.:
+       * respingo de tinta) nunca deixe o fundo vazio. Ausente = neutro (#0b1220).
+       */
+      baseColor?: string;
+    }
   | { kind: "none" };
 
 /** Posição/zoom da foto dentro do círculo. */
@@ -152,6 +171,8 @@ export type AvatarRecipe = {
   defaultFont: string;
   /** Cor padrão de fundo (quando não há imagem). */
   defaultBackgroundColor: string;
+  /** Cobertura padrão do fundo (círculo = só atrás da foto; tudo = quadrado inteiro). Ausente = círculo. */
+  defaultBackgroundSpread?: AvatarBackgroundSpread;
   /** Preset de moldura padrão. */
   defaultFramePresetId: string;
   /**

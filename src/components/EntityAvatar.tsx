@@ -1,5 +1,6 @@
 import { Box } from "@chakra-ui/react";
 import { initialsFrom } from "../theme/AdminThemeShell";
+import { resolveAvatarScheme } from "./avatarSchemes";
 
 export type EntityAvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 export type EntityAvatarStatus = "online" | "offline" | "busy" | "none";
@@ -38,7 +39,9 @@ function toneFor(name: string) {
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
 /** Avatar de entidade: imagem ou iniciais com cor estável por nome, + status.
- *  `color` (hex) sobrepõe a cor automática — usado p/ a cor da equipe do usuário. */
+ *  `color` sobrepõe a cor automática: um hex `#rrggbb` pinta a inicial sólida;
+ *  o id de um esquema (ver `avatarSchemes` — ex.: "rasta") pinta a inicial com um
+ *  degradê "cara pintada" (e o anel do `UserAvatar` acompanha). */
 export function EntityAvatar({
   name,
   src,
@@ -50,12 +53,17 @@ export function EntityAvatar({
   src?: string | null;
   size?: EntityAvatarSize;
   status?: EntityAvatarStatus;
-  /** Cor da equipe (hex #rrggbb) — define o tom do avatar de iniciais. */
+  /** Cor da equipe: hex `#rrggbb` (inicial sólida) ou id de esquema (degradê). */
   color?: string | null;
 }) {
   const s = SIZES[size];
-  const tone =
-    color && HEX.test(color) ? { bg: `${color}2e`, fg: color } : toneFor(name || "?");
+  const scheme = resolveAvatarScheme(color);
+  const tone = scheme
+    ? { bg: `${scheme.accent}24`, fg: scheme.accent }
+    : color && HEX.test(color)
+      ? { bg: `${color}2e`, fg: color }
+      : toneFor(name || "?");
+  const initials = initialsFrom(name || "?");
   return (
     <Box position="relative" flexShrink={0} w={s.box} h={s.box}>
       <Box
@@ -74,7 +82,21 @@ export function EntityAvatar({
         backgroundSize="cover"
         backgroundPosition="center"
       >
-        {src ? null : initialsFrom(name || "?")}
+        {src ? null : scheme ? (
+          <span
+            style={{
+              backgroundImage: scheme.gradient,
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              color: "transparent",
+            }}
+          >
+            {initials}
+          </span>
+        ) : (
+          initials
+        )}
       </Box>
       {status !== "none" ? (
         <Box

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Box, HStack, Portal, Stack, Text } from "@chakra-ui/react";
 import { EntityAvatar, type EntityAvatarSize, type EntityAvatarStatus } from "./EntityAvatar";
+import { resolveAvatarScheme } from "./avatarSchemes";
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -37,7 +38,9 @@ export function UserAvatar({
   /** Desliga o popover do hover. */
   showTooltip?: boolean;
 }) {
-  const ring = color && HEX.test(color) ? color : "#6366f1";
+  const scheme = resolveAvatarScheme(color);
+  // Cor "sólida" do anel/perfil: o accent do esquema, ou o hex, ou o indigo padrão.
+  const ring = scheme ? scheme.accent : color && HEX.test(color) ? color : "#6366f1";
   // Fallback nativo (nunca cortado) — garante o nome no hover mesmo sem o popover.
   const title = [name, funcao, perfil, email].filter(Boolean).join(" · ");
   const ref = useRef<HTMLDivElement>(null);
@@ -47,8 +50,10 @@ export function UserAvatar({
     <Box
       borderRadius="full"
       p="2px"
-      bg={`${ring}29`}
-      boxShadow={`inset 0 0 0 1.5px ${ring}66`}
+      // Esquema ("rasta" etc.) → anel em degradê; senão → halo leve na cor sólida.
+      style={scheme ? { backgroundImage: scheme.ring } : undefined}
+      bg={scheme ? undefined : `${ring}29`}
+      boxShadow={scheme ? undefined : `inset 0 0 0 1.5px ${ring}66`}
       display="inline-flex"
       flexShrink={0}
       lineHeight={0}

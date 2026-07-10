@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Box, CloseButton, Drawer, HStack, Input, Portal, Stack, Text } from "@chakra-ui/react";
+import { Box, CloseButton, Drawer, HStack, Input, Portal, SimpleGrid, Stack, Text } from "@chakra-ui/react";
 import { Menu as MenuIcon, Search } from "lucide-react";
 import { ActiveLink } from "./ActiveLink";
 import { filterSections } from "./navFilter";
@@ -88,7 +88,7 @@ export function MobileNav({
                 ) : null}
                 <Stack gap={5} py={2}>
                   {visibleSections.map((section) => (
-                    <Stack key={section.title} gap={1}>
+                    <Stack key={section.title} gap={1.5}>
                       {section.items.length > 1 ? (
                         <Text
                           fontSize="10px"
@@ -101,9 +101,19 @@ export function MobileNav({
                           {section.title}
                         </Text>
                       ) : null}
-                      {section.items.map((item) => (
-                        <ActiveLink key={item.href} item={item} onNavigate={() => setOpen(false)} />
-                      ))}
+                      {/* 2 por linha (tiles densos) quando há vários itens — cabe mais
+                          sem rolar; item único fica em linha cheia. */}
+                      {section.items.length > 1 ? (
+                        <SimpleGrid columns={2} gap={1.5}>
+                          {section.items.map((item) => (
+                            <ActiveLink key={item.href} item={item} dense onNavigate={() => setOpen(false)} />
+                          ))}
+                        </SimpleGrid>
+                      ) : (
+                        section.items.map((item) => (
+                          <ActiveLink key={item.href} item={item} onNavigate={() => setOpen(false)} />
+                        ))
+                      )}
                     </Stack>
                   ))}
                 </Stack>

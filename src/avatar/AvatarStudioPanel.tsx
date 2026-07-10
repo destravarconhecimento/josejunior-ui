@@ -29,9 +29,10 @@ import { toaster } from "../components/Toast";
 import { AvatarCanvas } from "./AvatarCanvas";
 import { AvatarStudioLayout } from "./AvatarStudioLayout";
 import { composeAvatar } from "./compose";
-import { AVATAR_COLORS, AVATAR_FONTS, AVATAR_SIZES } from "./constants";
+import { AVATAR_COLORS, AVATAR_FONTS, AVATAR_SIZES, bgSpreadOf, withBgSpread } from "./constants";
 import type {
   AvatarBackground,
+  AvatarBackgroundSpread,
   AvatarBrand,
   AvatarConfig,
   AvatarFrameChoice,
@@ -195,7 +196,9 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
       } else if (kind === "logo") {
         patch({ logoUrl: url, logoCorner: config.logoCorner === "none" ? "top" : config.logoCorner });
       } else if (kind === "background") {
-        patch({ background: { kind: "image", url } });
+        patch({
+          background: { kind: "image", url, spread: bgSpread, baseColor: baseColorFor(config.background, settings) },
+        });
       }
     } catch (err) {
       toaster.create({ title: "Falha no upload", description: String(err), type: "error" });
@@ -307,6 +310,7 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
   ];
 
   const bgMode: "color" | "gradient" | "image" | "none" = config.background.kind;
+  const bgSpread = bgSpreadOf(config.background);
 
   return (
     <SidePanel
@@ -687,7 +691,7 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
                     {config.background.kind === "color" ? (
                       <ColorPicker
                         value={config.background.color}
-                        onChange={(c) => patch({ background: { kind: "color", color: c } })}
+                        onChange={(c) => patch({ background: { kind: "color", color: c, spread: bgSpread } })}
                         colors={AVATAR_COLORS}
                         columns={9}
                       />
@@ -699,7 +703,7 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
                           <ColorPicker
                             value={config.background.from}
                             onChange={(c) =>
-                              patch({ background: { kind: "gradient", from: c, to: (config.background as { to: string }).to } })
+                              patch({ background: { kind: "gradient", from: c, to: (config.background as { to: string }).to, spread: bgSpread } })
                             }
                             colors={AVATAR_COLORS}
                             columns={9}
@@ -711,7 +715,7 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
                           <ColorPicker
                             value={config.background.to}
                             onChange={(c) =>
-                              patch({ background: { kind: "gradient", from: (config.background as { from: string }).from, to: c } })
+                              patch({ background: { kind: "gradient", from: (config.background as { from: string }).from, to: c, spread: bgSpread } })
                             }
                             colors={AVATAR_COLORS}
                             columns={9}
@@ -721,20 +725,66 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
                       </HStack>
                     ) : null}
                     {config.background.kind === "image" ? (
-                      <HStack gap={2} flexWrap="wrap">
-                        <Button tone="outline" size="xs" onClick={() => pickFile("background")} loading={uploading}>
-                          <Upload size={13} /> Enviar fundo
-                        </Button>
-                        {settings.backgroundUrl ? (
-                          <Button
-                            tone="ghost"
-                            size="xs"
-                            onClick={() => patch({ background: { kind: "image", url: settings.backgroundUrl } })}
-                          >
-                            Usar fundo da agência
+                      <Stack gap={2}>
+                        <HStack gap={2} flexWrap="wrap">
+                          <Button tone="outline" size="xs" onClick={() => pickFile("background")} loading={uploading}>
+                            <Upload size={13} /> Enviar fundo
                           </Button>
-                        ) : null}
-                      </HStack>
+                          {settings.backgroundUrl ? (
+                            <Button
+                              tone="ghost"
+                              size="xs"
+                              onClick={() =>
+                                patch({
+                                  background: {
+                                    kind: "image",
+                                    url: settings.backgroundUrl,
+                                    spread: bgSpread,
+                                    baseColor: baseColorFor(config.background, settings),
+                                  },
+                                })
+                              }
+                            >
+                              Usar fundo da agência
+                            </Button>
+                          ) : null}
+                        </HStack>
+                        <Stack gap={1}>
+                          <Text fontSize="xs" color="var(--admin-text-soft)">Cor por trás (se a imagem tiver transparência)</Text>
+                          <ColorPicker
+                            value={config.background.baseColor || "#0b1220"}
+                            onChange={(c) =>
+                              patch({
+                                background: {
+                                  kind: "image",
+                                  url: (config.background as { url: string }).url,
+                                  spread: bgSpread,
+                                  baseColor: c,
+                                },
+                              })
+                            }
+                            colors={AVATAR_COLORS}
+                            columns={9}
+                          />
+                        </Stack>
+                      </Stack>
+                    ) : null}
+                    {config.background.kind !== "none" ? (
+                      <Stack gap={1}>
+                        <Text fontSize="xs" color="var(--admin-text-soft)">Cobertura do fundo</Text>
+                        <SegButtons<AvatarBackgroundSpread>
+                          value={bgSpread}
+                          onChange={(v) => patch({ background: withBgSpread(config.background, v) })}
+                          options={[
+                            { value: "circle", label: "Só no círculo" },
+                            { value: "full", label: "Preencher tudo" },
+                          ]}
+                        />
+                        <Text fontSize="xs" color="var(--admin-text-soft)">
+                          “Só no círculo”: cantos transparentes (avatar redondo). “Preencher tudo”:
+                          o fundo pega o quadrado inteiro — vira um card com fundo cheio.
+                        </Text>
+                      </Stack>
                     ) : null}
                   </Stack>
                 ),
@@ -790,14 +840,34 @@ function parseFrame(v: string): AvatarFrameChoice {
   return { kind: "none" };
 }
 
+/**
+ * Cor a pintar ATRÁS de uma imagem de fundo (pra nunca ficar vazio se a PNG tiver
+ * transparência). Ao vir de uma cor/gradiente, reaproveita essa cor; senão, a cor
+ * padrão da agência. Assim trocar "cor" → "imagem" mantém o fundo por trás.
+ */
+function baseColorFor(current: AvatarBackground, settings: AvatarSettings): string {
+  if (current.kind === "image") return current.baseColor || settings.defaultBackgroundColor || "#0b1220";
+  if (current.kind === "color") return current.color;
+  if (current.kind === "gradient") return current.from;
+  return settings.defaultBackgroundColor || "#0b1220";
+}
+
 function switchBg(
   mode: "color" | "gradient" | "image" | "none",
   current: AvatarBackground,
   settings: AvatarSettings,
 ): AvatarBackground {
-  if (mode === "color") return { kind: "color", color: settings.defaultBackgroundColor || "#0b1220" };
-  if (mode === "gradient") return { kind: "gradient", from: "#0b1220", to: "#1f2937" };
+  // Preserva a cobertura (círculo/tudo) ao trocar o TIPO de fundo — a pessoa não
+  // perde o "preencher tudo" só por alternar de cor pra imagem.
+  const spread = bgSpreadOf(current);
+  if (mode === "color") return { kind: "color", color: settings.defaultBackgroundColor || "#0b1220", spread };
+  if (mode === "gradient") return { kind: "gradient", from: "#0b1220", to: "#1f2937", spread };
   if (mode === "image")
-    return { kind: "image", url: current.kind === "image" ? current.url : settings.backgroundUrl || "" };
+    return {
+      kind: "image",
+      url: current.kind === "image" ? current.url : settings.backgroundUrl || "",
+      spread,
+      baseColor: baseColorFor(current, settings),
+    };
   return { kind: "none" };
 }
