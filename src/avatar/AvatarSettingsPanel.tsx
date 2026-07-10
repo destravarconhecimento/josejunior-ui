@@ -20,6 +20,7 @@ import { AVATAR_COLORS, AVATAR_FONTS, defaultAvatarConfig } from "./constants";
 import type {
   AvatarBrand,
   AvatarFramePreset,
+  AvatarLogoCorner,
   AvatarSettings,
   AvatarUploadKind,
 } from "./types";
@@ -123,7 +124,25 @@ export function AvatarSettingsPanel(props: AvatarSettingsPanelProps) {
     }
   };
 
-  const presetOptions = props.presets.map((p) => ({ value: p.id, label: p.label }));
+  // Moldura padrão: presets prontos + as PNG que a agência subiu (image:<url>).
+  const defaultFrameOptions = [
+    ...props.presets.map((p) => ({ value: `preset:${p.id}`, label: p.label })),
+    ...s.frames.map((f) => ({ value: `image:${f.url}`, label: `${f.label} (sua)` })),
+  ];
+  const defaultFrameValue = s.defaultFrameUrl
+    ? `image:${s.defaultFrameUrl}`
+    : `preset:${s.defaultFramePresetId}`;
+
+  const logoCornerOptions = [
+    { value: "top", label: "Topo (centro)" },
+    { value: "top-left", label: "Superior esquerdo" },
+    { value: "top-right", label: "Superior direito" },
+    { value: "bottom", label: "Rodapé (centro)" },
+    { value: "bottom-left", label: "Inferior esquerdo" },
+    { value: "bottom-right", label: "Inferior direito" },
+    { value: "none", label: "Sem logo" },
+  ];
+  const defaultLogoValue = s.defaultLogoCorner ?? "top";
 
   return (
     <SidePanel
@@ -318,13 +337,31 @@ export function AvatarSettingsPanel(props: AvatarSettingsPanelProps) {
                 <Box flex="1">
                   <FormSelect
                     label="Moldura padrão"
-                    value={s.defaultFramePresetId}
-                    onChange={(e) => setS((p) => ({ ...p, defaultFramePresetId: e.target.value }))}
-                    options={presetOptions}
-                    help="A borda que já vem selecionada em cada avatar novo."
+                    value={defaultFrameValue}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v.startsWith("image:")) {
+                        setS((p) => ({ ...p, defaultFrameUrl: v.slice(6) }));
+                      } else {
+                        setS((p) => ({ ...p, defaultFrameUrl: "", defaultFramePresetId: v.slice(7) }));
+                      }
+                    }}
+                    options={defaultFrameOptions}
+                    help="A borda que já vem selecionada em cada avatar novo — inclusive as suas."
                   />
                 </Box>
               </Flex>
+              <Box>
+                <FormSelect
+                  label="Posição da logo"
+                  value={defaultLogoValue}
+                  onChange={(e) =>
+                    setS((p) => ({ ...p, defaultLogoCorner: e.target.value as AvatarLogoCorner }))
+                  }
+                  options={logoCornerOptions}
+                  help="Onde a logo aparece por padrão em cada avatar novo."
+                />
+              </Box>
             </Stack>
           </Card>
         </Stack>

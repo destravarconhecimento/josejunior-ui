@@ -470,15 +470,37 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
               Texto em CAIXA ALTA
             </label>
             <Stack gap={1}>
-              <Text fontSize="xs" color="var(--admin-text-soft)">Altura do nome</Text>
-              <SegButtons
-                value={String(config.titleOffsetY ?? 0)}
-                onChange={(v) => patch({ titleOffsetY: Number(v) })}
-                options={[
-                  { value: "-0.05", label: "Mais alto" },
-                  { value: "0", label: "Padrão" },
-                  { value: "0.04", label: "Mais baixo" },
-                ]}
+              <HStack justify="space-between">
+                <Text fontSize="xs" color="var(--admin-text-soft)">Posição do nome (arraste)</Text>
+                <Button
+                  size="xs"
+                  tone="ghost"
+                  onClick={() => patch({ titleOffsetY: 0 })}
+                >
+                  <RotateCcw size={12} /> Padrão
+                </Button>
+              </HStack>
+              <Range
+                value={config.titleOffsetY ?? 0}
+                min={-0.15}
+                max={0.15}
+                step={0.005}
+                onChange={(v) => patch({ titleOffsetY: v })}
+              />
+            </Stack>
+            <Stack gap={1}>
+              <HStack justify="space-between">
+                <Text fontSize="xs" color="var(--admin-text-soft)">Tamanho do nome</Text>
+                <Button size="xs" tone="ghost" onClick={() => patch({ titleScale: 1 })}>
+                  <RotateCcw size={12} /> Padrão
+                </Button>
+              </HStack>
+              <Range
+                value={config.titleScale ?? 1}
+                min={0.6}
+                max={1.6}
+                step={0.02}
+                onChange={(v) => patch({ titleScale: v })}
               />
             </Stack>
             <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
@@ -580,6 +602,8 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
                 onChange={(v) => patch({ logoCorner: v })}
                 options={[
                   { value: "top", label: "Topo" },
+                  { value: "top-left", label: "Sup. esq." },
+                  { value: "top-right", label: "Sup. dir." },
                   { value: "bottom", label: "Rodapé" },
                   { value: "bottom-left", label: "Inf. esq." },
                   { value: "bottom-right", label: "Inf. dir." },

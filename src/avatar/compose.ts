@@ -56,7 +56,17 @@ export type AvatarScene = {
   subtitleCurved: boolean;
   /** Ajuste fino da altura do nome (fração do lado). */
   titleOffsetY: number;
+  /** Multiplicador do tamanho do nome (1 = padrão). */
+  titleScale: number;
 };
+
+/**
+ * Raio da FOTO em px: raio externo da moldura menos a faixa dela, então a moldura
+ * ENCOSTA na borda do quadrado e a foto ocupa todo o miolo (o "espaço todo").
+ */
+function photoRadiusPx(S: number, scene: AvatarScene): number {
+  return AVATAR_LAYOUT.outerRFrac * S - frameBandPx(S, scene);
+}
 
 /** Desenha uma imagem cobrindo (object-fit: cover) o retângulo dst. */
 function coverRect(
@@ -76,33 +86,76 @@ function coverRect(
   ctx.drawImage(img, dx + (dw - w) / 2, dy + (dh - h) / 2, w, h);
 }
 
-/** Desenha o fundo (cor/gradiente/imagem/transparente) preenchendo o quadrado. */
-function drawBackground(ctx: CanvasRenderingContext2D, S: number, scene: AvatarScene): void {
+/**
+ * Desenha o fundo DENTRO do círculo (o resto do quadrado fica transparente — avatar
+ * circular limpo). O fundo enviado é recortado ao círculo: é "fundo dentro da
+ * moldura", exatamente atrás da foto/recorte da pessoa.
+ */
+function drawBackground(
+  ctx: CanvasRenderingContext2D,
+  S: number,
+  cx: number,
+  cy: number,
+  rP: number,
+  scene: AvatarScene,
+): void {
   ctx.clearRect(0, 0, S, S);
   const bg = scene.background;
+  if (bg.kind === "none") return; // transparente dentro do círculo também.
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, rP, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+
+  const box = { x: cx - rP, y: cy - rP, s: rP * 2 };
   if (bg.kind === "image" && scene.backgroundImg) {
-    coverRect(ctx, scene.backgroundImg, 0, 0, S, S);
-    return;
-  }
-  if (bg.kind === "color") {
+    coverRect(ctx, scene.backgroundImg, box.x, box.y, box.s, box.s);
+  } else if (bg.kind === "color") {
     ctx.fillStyle = bg.color;
-    ctx.fillRect(0, 0, S, S);
-    return;
-  }
-  if (bg.kind === "gradient") {
-    const g = ctx.createLinearGradient(0, 0, 0, S);
+    ctx.fillRect(box.x, box.y, box.s, box.s);
+  } else if (bg.kind === "gradient") {
+    const g = ctx.createLinearGradient(0, box.y, 0, box.y + box.s);
     g.addColorStop(0, bg.from);
     g.addColorStop(1, bg.to);
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, S, S);
-    return;
-  }
-  if (bg.kind === "image") {
-    // imagem pedida mas ainda não carregou → fundo neutro pra não "piscar" branco.
+    ctx.fillRect(box.x, box.y, box.s, box.s);
+  } else if (bg.kind === "image") {
+    // imagem pedida mas ainda não carregou → miolo neutro pra não "piscar" branco.
     ctx.fillStyle = "#0b1220";
-    ctx.fillRect(0, 0, S, S);
+    ctx.fillRect(box.x, box.y, box.s, box.s);
   }
-  // kind === "none": deixa transparente.
+  ctx.restore();
+}
+
+/**
+ * Escurecimento (scrim) na base da foto quando há texto sobreposto — gradiente de
+ * transparente pra preto, recortado ao círculo, pra o nome ficar legível sobre
+ * qualquer foto sem tapar o rosto.
+ */
+function drawScrim(
+  ctx: CanvasRenderingContext2D,
+  S: number,
+  cx: number,
+  cy: number,
+  rP: number,
+  scene: AvatarScene,
+): void {
+  const hasText = !!(scene.title || "").trim() || !!(scene.subtitle || "").trim();
+  if (!hasText) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, rP, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+  const g = ctx.createLinearGradient(0, cy, 0, cy + rP);
+  g.addColorStop(0, "rgba(0,0,0,0)");
+  g.addColorStop(0.5, "rgba(0,0,0,0.04)");
+  g.addColorStop(1, "rgba(0,0,0,0.6)");
+  ctx.fillStyle = g;
+  ctx.fillRect(cx - rP, cy, 2 * rP, rP);
+  ctx.restore();
 }
 
 /** Desenha a foto recortada no círculo (cover + pan/zoom). */
@@ -193,33 +246,59 @@ function frameBandPx(S: number, scene: AvatarScene): number {
   return 0;
 }
 
-/** Desenha a logo (contida) no canto configurado. */
-function drawLogo(ctx: CanvasRenderingContext2D, S: number, scene: AvatarScene): void {
+/**
+ * Desenha a logo (contida) posicionada em relação ao CÍRCULO: topo/base
+ * centralizados, ou nos 4 cantos (arco do círculo). Sempre dentro da foto.
+ */
+function drawLogo(
+  ctx: CanvasRenderingContext2D,
+  S: number,
+  cx: number,
+  cy: number,
+  rP: number,
+  scene: AvatarScene,
+): void {
   if (scene.logoCorner === "none" || !scene.logoImg) return;
   const iw = imgW(scene.logoImg);
   const ih = imgH(scene.logoImg);
   if (!iw || !ih) return;
   const targetW = S * AVATAR_LAYOUT.logoWidthFrac;
-  const scale = targetW / iw;
   const w = targetW;
-  const h = ih * scale;
-  const m = S * AVATAR_LAYOUT.logoMarginFrac;
-  let x = m;
-  let y = m;
-  if (scene.logoCorner === "top") {
-    x = (S - w) / 2;
-    y = m;
-  } else if (scene.logoCorner === "bottom") {
-    x = (S - w) / 2;
-    y = S - h - m;
-  } else if (scene.logoCorner === "bottom-left") {
-    x = m;
-    y = S - h - m;
-  } else if (scene.logoCorner === "bottom-right") {
-    x = S - w - m;
-    y = S - h - m;
+  const h = ih * (targetW / iw);
+
+  // Centro da logo por posição (fração do raio a partir do centro do círculo).
+  const vy = rP * 0.72; // deslocamento vertical topo/base
+  const cornerX = rP * 0.58;
+  const cornerY = rP * 0.58;
+  let px = cx;
+  let py = cy;
+  switch (scene.logoCorner) {
+    case "top":
+      px = cx;
+      py = cy - vy;
+      break;
+    case "bottom":
+      px = cx;
+      py = cy + vy;
+      break;
+    case "top-left":
+      px = cx - cornerX;
+      py = cy - cornerY;
+      break;
+    case "top-right":
+      px = cx + cornerX;
+      py = cy - cornerY;
+      break;
+    case "bottom-left":
+      px = cx - cornerX;
+      py = cy + cornerY;
+      break;
+    case "bottom-right":
+      px = cx + cornerX;
+      py = cy + cornerY;
+      break;
   }
-  ctx.drawImage(scene.logoImg, x, y, w, h);
+  ctx.drawImage(scene.logoImg, px - w / 2, py - h / 2, w, h);
 }
 
 /** Ajusta o tamanho da fonte pra caber em `maxW` (uma medição, por proporção). */
@@ -324,7 +403,8 @@ function drawText(ctx: CanvasRenderingContext2D, S: number, scene: AvatarScene):
 
   const title = cap((scene.title || "").trim());
   if (title) {
-    const px = fitFontPx(ctx, title, maxW, S * AVATAR_LAYOUT.titleFontFrac, weight, scene.font, S * 0.03);
+    const scale = scene.titleScale || 1;
+    const px = fitFontPx(ctx, title, maxW, S * AVATAR_LAYOUT.titleFontFrac * scale, weight, scene.font, S * 0.03);
     const baselineY = (AVATAR_LAYOUT.titleBaselineY + (scene.titleOffsetY || 0)) * S;
     drawTextLine(ctx, title, cx, baselineY, px, weight, scene.font, scene.titleColor, px * 0.01);
   }
@@ -336,7 +416,7 @@ function drawText(ctx: CanvasRenderingContext2D, S: number, scene: AvatarScene):
     // Curvada: hugueia a moldura (raio = foto + faixa da moldura + folga).
     const cxCircle = S * AVATAR_LAYOUT.circleCx;
     const cyCircle = S * AVATAR_LAYOUT.circleCy;
-    const rP = S * AVATAR_LAYOUT.circleR;
+    const rP = photoRadiusPx(S, scene);
     const px = Math.min(
       S * AVATAR_LAYOUT.subtitleFontFrac * 1.1,
       fitFontPx(ctx, subtitle, S * 1.4, S * AVATAR_LAYOUT.subtitleFontFrac * 1.1, weight, scene.font, S * 0.02),
@@ -367,12 +447,13 @@ export function drawAvatarScene(ctx: CanvasRenderingContext2D, S: number, scene:
   ctx.imageSmoothingQuality = "high";
   const cx = S * AVATAR_LAYOUT.circleCx;
   const cy = S * AVATAR_LAYOUT.circleCy;
-  const rP = S * AVATAR_LAYOUT.circleR;
+  const rP = photoRadiusPx(S, scene);
 
-  drawBackground(ctx, S, scene);
+  drawBackground(ctx, S, cx, cy, rP, scene);
   drawPhoto(ctx, S, cx, cy, rP, scene);
+  drawScrim(ctx, S, cx, cy, rP, scene);
   drawFrame(ctx, S, cx, cy, rP, scene);
-  drawLogo(ctx, S, scene);
+  drawLogo(ctx, S, cx, cy, rP, scene);
   drawText(ctx, S, scene);
   ctx.restore();
 }
@@ -461,6 +542,7 @@ export async function composeAvatar(input: {
     uppercase: config.uppercase,
     subtitleCurved: config.subtitleCurved ?? false,
     titleOffsetY: config.titleOffsetY ?? 0,
+    titleScale: config.titleScale ?? 1,
   };
 
   const render = document.createElement("canvas");
