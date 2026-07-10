@@ -125,6 +125,7 @@ export {
   type ConversationStatusTone,
 } from "./components/ConversationSnapshotCard";
 export { ActionListCard, type ActionListItem, type ActionTone } from "./components/ActionListCard";
+export { RecentSalesList, type RecentSaleItem, type CoinSaleStatus } from "./components/RecentSalesList";
 
 // Editor de Flyers (canvas puro + editor client + galeria) — apps/site
 export { SlidePage, type SlidePageProps, type SlideMode } from "./flyer/SlidePage";
@@ -200,6 +201,7 @@ export type {
   AvatarSummary,
   AvatarSettings,
   AvatarBrand,
+  AvatarMember,
   AvatarSaveData,
   AvatarActionResult,
   AvatarUploadKind,

@@ -113,6 +113,17 @@ export type AvatarBrand = {
   accentColor?: string;
 };
 
+/**
+ * Membro da agência oferecido no picker de "novo avatar" (agências de host têm
+ * roster com nome + foto). Escolher um pré-preenche o nome e a foto do avatar;
+ * a alternativa é o caminho "manual" (campos em branco).
+ */
+export type AvatarMember = {
+  name: string;
+  photoUrl: string | null;
+  category?: string | null;
+};
+
 /** Dados que a tela manda pra salvar (novo se `id` ausente, senão update). */
 export type AvatarSaveData = {
   id?: number;
