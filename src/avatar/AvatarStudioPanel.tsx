@@ -26,6 +26,7 @@ import { ColorPicker } from "../components/ColorPicker";
 import { SidePanel } from "../components/SidePanel";
 import { toaster } from "../components/Toast";
 import { AvatarCanvas } from "./AvatarCanvas";
+import { AvatarStudioLayout } from "./AvatarStudioLayout";
 import { composeAvatar } from "./compose";
 import { AVATAR_COLORS, AVATAR_FONTS, AVATAR_SIZES } from "./constants";
 import type {
@@ -306,6 +307,8 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
       onClose={props.onClose}
       title={avatarId ? "Editar avatar" : "Gerar avatar"}
       size="full"
+      width={{ base: "100vw", lg: "50vw" }}
+      opaque
       footer={
         <Stack gap={3} w="100%">
           {result ? (
@@ -336,18 +339,9 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
     >
       <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onFile} />
 
-      <Flex gap={6} direction={{ base: "column", lg: "row" }} align="flex-start">
-        {/* Preview ao vivo — ocupa todo o espaço disponível */}
-        <Box
-          order={{ base: -1, lg: 0 }}
-          flex="1"
-          minW={0}
-          w="100%"
-          position={{ lg: "sticky" }}
-          top={{ lg: "0" }}
-          alignSelf={{ lg: "flex-start" }}
-        >
-          <Stack gap={3} align="center">
+      <AvatarStudioLayout
+        preview={(variant) => (
+          <Stack gap={3} align="center" w="100%">
             <AvatarCanvas
               config={config}
               title={config.hideTitle ? "" : name || "Nome"}
@@ -357,26 +351,33 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
               onPhotoChange={(photo) => patch({ photo })}
               onTitleMove={(o) => patch({ titleOffsetX: o.x, titleOffsetY: o.y })}
               onLogoMove={(pos) => patch({ logoPos: pos })}
-              maxSize={520}
+              maxSize={variant === "compact" ? 300 : 460}
             />
-            <Text fontSize="xs" color="var(--admin-text-soft)" textAlign="center">
-              Dica: arraste a <b>foto</b>, o <b>nome</b> e a <b>logo</b> direto na prévia.
-              Zoom e ajustes ficam nas seções ao lado.
-            </Text>
-            {!config.photoUrl ? (
+            {variant === "full" ? (
+              <>
+                <Text fontSize="xs" color="var(--admin-text-soft)" textAlign="center">
+                  Dica: arraste a <b>foto</b>, o <b>nome</b> e a <b>logo</b> direto na prévia.
+                  Zoom e ajustes ficam nas seções de edição.
+                </Text>
+                {!config.photoUrl ? (
+                  <Text fontSize="xs" color="var(--admin-text-soft)" textAlign="center">
+                    Envie a foto da pessoa (seção “Foto da pessoa”) para começar.
+                  </Text>
+                ) : null}
+              </>
+            ) : (
               <Text fontSize="xs" color="var(--admin-text-soft)" textAlign="center">
-                Envie a foto da pessoa (seção “Foto da pessoa”) para começar.
+                Arraste a <b>foto</b>, o <b>nome</b> e a <b>logo</b> direto na prévia.
               </Text>
-            ) : null}
+            )}
           </Stack>
-        </Box>
-
+        )}
+      >
         {/* Controles — organizados por categoria (acordeão) */}
-        <Box w={{ base: "100%", lg: "400px" }} flexShrink={0}>
-          <Accordion
-            multiple
-            defaultValue={["foto", "nome"]}
-            items={[
+        <Accordion
+          multiple
+          defaultValue={["foto", "nome"]}
+          items={[
               {
                 value: "foto",
                 title: "Foto da pessoa",
@@ -710,8 +711,7 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
               },
             ]}
           />
-        </Box>
-      </Flex>
+      </AvatarStudioLayout>
 
       {result ? (
         <Flex mt={4} p={3} borderRadius="12px" bg="var(--admin-nav-active)" gap={2} align="center" flexWrap="wrap">

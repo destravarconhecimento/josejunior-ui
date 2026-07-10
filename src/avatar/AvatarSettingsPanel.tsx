@@ -8,7 +8,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, RotateCcw, Trash2, Upload } from "lucide-react";
-import { Box, Flex, HStack, Image, SimpleGrid, Stack, Text } from "../primitives";
+import { Box, HStack, Image, SimpleGrid, Stack, Text } from "../primitives";
 import { Button } from "../components/Button";
 import { Accordion } from "../components/Accordion";
 import { FormInput, FormSelect } from "../components/form";
@@ -16,6 +16,7 @@ import { ColorPicker } from "../components/ColorPicker";
 import { SidePanel } from "../components/SidePanel";
 import { toaster } from "../components/Toast";
 import { AvatarCanvas } from "./AvatarCanvas";
+import { AvatarStudioLayout } from "./AvatarStudioLayout";
 import { AVATAR_COLORS, AVATAR_FONTS, defaultAvatarConfig } from "./constants";
 import type {
   AvatarBrand,
@@ -168,6 +169,8 @@ export function AvatarSettingsPanel(props: AvatarSettingsPanelProps) {
       onClose={props.onClose}
       title="Padrão da agência"
       size="full"
+      width={{ base: "100vw", lg: "50vw" }}
+      opaque
       footer={
         <HStack gap={2} w="100%" justify="flex-end">
           <Button tone="ghost" onClick={props.onClose}>
@@ -181,18 +184,10 @@ export function AvatarSettingsPanel(props: AvatarSettingsPanelProps) {
     >
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
 
-      <Flex gap={6} direction={{ base: "column", lg: "row" }} align="flex-start">
-        {/* PRÉVIA ao vivo do molde — grande e interativa (arraste nome e logo). */}
-        <Box
-          order={{ base: -1, lg: 0 }}
-          flex="1"
-          minW={0}
-          w="100%"
-          position={{ lg: "sticky" }}
-          top={{ lg: "0" }}
-          alignSelf={{ lg: "flex-start" }}
-        >
-          <Stack gap={3} align="center">
+      <AvatarStudioLayout
+        previewTitle="Prévia do padrão"
+        preview={(variant) => (
+          <Stack gap={3} align="center" w="100%">
             <AvatarCanvas
               config={previewConfig}
               title={sampleName || "Nome"}
@@ -201,24 +196,33 @@ export function AvatarSettingsPanel(props: AvatarSettingsPanelProps) {
               interactive
               onTitleMove={(o) => setS((p) => ({ ...p, defaultTitleOffsetX: o.x, defaultTitleOffsetY: o.y }))}
               onLogoMove={(pos) => setS((p) => ({ ...p, defaultLogoPos: pos }))}
-              maxSize={520}
+              maxSize={variant === "compact" ? 280 : 460}
             />
             <Text fontSize="xs" color="var(--admin-text-soft)" textAlign="center">
-              Este é o molde de <b>todo avatar novo</b>. Arraste o <b>nome</b> e a <b>logo</b> na
-              prévia para definir a posição padrão. A foto da pessoa entra depois, na hora de criar.
+              {variant === "full" ? (
+                <>
+                  Este é o molde de <b>todo avatar novo</b>. Arraste o <b>nome</b> e a <b>logo</b> na
+                  prévia para definir a posição padrão. A foto da pessoa entra depois, na hora de criar.
+                </>
+              ) : (
+                <>
+                  Molde de <b>todo avatar novo</b> — arraste o <b>nome</b> e a <b>logo</b> na prévia.
+                </>
+              )}
             </Text>
-            <FormInput
-              label="Ver com o nome"
-              size="sm"
-              value={sampleName}
-              onChange={(e) => setSampleName(e.target.value)}
-              placeholder="Ex.: Maria"
-            />
           </Stack>
-        </Box>
-
+        )}
+      >
         {/* FORMULÁRIO do padrão — por categoria (acordeão). */}
-        <Box w={{ base: "100%", lg: "400px" }} flexShrink={0}>
+        <Stack gap={4}>
+          <FormInput
+            label="Ver com o nome"
+            size="sm"
+            value={sampleName}
+            onChange={(e) => setSampleName(e.target.value)}
+            placeholder="Ex.: Maria"
+            help="Só na prévia — não altera o padrão."
+          />
           <Accordion
             multiple
             defaultValue={["texto", "logo"]}
@@ -468,8 +472,8 @@ export function AvatarSettingsPanel(props: AvatarSettingsPanelProps) {
               },
             ]}
           />
-        </Box>
-      </Flex>
+        </Stack>
+      </AvatarStudioLayout>
     </SidePanel>
   );
 }

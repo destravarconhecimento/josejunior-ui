@@ -14,6 +14,8 @@ export function SidePanel({
   footer,
   children,
   size = "md",
+  width,
+  opaque = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -21,6 +23,10 @@ export function SidePanel({
   footer?: ReactNode;
   children: ReactNode;
   size?: React.ComponentProps<typeof Drawer.Root>["size"];
+  /** Largura explícita do painel (responsiva). Sobrepõe o token `size` — ex.: `{ base: "100vw", lg: "50vw" }`. */
+  width?: React.ComponentProps<typeof Drawer.Content>["w"];
+  /** Backdrop sólido (não deixa enxergar o fundo através do painel). */
+  opaque?: boolean;
 }) {
   return (
     <Drawer.Root
@@ -32,9 +38,12 @@ export function SidePanel({
       placement="end"
     >
       <Portal>
-        <Drawer.Backdrop bg="rgba(7,26,51,0.55)" />
+        <Drawer.Backdrop
+          bg={opaque ? "rgba(3,9,18,0.92)" : "rgba(7,26,51,0.55)"}
+          backdropFilter={opaque ? "blur(2px)" : undefined}
+        />
         <Drawer.Positioner>
-          <Drawer.Content bg="var(--admin-surface)">
+          <Drawer.Content bg="var(--admin-surface)" {...(width ? { w: width, maxW: width } : {})}>
             {title ? (
               <Drawer.Header borderBottomWidth="1px" borderColor="var(--admin-border)">
                 <Drawer.Title className="admin-h" color="var(--admin-primary)">
