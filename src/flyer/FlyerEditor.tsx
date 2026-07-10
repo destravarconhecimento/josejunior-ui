@@ -193,29 +193,33 @@ export function FlyerEditor(props: FlyerEditorProps) {
   const insertComparison = useCallback(
     (cmp: FlyerComparison) => {
       const M = 60; // margem lateral
-      const GAP = 40; // espaço entre as fotos
-      const imgW = Math.round((CANVAS_W - M * 2 - GAP) / 2); // retrato lado a lado
+      // As fotos: antes → (durante) → depois. "Durante" só entra quando existe.
+      const stages: { src: string; label: string; accent?: boolean }[] = [
+        { src: cmp.beforeUrl, label: "ANTES" },
+        ...(cmp.duringUrl ? [{ src: cmp.duringUrl, label: "DURANTE" }] : []),
+        { src: cmp.afterUrl, label: "DEPOIS", accent: true },
+      ];
+      const n = stages.length;
+      const GAP = n === 3 ? 28 : 40; // aperta um pouco com 3 fotos
+      const imgW = Math.round((CANVAS_W - M * 2 - GAP * (n - 1)) / n); // retratos lado a lado
       const imgH = Math.round((imgW * 4) / 3); // proporção 3:4
       const imgY = 340;
-      const beforeX = M;
-      const afterX = M + imgW + GAP;
       const labelY = imgY - 52;
       const titleY = imgY + imgH + 28;
       const subY = titleY + 96;
+      const xOf = (i: number) => M + i * (imgW + GAP);
 
       const els: FlyerElement[] = [
-        createTextElement({
-          x: beforeX, y: labelY, w: imgW, h: 44,
-          text: "ANTES", fontSize: 26, fontWeight: "700",
-          color: "#e6e9f2", align: "center", letterSpacing: 2, lineHeight: 1.1,
-        }),
-        createTextElement({
-          x: afterX, y: labelY, w: imgW, h: 44,
-          text: "DEPOIS", fontSize: 26, fontWeight: "700",
-          color: "#ffffff", align: "center", letterSpacing: 2, lineHeight: 1.1,
-        }),
-        createImageElement({ x: beforeX, y: imgY, w: imgW, h: imgH, src: cmp.beforeUrl, radius: 18, shadow: true }),
-        createImageElement({ x: afterX, y: imgY, w: imgW, h: imgH, src: cmp.afterUrl, radius: 18, shadow: true }),
+        ...stages.map((s, i) =>
+          createTextElement({
+            x: xOf(i), y: labelY, w: imgW, h: 44,
+            text: s.label, fontSize: n === 3 ? 22 : 26, fontWeight: "700",
+            color: s.accent ? "#ffffff" : "#e6e9f2", align: "center", letterSpacing: 2, lineHeight: 1.1,
+          }),
+        ),
+        ...stages.map((s, i) =>
+          createImageElement({ x: xOf(i), y: imgY, w: imgW, h: imgH, src: s.src, radius: 18, shadow: true }),
+        ),
         createTextElement({
           x: M, y: titleY, w: CANVAS_W - M * 2, h: 90,
           text: cmp.title || "Evolução", fontSize: 52, fontWeight: "900",
@@ -709,6 +713,9 @@ export function FlyerEditor(props: FlyerEditorProps) {
               >
                 <HStack gap={0}>
                   <Box flex="1" style={{ aspectRatio: "3 / 4" }} backgroundImage={`url(${c.beforeUrl})`} backgroundSize="cover" backgroundPosition="center" />
+                  {c.duringUrl ? (
+                    <Box flex="1" style={{ aspectRatio: "3 / 4" }} backgroundImage={`url(${c.duringUrl})`} backgroundSize="cover" backgroundPosition="center" />
+                  ) : null}
                   <Box flex="1" style={{ aspectRatio: "3 / 4" }} backgroundImage={`url(${c.afterUrl})`} backgroundSize="cover" backgroundPosition="center" />
                 </HStack>
                 <Text fontSize="xs" fontWeight="600" p={2} lineClamp={1} title={c.title}>

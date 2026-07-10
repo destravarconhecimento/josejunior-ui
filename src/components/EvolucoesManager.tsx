@@ -26,6 +26,8 @@ export type EvolucaoItem = {
   title: string;
   subtitle: string | null;
   beforeUrl: string | null;
+  /** Foto do "durante" — opcional (antes/durante/depois). */
+  duringUrl: string | null;
   afterUrl: string | null;
   featured: boolean;
 };
@@ -34,6 +36,7 @@ export type EvolucaoSaveData = {
   title: string;
   subtitle: string;
   beforeUrl: string | null;
+  duringUrl: string | null;
   afterUrl: string | null;
   featured: boolean;
 };
@@ -52,11 +55,19 @@ type Draft = {
   title: string;
   subtitle: string;
   beforeUrl: string | null;
+  duringUrl: string | null;
   afterUrl: string | null;
   featured: boolean;
 };
 
-const EMPTY_DRAFT: Draft = { title: "", subtitle: "", beforeUrl: null, afterUrl: null, featured: true };
+const EMPTY_DRAFT: Draft = {
+  title: "",
+  subtitle: "",
+  beforeUrl: null,
+  duringUrl: null,
+  afterUrl: null,
+  featured: true,
+};
 
 export function EvolucoesManager({
   items,
@@ -85,6 +96,7 @@ export function EvolucoesManager({
       title: it.title,
       subtitle: it.subtitle ?? "",
       beforeUrl: it.beforeUrl,
+      duringUrl: it.duringUrl,
       afterUrl: it.afterUrl,
       featured: it.featured,
     });
@@ -102,6 +114,7 @@ export function EvolucoesManager({
         title: draft.title.trim(),
         subtitle: draft.subtitle.trim(),
         beforeUrl: draft.beforeUrl,
+        duringUrl: draft.duringUrl,
         afterUrl: draft.afterUrl,
         featured: draft.featured,
       };
@@ -167,8 +180,9 @@ export function EvolucoesManager({
         <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={5}>
           {items.map((it) => (
             <Card key={it.id} p={0} overflow="hidden">
-              <SimpleGrid columns={2} gap={0}>
+              <SimpleGrid columns={it.duringUrl ? 3 : 2} gap={0}>
                 <Thumb url={it.beforeUrl} label="Antes" />
+                {it.duringUrl ? <Thumb url={it.duringUrl} label="Durante" /> : null}
                 <Thumb url={it.afterUrl} label="Depois" accent />
               </SimpleGrid>
               <Stack gap={2} p={3}>
@@ -227,12 +241,20 @@ export function EvolucoesManager({
           </>
         }
       >
-        <SimpleGrid columns={2} gap={4}>
+        <SimpleGrid columns={3} gap={4}>
           <ImageDrop
             label="Antes"
             url={draft.beforeUrl}
             onUpload={onUpload}
             onChange={(url) => setDraft((d) => ({ ...d, beforeUrl: url }))}
+          />
+          <ImageDrop
+            label="Durante"
+            hint="opcional"
+            url={draft.duringUrl}
+            onUpload={onUpload}
+            onChange={(url) => setDraft((d) => ({ ...d, duringUrl: url }))}
+            onClear={() => setDraft((d) => ({ ...d, duringUrl: null }))}
           />
           <ImageDrop
             label="Depois"
@@ -313,14 +335,20 @@ function Thumb({ url, label, accent }: { url: string | null; label: string; acce
 /** Campo de upload de UMA foto: mostra a prévia ou o placeholder; sobe no clique. */
 function ImageDrop({
   label,
+  hint,
   url,
   onUpload,
   onChange,
+  onClear,
 }: {
   label: string;
+  /** Ex.: "opcional" — texto discreto ao lado do rótulo. */
+  hint?: string;
   url: string | null;
   onUpload: (file: File) => Promise<string>;
   onChange: (url: string) => void;
+  /** Quando definido, mostra um "×" para remover a foto (usado no campo opcional). */
+  onClear?: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -339,9 +367,29 @@ function ImageDrop({
 
   return (
     <Stack gap={1.5}>
-      <Text fontSize="sm" fontWeight="600" color="var(--admin-primary)">
-        {label}
-      </Text>
+      <HStack gap={1.5} justify="space-between">
+        <Text fontSize="sm" fontWeight="600" color="var(--admin-primary)">
+          {label}
+          {hint ? (
+            <Text as="span" fontWeight="500" color="var(--admin-text-soft)">
+              {" "}
+              ({hint})
+            </Text>
+          ) : null}
+        </Text>
+        {url && onClear ? (
+          <Box
+            as="button"
+            onClick={onClear}
+            fontSize="xs"
+            color="var(--admin-text-soft)"
+            _hover={{ color: "var(--admin-primary)" }}
+            title="Remover foto"
+          >
+            <Trash2 size={14} />
+          </Box>
+        ) : null}
+      </HStack>
       <Box
         as="button"
         onClick={() => {

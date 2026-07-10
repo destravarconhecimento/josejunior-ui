@@ -86,6 +86,8 @@ export type FlyerComparison = {
   title: string;
   subtitle: string | null;
   beforeUrl: string;
+  /** Foto do "durante" (opcional); quando existe, o flyer insere 3 fotos. */
+  duringUrl: string | null;
   afterUrl: string;
 };
 
