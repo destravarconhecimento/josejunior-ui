@@ -9,7 +9,7 @@
  * As actions (DB/Blob/remoção de fundo) ficam no app; aqui é UI pura.
  */
 import { useMemo, useState } from "react";
-import { PencilLine, UserRound } from "lucide-react";
+import { PencilLine, Plus, Settings2, UserRound } from "lucide-react";
 import { avatarFontsHref, AVATAR_FRAME_PRESETS, AVATAR_SIZES, defaultAvatarConfig } from "./constants";
 import { AvatarGallery } from "./AvatarGallery";
 import { AvatarStudioPanel } from "./AvatarStudioPanel";
@@ -19,6 +19,8 @@ import { Button } from "../components/Button";
 import { EntityAvatar } from "../components/EntityAvatar";
 import { FormInput } from "../components/form";
 import { Modal } from "../components/Modal";
+import { PageBody } from "../components/PageBody";
+import { PageHeader } from "../components/PageHeader";
 import { toaster } from "../components/Toast";
 import type {
   AvatarBrand,
@@ -42,6 +44,8 @@ export type AvatarEditData = {
 type ActionResult = { ok: true; id?: number } | { ok: false; error: string };
 
 export type AvatarStudioProps = {
+  /** Título da tela (fica no PageHeader, junto das ações). */
+  title?: string;
   avatars: AvatarSummary[];
   settings: AvatarSettings;
   brand: AvatarBrand;
@@ -139,14 +143,31 @@ export function AvatarStudio(props: AvatarStudioProps) {
           display do seletor — sem isso o canvas cai no fallback (texto errado). */}
       <link rel="stylesheet" href={avatarFontsHref()} />
 
-      <AvatarGallery
-        avatars={props.avatars}
-        onCreate={openNew}
-        onOpen={openExisting}
-        onDuplicate={duplicate}
-        onDelete={remove}
-        onSettings={() => setSettingsOpen(true)}
+      {/* Ações primárias na LINHA do título (padrão dos painéis), não numa faixa
+          solta acima da galeria. */}
+      <PageHeader
+        title={props.title ?? "Avatares"}
+        actions={
+          <>
+            <Button tone="outline" onClick={() => setSettingsOpen(true)}>
+              <Settings2 size={16} /> Padrão da agência
+            </Button>
+            <Button tone="primary" onClick={openNew}>
+              <Plus size={18} /> Novo avatar
+            </Button>
+          </>
+        }
       />
+
+      <PageBody>
+        <AvatarGallery
+          avatars={props.avatars}
+          onCreate={openNew}
+          onOpen={openExisting}
+          onDuplicate={duplicate}
+          onDelete={remove}
+        />
+      </PageBody>
 
       {editing ? (
         <AvatarStudioPanel
@@ -171,6 +192,7 @@ export function AvatarStudio(props: AvatarStudioProps) {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         settings={props.settings}
+        brand={props.brand}
         presets={presets}
         onUpload={props.onUpload}
         onSave={props.onSaveSettings}

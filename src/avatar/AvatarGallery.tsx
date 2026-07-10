@@ -6,7 +6,7 @@
  * copiam a URL, baixam, duplicam ou excluem. Botões no topo: novo + padrão da agência.
  */
 import { useState } from "react";
-import { Check, Copy, Download, Files, Plus, Settings2, Sparkles, Trash2 } from "lucide-react";
+import { Check, Copy, Download, Files, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Box, Flex, Heading, HStack, Image, SimpleGrid, Stack, Text } from "../primitives";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
@@ -22,7 +22,6 @@ export type AvatarGalleryProps = {
   onOpen: (id: number) => void;
   onDuplicate: (id: number) => Promise<void> | void;
   onDelete: (id: number) => Promise<void> | void;
-  onSettings: () => void;
 };
 
 /** Baixa uma URL (cross-origin) forçando download via blob. */
@@ -42,7 +41,7 @@ async function downloadUrl(url: string, filename: string) {
   }
 }
 
-export function AvatarGallery({ avatars, onCreate, onOpen, onDuplicate, onDelete, onSettings }: AvatarGalleryProps) {
+export function AvatarGallery({ avatars, onCreate, onOpen, onDuplicate, onDelete }: AvatarGalleryProps) {
   const { confirm, confirmDialog } = useConfirm();
   const [busyId, setBusyId] = useState<number | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -89,15 +88,6 @@ export function AvatarGallery({ avatars, onCreate, onOpen, onDuplicate, onDelete
 
   return (
     <Stack gap={5}>
-      <Flex justify="flex-end" gap={2} flexWrap="wrap">
-        <Button tone="outline" onClick={onSettings}>
-          <Settings2 size={16} /> Padrão da agência
-        </Button>
-        <Button tone="primary" onClick={onCreate}>
-          <Plus size={18} /> Novo avatar
-        </Button>
-      </Flex>
-
       {avatars.length === 0 ? (
         <EmptyState
           icon={Sparkles}
