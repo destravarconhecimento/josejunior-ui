@@ -5,6 +5,10 @@
  * drawer mobile e scrollbar.
  */
 export const ADMIN_STRUCTURAL_CSS = `
+@keyframes jjProgressIndeterminate {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
 .admin-shell { background: var(--admin-bg); min-height: 100vh; color: var(--admin-text); }
 .admin-shell, .admin-shell * { font-family: var(--admin-font-body); }
 .admin-shell h1, .admin-shell h2, .admin-shell .admin-h {

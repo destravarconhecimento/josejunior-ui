@@ -89,6 +89,7 @@ export { AiAssistantFab } from "./components/AiAssistantFab";
 
 // Primitivos premium (KPIs, avatar, IA, timeline, ações rápidas)
 export { KpiCard, type KpiTone, type KpiTrendTone } from "./components/KpiCard";
+export { ProgressBar, type ProgressTone } from "./components/ProgressBar";
 export {
   EntityAvatar,
   type EntityAvatarSize,
