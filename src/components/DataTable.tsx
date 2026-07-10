@@ -158,7 +158,7 @@ export function DataTable<T>({
         maxH={fillHeight ? `calc(100vh - ${typeof fillHeight === "number" ? fillHeight : 340}px)` : undefined}
         minH={fillHeight ? "200px" : undefined}
       >
-        <Table.Root size={dense ? "sm" : "md"}>
+        <Table.Root size={dense ? "sm" : "md"} width="full">
           <Table.Header position="sticky" top={0} zIndex={1} bg="var(--admin-surface)" boxShadow="0 1px 0 var(--admin-divider)">
             <Table.Row>
               {onReorder ? <Table.ColumnHeader width="34px" /> : null}
