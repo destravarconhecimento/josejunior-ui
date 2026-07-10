@@ -32,6 +32,7 @@ export function AppShell({
   homeHref = "/dashboard",
   accountHref,
   version,
+  searchSlot,
   children,
 }: {
   brand: Brand;
@@ -44,6 +45,8 @@ export function AppShell({
   accountHref?: string;
   /** Versão exibida no rodapé do sidebar (canto inferior esquerdo). */
   version?: string;
+  /** Acessório à direita da busca do menu (ex.: botão de instalar o PWA). */
+  searchSlot?: ReactNode;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -152,10 +155,13 @@ export function AppShell({
         {/* busca no menu (só expandido — recolhido não cabe) */}
         {!collapsed ? (
           <Box px={4} pb={2} flexShrink={0}>
+            <HStack gap={2} align="center">
             <HStack
               gap={2}
               px={3}
               h="38px"
+              flex="1"
+              minW={0}
               borderRadius="10px"
               bg="rgba(255,255,255,0.06)"
               borderWidth="1px"
@@ -189,6 +195,8 @@ export function AppShell({
                 _placeholder={{ color: "rgba(255,255,255,0.45)" }}
                 _focusVisible={{ outline: "none" }}
               />
+            </HStack>
+            {searchSlot}
             </HStack>
           </Box>
         ) : null}
