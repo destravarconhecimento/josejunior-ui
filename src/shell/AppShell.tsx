@@ -7,7 +7,7 @@ import { Box, Flex, HStack, Input, Menu, Portal, Stack, Text, VStack } from "@ch
 import { ChevronsUpDown, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { MobileNav } from "./MobileNav";
 import { BottomNav } from "./BottomNav";
-import { UserMenu } from "./UserMenu";
+import { UserMenu, SiteLinkItem } from "./UserMenu";
 import { isActiveHref } from "./ActiveLink";
 import { filterSections } from "./navFilter";
 import { AdminBrandLogo, AdminCrest, initialsFrom } from "../theme/AdminThemeShell";
@@ -31,6 +31,8 @@ export function AppShell({
   accountSlot,
   homeHref = "/dashboard",
   accountHref,
+  siteHref,
+  siteLabel,
   version,
   searchSlot,
   utilitiesSlot,
@@ -44,6 +46,10 @@ export function AppShell({
   accountSlot?: ReactNode;
   homeHref?: string;
   accountHref?: string;
+  /** Link "Ir para o site" (página pública) no menu do usuário. Sem isso, não aparece. */
+  siteHref?: string;
+  /** Rótulo do link do site (default "Ir para o site"). */
+  siteLabel?: string;
   /** Versão exibida no rodapé do sidebar (canto inferior esquerdo). */
   version?: string;
   /** Acessório à direita da busca do menu (ex.: botão de instalar o PWA). */
@@ -351,7 +357,17 @@ export function AppShell({
                       </Box>
                       <Box mb={1} mx={1} borderTopWidth="1px" borderColor="var(--admin-divider)" />
                       {accountSlot}
-                      {accountSlot && logoutSlot ? (
+                      {siteHref ? (
+                        <>
+                          {accountSlot ? (
+                            <Box my={1} mx={1} borderTopWidth="1px" borderColor="var(--admin-divider)" />
+                          ) : null}
+                          <Box px={1.5} py={0.5}>
+                            <SiteLinkItem href={siteHref} label={siteLabel} />
+                          </Box>
+                        </>
+                      ) : null}
+                      {(accountSlot || siteHref) && logoutSlot ? (
                         <Box my={1} mx={1} borderTopWidth="1px" borderColor="var(--admin-divider)" />
                       ) : null}
                       {logoutSlot}
@@ -405,7 +421,7 @@ export function AppShell({
             )}
           </Link>
           <Box ml="auto">
-            <UserMenu user={user} logoutSlot={logoutSlot} accountSlot={accountSlot} accountHref={accountHref} />
+            <UserMenu user={user} logoutSlot={logoutSlot} accountSlot={accountSlot} accountHref={accountHref} siteHref={siteHref} siteLabel={siteLabel} />
           </Box>
         </Flex>
 

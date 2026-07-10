@@ -3,9 +3,26 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Box, HStack, Menu, Portal, Stack, Text } from "@chakra-ui/react";
-import { ChevronDown, KeyRound } from "lucide-react";
+import { ChevronDown, Globe, KeyRound } from "lucide-react";
 import { UserAvatar } from "../components/UserAvatar";
 import type { AppUser } from "./types";
+
+/**
+ * Item "Ir para o site" dos menus do usuário (rodapé do sidebar + dropdown do
+ * topo mobile). Sai do painel logado para a página pública SEM deslogar — a
+ * sessão continua guardada (só uma navegação normal). Reusado nos dois lugares
+ * para não divergir. `href` pode ser relativo (`/`) ou absoluto (outro domínio).
+ */
+export function SiteLinkItem({ href, label }: { href: string; label?: string }) {
+  return (
+    <Link
+      href={href}
+      style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--admin-primary)", padding: "6px 4px" }}
+    >
+      <Globe size={14} /> {label ?? "Ir para o site"}
+    </Link>
+  );
+}
 
 /** Bloco do usuário logado (Chakra Menu): iniciais + nome + dropdown com conta/logout. */
 export function UserMenu({
@@ -13,6 +30,8 @@ export function UserMenu({
   logoutSlot,
   accountSlot,
   accountHref,
+  siteHref,
+  siteLabel,
 }: {
   user: AppUser;
   logoutSlot?: ReactNode;
@@ -20,6 +39,10 @@ export function UserMenu({
   accountSlot?: ReactNode;
   /** Link da área "Conta & senha" (ex.: /conta). Sem isso, o item não aparece. */
   accountHref?: string;
+  /** Link "Ir para o site" (página pública). Sem isso, o item não aparece. */
+  siteHref?: string;
+  /** Rótulo do link do site (default "Ir para o site"). */
+  siteLabel?: string;
 }) {
   return (
     <Menu.Root positioning={{ placement: "bottom-end" }}>
@@ -74,6 +97,11 @@ export function UserMenu({
                   >
                     <KeyRound size={14} /> Conta &amp; senha
                   </Link>
+                </Box>
+              ) : null}
+              {siteHref ? (
+                <Box borderTopWidth="1px" borderColor="var(--admin-divider)" pt={2}>
+                  <SiteLinkItem href={siteHref} label={siteLabel} />
                 </Box>
               ) : null}
               {logoutSlot ? (
