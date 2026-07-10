@@ -223,6 +223,7 @@ export function AvatarSettingsPanel(props: AvatarSettingsPanelProps) {
             placeholder="Ex.: Maria"
             help="Só na prévia — não altera o padrão."
           />
+          <SimpleGrid columns={{ base: 1, lg: 2 }} gap={4} alignItems="start">
           <Accordion
             multiple
             defaultValue={["texto", "logo"]}
@@ -369,6 +370,12 @@ export function AvatarSettingsPanel(props: AvatarSettingsPanelProps) {
                   </Stack>
                 ),
               },
+            ]}
+          />
+          <Accordion
+            multiple
+            defaultValue={[]}
+            items={[
               {
                 value: "moldura",
                 title: "Molduras",
@@ -472,6 +479,7 @@ export function AvatarSettingsPanel(props: AvatarSettingsPanelProps) {
               },
             ]}
           />
+          </SimpleGrid>
         </Stack>
       </AvatarStudioLayout>
     </SidePanel>

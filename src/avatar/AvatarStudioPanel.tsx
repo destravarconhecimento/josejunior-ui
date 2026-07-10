@@ -18,7 +18,7 @@ import {
   Upload,
   Wand2,
 } from "lucide-react";
-import { Box, Flex, HStack, Stack, Text } from "../primitives";
+import { Box, Flex, HStack, SimpleGrid, Stack, Text } from "../primitives";
 import { Button } from "../components/Button";
 import { Accordion } from "../components/Accordion";
 import { FormInput, FormSelect } from "../components/form";
@@ -373,11 +373,12 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
           </Stack>
         )}
       >
-        {/* Controles — organizados por categoria (acordeão) */}
-        <Accordion
-          multiple
-          defaultValue={["foto", "nome"]}
-          items={[
+        {/* Controles — DUAS COLUNAS iguais no desktop; 1 coluna no mobile. */}
+        <SimpleGrid columns={{ base: 1, lg: 2 }} gap={4} alignItems="start">
+          <Accordion
+            multiple
+            defaultValue={["foto", "nome"]}
+            items={[
               {
                 value: "foto",
                 title: "Foto da pessoa",
@@ -607,6 +608,12 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
                   </Stack>
                 ),
               },
+            ]}
+          />
+          <Accordion
+            multiple
+            defaultValue={[]}
+            items={[
               {
                 value: "moldura",
                 title: "Moldura",
@@ -711,6 +718,7 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
               },
             ]}
           />
+        </SimpleGrid>
       </AvatarStudioLayout>
 
       {result ? (
