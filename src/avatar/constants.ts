@@ -22,6 +22,16 @@ export const AVATAR_FONTS = [
   { family: "Poppins", weight: 700, label: "Poppins" },
   { family: "Teko", weight: 700, label: "Teko" },
   { family: "Righteous", weight: 400, label: "Righteous" },
+  { family: "Alfa Slab One", weight: 400, label: "Alfa Slab One (slab)" },
+  { family: "Fjalla One", weight: 400, label: "Fjalla One" },
+  { family: "Staatliches", weight: 400, label: "Staatliches" },
+  { family: "Bungee", weight: 400, label: "Bungee (urbana)" },
+  { family: "Titan One", weight: 400, label: "Titan One (gorda)" },
+  { family: "Luckiest Guy", weight: 400, label: "Luckiest Guy (cartoon)" },
+  { family: "Passion One", weight: 700, label: "Passion One" },
+  { family: "Squada One", weight: 400, label: "Squada One" },
+  { family: "Sigmar One", weight: 400, label: "Sigmar One" },
+  { family: "Rammetto One", weight: 400, label: "Rammetto One" },
 ] as const;
 
 export type AvatarFont = (typeof AVATAR_FONTS)[number];
@@ -151,6 +161,8 @@ export function defaultAvatarConfig(settings: AvatarSettings, brandLogoUrl?: str
     ? { kind: "image", url: settings.backgroundUrl }
     : { kind: "color", color: settings.defaultBackgroundColor || "#0b1220" };
   const logoUrl = (settings.logoUrl || brandLogoUrl || "").trim() || null;
+  // O "padrão da agência" é herdado POR INTEIRO: cor, caixa, posição, tamanho —
+  // tudo que a agência salvou já vem pronto no avatar novo (só falta foto + nome).
   return {
     photoUrl: null,
     photo: { offsetX: 0, offsetY: 0, zoom: 1 },
@@ -158,13 +170,15 @@ export function defaultAvatarConfig(settings: AvatarSettings, brandLogoUrl?: str
     background,
     logoUrl,
     logoCorner: settings.defaultLogoCorner ?? (logoUrl ? "top" : "none"),
+    logoPos: settings.defaultLogoPos ?? null,
     font: settings.defaultFont || AVATAR_FONTS[0].family,
-    titleColor: "#ffffff",
-    subtitleColor: "#ffffff",
-    uppercase: true,
-    subtitleCurved: false,
-    titleOffsetY: 0,
-    titleScale: 1,
+    titleColor: settings.defaultTitleColor || "#ffffff",
+    subtitleColor: settings.defaultSubtitleColor || "#ffffff",
+    uppercase: settings.defaultUppercase ?? true,
+    subtitleCurved: settings.defaultSubtitleCurved ?? false,
+    titleOffsetY: settings.defaultTitleOffsetY ?? 0,
+    titleOffsetX: settings.defaultTitleOffsetX ?? 0,
+    titleScale: settings.defaultTitleScale ?? 1,
   };
 }
 

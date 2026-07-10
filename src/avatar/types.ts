@@ -77,6 +77,11 @@ export type AvatarConfig = {
   /** Logo sobreposta (null = sem logo). */
   logoUrl: string | null;
   logoCorner: AvatarLogoCorner;
+  /**
+   * Posição LIVRE da logo (centro, fração do lado 0..1), quando a pessoa arrasta a
+   * logo na prévia. Sobrepõe `logoCorner`. Ausente/null = usa o canto. Opcional.
+   */
+  logoPos?: { x: number; y: number } | null;
   /** Família da fonte do nome (ver AVATAR_FONTS). */
   font: string;
   titleColor: string;
@@ -93,6 +98,11 @@ export type AvatarConfig = {
    * Negativo sobe, positivo desce. Ausente = 0. Opcional (configs antigas).
    */
   titleOffsetY?: number;
+  /**
+   * Ajuste horizontal do NOME (fração do lado, somada ao centro). Negativo p/
+   * esquerda, positivo p/ direita. Setado ao arrastar o nome. Ausente = 0. Opcional.
+   */
+  titleOffsetX?: number;
   /**
    * Multiplicador do tamanho do NOME (1 = padrão). Ausente = 1. Opcional (configs
    * antigas). Deixa a agência aumentar/diminuir o nome sem depender do comprimento.
@@ -141,6 +151,22 @@ export type AvatarSettings = {
   defaultFrameUrl?: string;
   /** Posição padrão da logo nos avatares novos (ausente = topo, ou nenhuma sem logo). */
   defaultLogoCorner?: AvatarLogoCorner;
+  /** Posição LIVRE padrão da logo (arrastada na prévia do padrão). Sobrepõe o canto. */
+  defaultLogoPos?: { x: number; y: number } | null;
+  /** Cor padrão do NOME (todo avatar novo começa assim). */
+  defaultTitleColor?: string;
+  /** Cor padrão da LEGENDA fixa. */
+  defaultSubtitleColor?: string;
+  /** Texto em CAIXA ALTA por padrão (ausente = true). */
+  defaultUppercase?: boolean;
+  /** Legenda curvada por padrão (ausente = false). */
+  defaultSubtitleCurved?: boolean;
+  /** Tamanho padrão do nome (multiplicador; ausente = 1). */
+  defaultTitleScale?: number;
+  /** Posição vertical padrão do nome (fração; ausente = 0). */
+  defaultTitleOffsetY?: number;
+  /** Posição horizontal padrão do nome (fração; ausente = 0). */
+  defaultTitleOffsetX?: number;
 };
 
 /** Marca do tenant (fallback pra logo/cores). */

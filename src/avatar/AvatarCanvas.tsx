@@ -10,7 +10,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box } from "../primitives";
 import { AVATAR_LAYOUT, avatarFontWeight } from "./constants";
-import { drawAvatarScene, ensureAvatarFont, loadAvatarImage, type AvatarScene } from "./compose";
+import {
+  avatarLogoCenterFrac,
+  avatarTitleAnchorFrac,
+  drawAvatarScene,
+  ensureAvatarFont,
+  loadAvatarImage,
+  type AvatarScene,
+} from "./compose";
 import type { AvatarConfig, AvatarFramePreset } from "./types";
 
 /** Lado do backing-store do preview (o export usa AVATAR_RENDER_SIZE=1024). */
@@ -24,6 +31,10 @@ export type AvatarCanvasProps = {
   /** Permite pan/zoom da foto arrastando (estúdio sim, card não). */
   interactive?: boolean;
   onPhotoChange?: (photo: AvatarConfig["photo"]) => void;
+  /** Arrastar o NOME na prévia → nova posição (fração do lado, relativa ao centro/baseline). */
+  onTitleMove?: (offset: { x: number; y: number }) => void;
+  /** Arrastar a LOGO na prévia → nova posição livre (centro, fração do lado). */
+  onLogoMove?: (pos: { x: number; y: number }) => void;
   /** Tamanho CSS máximo do preview (px). */
   maxSize?: number;
 };
@@ -45,6 +56,8 @@ export function AvatarCanvas({
   presets,
   interactive = false,
   onPhotoChange,
+  onTitleMove,
+  onLogoMove,
   maxSize = 380,
 }: AvatarCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -105,6 +118,7 @@ export function AvatarCanvas({
       presets,
       logoImg: logoUrl ? pick(logoUrl) : undefined,
       logoCorner: config.logoCorner,
+      logoPos: config.logoPos ?? null,
       title,
       subtitle,
       font: config.font,
@@ -113,6 +127,7 @@ export function AvatarCanvas({
       uppercase: config.uppercase,
       subtitleCurved: config.subtitleCurved ?? false,
       titleOffsetY: config.titleOffsetY ?? 0,
+      titleOffsetX: config.titleOffsetX ?? 0,
       titleScale: config.titleScale ?? 1,
     };
     // imgVersion força recomputo quando uma imagem termina de carregar.
@@ -130,36 +145,114 @@ export function AvatarCanvas({
     return () => cancelAnimationFrame(raf);
   }, [scene, fontReady]);
 
-  // ---- pan (arraste) ----
-  const dragRef = useRef<{ x: number; y: number; ox: number; oy: number; w: number } | null>(null);
+  // ---- arraste: foto (pan), NOME e LOGO ----
+  // Ref com a cena atual pra o hit-test ler a geometria mais recente sem recriar
+  // os handlers a cada frame.
+  const sceneRef = useRef(scene);
+  sceneRef.current = scene;
+
+  type DragState = {
+    mode: "photo" | "title" | "logo";
+    sx: number; // fração do lado no ponto onde pegou
+    sy: number;
+    bx: number; // valor base do alvo ao começar
+    by: number;
+  };
+  const dragRef = useRef<DragState | null>(null);
+
+  const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+
+  // Fração do lado a partir do evento (0..1 em cada eixo).
+  const fracOf = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const w = rect.width || maxSize;
+    const h = rect.height || maxSize;
+    return { fx: (e.clientX - rect.left) / w, fy: (e.clientY - rect.top) / h };
+  };
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (!interactive || !onPhotoChange || !config.photoUrl) return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      dragRef.current = {
-        x: e.clientX,
-        y: e.clientY,
-        ox: config.photo.offsetX,
-        oy: config.photo.offsetY,
-        w: rect.width || maxSize,
-      };
-      e.currentTarget.setPointerCapture(e.pointerId);
+      if (!interactive) return;
+      const sc = sceneRef.current;
+      const { fx, fy } = fracOf(e);
+
+      // 1) Logo (camada de cima) — caixa em torno do centro dela.
+      const hasLogo = sc.logoCorner !== "none" && !!logoUrl;
+      if (onLogoMove && hasLogo) {
+        const c = avatarLogoCenterFrac(sc);
+        const half = AVATAR_LAYOUT.logoWidthFrac * 0.62;
+        if (Math.abs(fx - c.x) < half && Math.abs(fy - c.y) < half) {
+          dragRef.current = { mode: "logo", sx: fx, sy: fy, bx: c.x, by: c.y };
+          e.currentTarget.setPointerCapture(e.pointerId);
+          return;
+        }
+      }
+
+      // 2) Nome — faixa em torno da baseline do título.
+      if (onTitleMove && (title || "").trim()) {
+        const a = avatarTitleAnchorFrac(sc);
+        const th = AVATAR_LAYOUT.titleFontFrac * (config.titleScale ?? 1);
+        if (Math.abs(fx - a.x) < 0.42 && fy > a.y - th - 0.03 && fy < a.y + 0.06) {
+          dragRef.current = {
+            mode: "title",
+            sx: fx,
+            sy: fy,
+            bx: config.titleOffsetX ?? 0,
+            by: config.titleOffsetY ?? 0,
+          };
+          e.currentTarget.setPointerCapture(e.pointerId);
+          return;
+        }
+      }
+
+      // 3) Foto (pan).
+      if (onPhotoChange && config.photoUrl) {
+        dragRef.current = {
+          mode: "photo",
+          sx: fx,
+          sy: fy,
+          bx: config.photo.offsetX,
+          by: config.photo.offsetY,
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }
     },
-    [interactive, onPhotoChange, config.photoUrl, config.photo.offsetX, config.photo.offsetY, maxSize],
+    [
+      interactive,
+      onLogoMove,
+      onTitleMove,
+      onPhotoChange,
+      logoUrl,
+      title,
+      config.titleScale,
+      config.titleOffsetX,
+      config.titleOffsetY,
+      config.photoUrl,
+      config.photo.offsetX,
+      config.photo.offsetY,
+      maxSize,
+    ],
   );
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const d = dragRef.current;
-      if (!d || !onPhotoChange) return;
-      // px CSS → fração do lado → fração do raio (dividindo por circleR).
-      const dxFrac = (e.clientX - d.x) / d.w / AVATAR_LAYOUT.circleR;
-      const dyFrac = (e.clientY - d.y) / d.w / AVATAR_LAYOUT.circleR;
-      const clamp = (n: number) => Math.max(-1.5, Math.min(1.5, n));
-      onPhotoChange({ ...config.photo, offsetX: clamp(d.ox + dxFrac), offsetY: clamp(d.oy + dyFrac) });
+      if (!d) return;
+      const { fx, fy } = fracOf(e);
+      const dxFrac = fx - d.sx;
+      const dyFrac = fy - d.sy;
+      if (d.mode === "logo" && onLogoMove) {
+        onLogoMove({ x: clamp(d.bx + dxFrac, 0.04, 0.96), y: clamp(d.by + dyFrac, 0.04, 0.96) });
+      } else if (d.mode === "title" && onTitleMove) {
+        onTitleMove({ x: clamp(d.bx + dxFrac, -0.45, 0.45), y: clamp(d.by + dyFrac, -0.4, 0.4) });
+      } else if (d.mode === "photo" && onPhotoChange) {
+        // fração do lado → fração do raio (÷ circleR).
+        const ox = clamp(d.bx + dxFrac / AVATAR_LAYOUT.circleR, -1.5, 1.5);
+        const oy = clamp(d.by + dyFrac / AVATAR_LAYOUT.circleR, -1.5, 1.5);
+        onPhotoChange({ ...config.photo, offsetX: ox, offsetY: oy });
+      }
     },
-    [onPhotoChange, config.photo],
+    [onLogoMove, onTitleMove, onPhotoChange, config.photo, maxSize],
   );
 
   const endDrag = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -210,8 +303,8 @@ export function AvatarCanvas({
           display: "block",
           width: "100%",
           height: "100%",
-          touchAction: interactive && config.photoUrl ? "none" : "auto",
-          cursor: interactive && config.photoUrl ? "grab" : "default",
+          touchAction: interactive ? "none" : "auto",
+          cursor: interactive ? "grab" : "default",
         }}
       />
     </Box>

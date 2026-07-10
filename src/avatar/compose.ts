@@ -46,6 +46,8 @@ export type AvatarScene = {
   presets: readonly AvatarFramePreset[];
   logoImg?: Img;
   logoCorner: AvatarLogoCorner;
+  /** Posição livre da logo (fração, quando arrastada). Sobrepõe o canto. */
+  logoPos?: { x: number; y: number } | null;
   title: string;
   subtitle: string;
   font: string;
@@ -56,16 +58,73 @@ export type AvatarScene = {
   subtitleCurved: boolean;
   /** Ajuste fino da altura do nome (fração do lado). */
   titleOffsetY: number;
+  /** Ajuste horizontal do nome (fração do lado). */
+  titleOffsetX: number;
   /** Multiplicador do tamanho do nome (1 = padrão). */
   titleScale: number;
 };
 
+/** Cena mínima que as helpers de geometria/hit-test precisam. */
+type GeomScene = Pick<AvatarScene, "frame" | "presets" | "logoCorner" | "logoPos"> & {
+  titleOffsetX?: number;
+  titleOffsetY?: number;
+};
+
+/** Faixa da moldura em FRAÇÃO do lado (soma das larguras dos anéis / borda da PNG). */
+function frameBandFrac(scene: Pick<AvatarScene, "frame" | "presets">): number {
+  if (scene.frame.kind === "preset") {
+    const preset = scene.presets.find((p) => p.id === (scene.frame as { presetId: string }).presetId);
+    if (!preset) return 0;
+    return preset.rings.reduce((sum, r) => sum + (r.width > 0 ? r.width : 0), 0);
+  }
+  if (scene.frame.kind === "image") return 0.03;
+  return 0;
+}
+
 /**
- * Raio da FOTO em px: raio externo da moldura menos a faixa dela, então a moldura
- * ENCOSTA na borda do quadrado e a foto ocupa todo o miolo (o "espaço todo").
+ * Raio da FOTO em FRAÇÃO do lado: raio externo da moldura menos a faixa dela — a
+ * moldura ENCOSTA na borda do quadrado e a foto ocupa todo o miolo ("espaço todo").
  */
+export function avatarPhotoRadiusFrac(scene: Pick<AvatarScene, "frame" | "presets">): number {
+  return AVATAR_LAYOUT.outerRFrac - frameBandFrac(scene);
+}
+
+/** Raio da foto em px. */
 function photoRadiusPx(S: number, scene: AvatarScene): number {
-  return AVATAR_LAYOUT.outerRFrac * S - frameBandPx(S, scene);
+  return avatarPhotoRadiusFrac(scene) * S;
+}
+
+/** Centro da LOGO em fração do lado (posição livre, senão derivado do canto). */
+export function avatarLogoCenterFrac(scene: GeomScene): { x: number; y: number } {
+  if (scene.logoPos) return scene.logoPos;
+  const r = avatarPhotoRadiusFrac(scene);
+  const vy = r * 0.72;
+  const cxo = r * 0.58;
+  const cyo = r * 0.58;
+  switch (scene.logoCorner) {
+    case "top":
+      return { x: 0.5, y: 0.5 - vy };
+    case "bottom":
+      return { x: 0.5, y: 0.5 + vy };
+    case "top-left":
+      return { x: 0.5 - cxo, y: 0.5 - cyo };
+    case "top-right":
+      return { x: 0.5 + cxo, y: 0.5 - cyo };
+    case "bottom-left":
+      return { x: 0.5 - cxo, y: 0.5 + cyo };
+    case "bottom-right":
+      return { x: 0.5 + cxo, y: 0.5 + cyo };
+    default:
+      return { x: 0.5, y: 0.5 };
+  }
+}
+
+/** Âncora (centro da baseline) do NOME em fração do lado — pra hit-test do arraste. */
+export function avatarTitleAnchorFrac(scene: GeomScene): { x: number; y: number } {
+  return {
+    x: 0.5 + (scene.titleOffsetX ?? 0),
+    y: AVATAR_LAYOUT.titleBaselineY + (scene.titleOffsetY ?? 0),
+  };
 }
 
 /** Desenha uma imagem cobrindo (object-fit: cover) o retângulo dst. */
@@ -235,29 +294,16 @@ function drawFrame(
   // kind === "none": nada.
 }
 
-/** Largura total da faixa da moldura (fração do lado × S) — pra ancorar texto curvo. */
+/** Largura total da faixa da moldura em px — pra ancorar texto curvo. */
 function frameBandPx(S: number, scene: AvatarScene): number {
-  if (scene.frame.kind === "preset") {
-    const preset = scene.presets.find((p) => p.id === (scene.frame as { presetId: string }).presetId);
-    if (!preset) return 0;
-    return preset.rings.reduce((sum, r) => sum + (r.width > 0 ? r.width : 0), 0) * S;
-  }
-  if (scene.frame.kind === "image") return S * 0.03;
-  return 0;
+  return frameBandFrac(scene) * S;
 }
 
 /**
  * Desenha a logo (contida) posicionada em relação ao CÍRCULO: topo/base
- * centralizados, ou nos 4 cantos (arco do círculo). Sempre dentro da foto.
+ * centralizados, nos 4 cantos, ou numa posição LIVRE (arrastada). Dentro da foto.
  */
-function drawLogo(
-  ctx: CanvasRenderingContext2D,
-  S: number,
-  cx: number,
-  cy: number,
-  rP: number,
-  scene: AvatarScene,
-): void {
+function drawLogo(ctx: CanvasRenderingContext2D, S: number, scene: AvatarScene): void {
   if (scene.logoCorner === "none" || !scene.logoImg) return;
   const iw = imgW(scene.logoImg);
   const ih = imgH(scene.logoImg);
@@ -265,40 +311,9 @@ function drawLogo(
   const targetW = S * AVATAR_LAYOUT.logoWidthFrac;
   const w = targetW;
   const h = ih * (targetW / iw);
-
-  // Centro da logo por posição (fração do raio a partir do centro do círculo).
-  const vy = rP * 0.72; // deslocamento vertical topo/base
-  const cornerX = rP * 0.58;
-  const cornerY = rP * 0.58;
-  let px = cx;
-  let py = cy;
-  switch (scene.logoCorner) {
-    case "top":
-      px = cx;
-      py = cy - vy;
-      break;
-    case "bottom":
-      px = cx;
-      py = cy + vy;
-      break;
-    case "top-left":
-      px = cx - cornerX;
-      py = cy - cornerY;
-      break;
-    case "top-right":
-      px = cx + cornerX;
-      py = cy - cornerY;
-      break;
-    case "bottom-left":
-      px = cx - cornerX;
-      py = cy + cornerY;
-      break;
-    case "bottom-right":
-      px = cx + cornerX;
-      py = cy + cornerY;
-      break;
-  }
-  ctx.drawImage(scene.logoImg, px - w / 2, py - h / 2, w, h);
+  // Centro (fração) livre ou derivado do canto — mesma fonte usada no hit-test.
+  const c = avatarLogoCenterFrac(scene);
+  ctx.drawImage(scene.logoImg, c.x * S - w / 2, c.y * S - h / 2, w, h);
 }
 
 /** Ajusta o tamanho da fonte pra caber em `maxW` (uma medição, por proporção). */
@@ -396,7 +411,7 @@ function drawTextArc(
 
 /** Desenha as 2 linhas do rodapé (nome + legenda fixa, reta ou curvada). */
 function drawText(ctx: CanvasRenderingContext2D, S: number, scene: AvatarScene): void {
-  const cx = S / 2;
+  const cx = S * (0.5 + (scene.titleOffsetX || 0));
   const maxW = S * AVATAR_LAYOUT.textMaxWidth;
   const weight = avatarFontWeight(scene.font);
   const cap = (s: string) => (scene.uppercase ? s.toUpperCase() : s);
@@ -453,7 +468,7 @@ export function drawAvatarScene(ctx: CanvasRenderingContext2D, S: number, scene:
   drawPhoto(ctx, S, cx, cy, rP, scene);
   drawScrim(ctx, S, cx, cy, rP, scene);
   drawFrame(ctx, S, cx, cy, rP, scene);
-  drawLogo(ctx, S, cx, cy, rP, scene);
+  drawLogo(ctx, S, scene);
   drawText(ctx, S, scene);
   ctx.restore();
 }
@@ -534,6 +549,7 @@ export async function composeAvatar(input: {
     presets: input.presets,
     logoImg,
     logoCorner: config.logoCorner,
+    logoPos: config.logoPos ?? null,
     title: input.title,
     subtitle: input.subtitle,
     font: config.font,
@@ -542,6 +558,7 @@ export async function composeAvatar(input: {
     uppercase: config.uppercase,
     subtitleCurved: config.subtitleCurved ?? false,
     titleOffsetY: config.titleOffsetY ?? 0,
+    titleOffsetX: config.titleOffsetX ?? 0,
     titleScale: config.titleScale ?? 1,
   };
 
