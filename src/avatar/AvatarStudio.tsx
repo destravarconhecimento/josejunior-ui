@@ -10,11 +10,19 @@
  */
 import { useMemo, useState } from "react";
 import { PencilLine, Plus, Settings2, UserRound } from "lucide-react";
-import { avatarFontsHref, AVATAR_FRAME_PRESETS, AVATAR_SIZES, defaultAvatarConfig } from "./constants";
+import {
+  avatarFontsHref,
+  avatarPresets,
+  AVATAR_FRAME_PRESETS,
+  AVATAR_SIZES,
+  defaultAvatarConfig,
+  recipeOf,
+  resolveAvatarPreset,
+} from "./constants";
 import { AvatarGallery } from "./AvatarGallery";
 import { AvatarStudioPanel } from "./AvatarStudioPanel";
 import { AvatarSettingsPanel } from "./AvatarSettingsPanel";
-import { Box, Flex, SimpleGrid, Stack, Text } from "../primitives";
+import { Box, Flex, HStack, SimpleGrid, Stack, Text } from "../primitives";
 import { Button } from "../components/Button";
 import { EntityAvatar } from "../components/EntityAvatar";
 import { FormInput } from "../components/form";
@@ -27,6 +35,7 @@ import type {
   AvatarConfig,
   AvatarFramePreset,
   AvatarMember,
+  AvatarPreset,
   AvatarSaveData,
   AvatarSettings,
   AvatarSummary,
@@ -65,6 +74,8 @@ export type AvatarStudioProps = {
 export function AvatarStudio(props: AvatarStudioProps) {
   const presets = props.framePresets ?? AVATAR_FRAME_PRESETS;
   const members = props.members ?? [];
+  const padroes = useMemo(() => avatarPresets(props.settings), [props.settings]);
+  const defaultPadraoId = useMemo(() => resolveAvatarPreset(props.settings).id, [props.settings]);
   const [studioOpen, setStudioOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -75,29 +86,39 @@ export function AvatarStudio(props: AvatarStudioProps) {
     subtitle: string;
     size: number;
     id?: number;
+    /** Settings ATIVAS (padrão escolhido espelhado na receita) que o estúdio usa de fallback. */
+    settings: AvatarSettings;
   } | null>(null);
 
-  /** Abre o estúdio já com nome/foto opcionais (do membro escolhido). */
-  const openBlank = (seed?: { name?: string; photoUrl?: string | null }) => {
-    const base = defaultAvatarConfig(props.settings, props.brand.logoUrl);
+  /**
+   * Abre o estúdio semeando do PADRÃO escolhido (`padraoId`), com nome/foto
+   * opcionais (do membro). O estúdio recebe as settings com a receita do padrão
+   * escolhido no topo, mantendo a biblioteca de molduras compartilhada.
+   */
+  const openBlank = (seed?: { name?: string; photoUrl?: string | null }, padraoId?: string) => {
+    const preset = resolveAvatarPreset(props.settings, padraoId);
+    const active: AvatarSettings = { ...props.settings, ...recipeOf(preset) };
+    const base = defaultAvatarConfig(preset, props.brand.logoUrl);
     setEditing({
       config: { ...base, photoUrl: seed?.photoUrl?.trim() || base.photoUrl },
       name: seed?.name?.trim() ?? "",
-      subtitle: props.settings.fixedSubtitle ?? "",
+      subtitle: preset.fixedSubtitle ?? "",
       size: AVATAR_SIZES[0],
       id: undefined,
+      settings: active,
     });
     setPickerOpen(false);
     setStudioOpen(true);
   };
 
-  /** "Novo avatar": se a agência tem roster, escolhe um membro antes; senão vai direto. */
+  /** "Novo avatar": se há roster OU mais de um padrão, escolhe antes; senão vai direto. */
   const openNew = () => {
-    if (members.length > 0) setPickerOpen(true);
+    if (members.length > 0 || padroes.length > 1) setPickerOpen(true);
     else openBlank();
   };
 
-  const pickMember = (m: AvatarMember) => openBlank({ name: m.name, photoUrl: m.photoUrl });
+  const pickMember = (m: AvatarMember, padraoId?: string) =>
+    openBlank({ name: m.name, photoUrl: m.photoUrl }, padraoId);
 
   const openExisting = async (id: number) => {
     if (opening) return;
@@ -114,6 +135,8 @@ export function AvatarStudio(props: AvatarStudioProps) {
         subtitle: data.subtitle ?? "",
         size: AVATAR_SIZES.includes(data.size as (typeof AVATAR_SIZES)[number]) ? data.size : AVATAR_SIZES[0],
         id,
+        // Editar um avatar já criado usa as settings inteiras (biblioteca de molduras completa).
+        settings: props.settings,
       });
       setStudioOpen(true);
     } catch (err) {
@@ -150,7 +173,7 @@ export function AvatarStudio(props: AvatarStudioProps) {
         actions={
           <>
             <Button tone="outline" onClick={() => setSettingsOpen(true)}>
-              <Settings2 size={16} /> Padrão da agência
+              <Settings2 size={16} /> Padrões da agência
             </Button>
             <Button tone="primary" onClick={openNew}>
               <Plus size={18} /> Novo avatar
@@ -178,7 +201,7 @@ export function AvatarStudio(props: AvatarStudioProps) {
           initialSubtitle={editing.subtitle}
           initialSize={editing.size}
           avatarId={editing.id}
-          settings={props.settings}
+          settings={editing.settings}
           brand={props.brand}
           presets={presets}
           onUpload={props.onUpload}
@@ -202,32 +225,43 @@ export function AvatarStudio(props: AvatarStudioProps) {
       <MemberPicker
         open={pickerOpen}
         members={members}
+        padroes={padroes}
+        defaultPadraoId={defaultPadraoId}
         onClose={() => setPickerOpen(false)}
         onPick={pickMember}
-        onManual={() => openBlank()}
+        onManual={(padraoId) => openBlank(undefined, padraoId)}
       />
     </>
   );
 }
 
 /**
- * Passo opcional do "Novo avatar" para agências: escolhe um membro do roster
- * (o nome e a foto já entram preenchidos) ou segue no caminho manual (em branco).
+ * Passo do "Novo avatar": escolhe QUAL padrão aplicar (quando a agência tem mais
+ * de um) e, para agências com roster, qual membro pré-preenche nome+foto — ou
+ * segue no caminho manual (em branco). O padrão selecionado é passado adiante
+ * para semear o avatar novo.
  */
 function MemberPicker({
   open,
   members,
+  padroes,
+  defaultPadraoId,
   onClose,
   onPick,
   onManual,
 }: {
   open: boolean;
   members: AvatarMember[];
+  padroes: AvatarPreset[];
+  defaultPadraoId: string;
   onClose: () => void;
-  onPick: (m: AvatarMember) => void;
-  onManual: () => void;
+  onPick: (m: AvatarMember, padraoId: string) => void;
+  onManual: (padraoId: string) => void;
 }) {
   const [q, setQ] = useState("");
+  const [padraoId, setPadraoId] = useState(defaultPadraoId);
+  // Se o padrão selecionado sumiu (agência excluiu), cai no inicial atual.
+  const selId = padroes.some((p) => p.id === padraoId) ? padraoId : defaultPadraoId;
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     if (!term) return members;
@@ -242,8 +276,8 @@ function MemberPicker({
       size="xl"
       footer={
         <Flex justify="space-between" align="center" w="100%" gap={2} flexWrap="wrap">
-          <Button tone="outline" onClick={onManual}>
-            <PencilLine size={16} /> Preencher manualmente
+          <Button tone={members.length > 0 ? "outline" : "primary"} onClick={() => onManual(selId)}>
+            <PencilLine size={16} /> {members.length > 0 ? "Preencher manualmente" : "Começar"}
           </Button>
           <Button tone="ghost" onClick={onClose}>
             Cancelar
@@ -251,57 +285,87 @@ function MemberPicker({
         </Flex>
       }
     >
-      <Text fontSize="sm" color="var(--admin-text-soft)">
-        Escolha um membro para começar — nome e foto já entram preenchidos. Você ainda ajusta tudo no estúdio.
-      </Text>
-      <FormInput
-        label="Buscar membro"
-        size="sm"
-        value={q}
-        placeholder="Nome ou categoria…"
-        onChange={(e) => setQ(e.target.value)}
-      />
-      {filtered.length === 0 ? (
-        <Text fontSize="sm" color="var(--admin-text-soft)" py={2}>
-          Nenhum membro bate com “{q}”.
+      {padroes.length > 1 ? (
+        <Stack gap={1.5}>
+          <Text fontSize="xs" fontWeight="600" color="var(--admin-text-soft)">
+            Padrão
+          </Text>
+          <HStack gap={2} flexWrap="wrap">
+            {padroes.map((p) => (
+              <Button
+                key={p.id}
+                size="sm"
+                tone={p.id === selId ? "primary" : "outline"}
+                onClick={() => setPadraoId(p.id)}
+              >
+                {p.name}
+              </Button>
+            ))}
+          </HStack>
+        </Stack>
+      ) : null}
+
+      {members.length === 0 ? (
+        <Text fontSize="sm" color="var(--admin-text-soft)">
+          {padroes.length > 1
+            ? "Escolha o padrão e comece — nome e foto você preenche no estúdio."
+            : "Comece um avatar do zero — nome e foto você preenche no estúdio."}
         </Text>
       ) : (
-        <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} gap={3}>
-          {filtered.map((m, i) => (
-            <Box
-              as="button"
-              key={`${m.name}-${i}`}
-              onClick={() => onPick(m)}
-              textAlign="left"
-              p={3}
-              borderRadius="12px"
-              borderWidth="1px"
-              borderColor="var(--admin-border)"
-              bg="var(--admin-surface)"
-              cursor="pointer"
-              transition="border-color .12s, background .12s"
-              _hover={{ borderColor: "var(--admin-primary)", bg: "var(--admin-bg)" }}
-            >
-              <Flex gap={3} align="center" minW={0}>
-                <EntityAvatar name={m.name || "?"} src={m.photoUrl?.trim() || undefined} size="md" />
-                <Stack gap={0.5} minW={0}>
-                  <Text fontWeight="600" color="var(--admin-text)" lineClamp={1}>
-                    {m.name || "(sem nome)"}
-                  </Text>
-                  {m.category ? (
-                    <Text fontSize="xs" color="var(--admin-text-soft)" lineClamp={1}>
-                      {m.category}
-                    </Text>
-                  ) : (
-                    <Text fontSize="xs" color="var(--admin-text-soft)">
-                      <UserRound size={11} style={{ display: "inline", marginRight: 3 }} /> Membro
-                    </Text>
-                  )}
-                </Stack>
-              </Flex>
-            </Box>
-          ))}
-        </SimpleGrid>
+        <>
+          <Text fontSize="sm" color="var(--admin-text-soft)">
+            Escolha um membro para começar — nome e foto já entram preenchidos. Você ainda ajusta tudo no estúdio.
+          </Text>
+          <FormInput
+            label="Buscar membro"
+            size="sm"
+            value={q}
+            placeholder="Nome ou categoria…"
+            onChange={(e) => setQ(e.target.value)}
+          />
+          {filtered.length === 0 ? (
+            <Text fontSize="sm" color="var(--admin-text-soft)" py={2}>
+              Nenhum membro bate com “{q}”.
+            </Text>
+          ) : (
+            <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} gap={3}>
+              {filtered.map((m, i) => (
+                <Box
+                  as="button"
+                  key={`${m.name}-${i}`}
+                  onClick={() => onPick(m, selId)}
+                  textAlign="left"
+                  p={3}
+                  borderRadius="12px"
+                  borderWidth="1px"
+                  borderColor="var(--admin-border)"
+                  bg="var(--admin-surface)"
+                  cursor="pointer"
+                  transition="border-color .12s, background .12s"
+                  _hover={{ borderColor: "var(--admin-primary)", bg: "var(--admin-bg)" }}
+                >
+                  <Flex gap={3} align="center" minW={0}>
+                    <EntityAvatar name={m.name || "?"} src={m.photoUrl?.trim() || undefined} size="md" />
+                    <Stack gap={0.5} minW={0}>
+                      <Text fontWeight="600" color="var(--admin-text)" lineClamp={1}>
+                        {m.name || "(sem nome)"}
+                      </Text>
+                      {m.category ? (
+                        <Text fontSize="xs" color="var(--admin-text-soft)" lineClamp={1}>
+                          {m.category}
+                        </Text>
+                      ) : (
+                        <Text fontSize="xs" color="var(--admin-text-soft)">
+                          <UserRound size={11} style={{ display: "inline", marginRight: 3 }} /> Membro
+                        </Text>
+                      )}
+                    </Stack>
+                  </Flex>
+                </Box>
+              ))}
+            </SimpleGrid>
+          )}
+        </>
       )}
     </Modal>
   );

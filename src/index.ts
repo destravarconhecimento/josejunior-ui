@@ -187,6 +187,9 @@ export {
   avatarFontWeight,
   avatarFontsHref,
   defaultAvatarConfig,
+  avatarPresets,
+  recipeOf,
+  resolveAvatarPreset,
   type AvatarFont,
 } from "./avatar/constants";
 export type {
@@ -199,6 +202,8 @@ export type {
   AvatarLogoCorner,
   AvatarConfig,
   AvatarSummary,
+  AvatarRecipe,
+  AvatarPreset,
   AvatarSettings,
   AvatarBrand,
   AvatarMember,

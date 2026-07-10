@@ -132,14 +132,13 @@ export type AvatarSummary = {
 };
 
 /**
- * "Padrão da agência" — o que fica DETERMINADO e é reaproveitado em TODO avatar
- * (guardado em ai_config `avatars_settings`). É a memória de marca do gerador: a
- * agência define uma vez (molduras, logo, legenda fixa, fonte, fundo) e todo
- * avatar novo já nasce com esse padrão.
+ * A RECEITA de um padrão — o conjunto de escolhas (moldura, fundo, logo, legenda
+ * fixa, fonte, cores, posições) que um avatar novo HERDA por inteiro. É o miolo
+ * reaproveitado tanto pelo "padrão da agência" (`AvatarSettings`) quanto por cada
+ * padrão nomeado (`AvatarPreset`). NÃO inclui a biblioteca de molduras enviadas
+ * (`frames`), que é compartilhada por todos os padrões (referenciada por URL).
  */
-export type AvatarSettings = {
-  /** Molduras PNG (centro transparente) que a agência subiu. */
-  frames: { id: string; label: string; url: string }[];
+export type AvatarRecipe = {
   /** Logo padrão da agência (vazio = usa o logo da marca). */
   logoUrl: string;
   /** Fundo padrão (imagem, ex.: respingo de tinta). Vazio = cor sólida. */
@@ -176,6 +175,38 @@ export type AvatarSettings = {
   defaultTitleOffsetY?: number;
   /** Posição horizontal padrão do nome (fração; ausente = 0). */
   defaultTitleOffsetX?: number;
+};
+
+/**
+ * Um PADRÃO NOMEADO do gerador (ex.: "Padrão 1", "Padrão 2"). A agência mantém
+ * VÁRIOS e escolhe qual usar na hora de criar um avatar. É uma `AvatarRecipe`
+ * completa + `id`/`name`. As molduras enviadas ficam na biblioteca compartilhada
+ * (`AvatarSettings.frames`); cada padrão só referencia uma por URL.
+ */
+export type AvatarPreset = AvatarRecipe & {
+  id: string;
+  name: string;
+};
+
+/**
+ * "Padrão da agência" — o que fica DETERMINADO e é reaproveitado em TODO avatar
+ * (guardado em ai_config `avatars_settings`). É a memória de marca do gerador.
+ *
+ * Os campos de receita no topo (`AvatarRecipe`) espelham o PADRÃO INICIAL (compat:
+ * dados antigos de padrão único continuam válidos). `presets` guarda os padrões
+ * nomeados; `defaultPresetId` diz qual vem pré-selecionado ao criar. A agência
+ * define uma vez (ou vários) e todo avatar novo já nasce com o padrão escolhido.
+ */
+export type AvatarSettings = AvatarRecipe & {
+  /** Molduras PNG (centro transparente) que a agência subiu — biblioteca COMPARTILHADA por todos os padrões. */
+  frames: { id: string; label: string; url: string }[];
+  /**
+   * Padrões nomeados. Vazio/ausente = padrão único legado (a própria receita do
+   * topo vira "Padrão 1"). Ver `avatarPresets`.
+   */
+  presets?: AvatarPreset[];
+  /** id do padrão pré-selecionado ao criar um avatar (ausente = o primeiro/legado). */
+  defaultPresetId?: string;
 };
 
 /** Marca do tenant (fallback pra logo/cores). */

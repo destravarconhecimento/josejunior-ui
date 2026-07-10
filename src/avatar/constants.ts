@@ -1,5 +1,12 @@
 /** Constantes do Gerador de Avatares. Puro — sem React, seguro server+client. */
-import type { AvatarConfig, AvatarFramePreset, AvatarSettings, AvatarSize } from "./types";
+import type {
+  AvatarConfig,
+  AvatarFramePreset,
+  AvatarPreset,
+  AvatarRecipe,
+  AvatarSettings,
+  AvatarSize,
+} from "./types";
 
 /** Tamanhos finais oferecidos (px, quadrado). */
 export const AVATAR_SIZES: readonly AvatarSize[] = [1024, 512] as const;
@@ -148,8 +155,12 @@ export const AVATAR_COLORS = [
   "#2563eb", "#0ea5e9", "#ec4899", "#f97316", "#dc2626", "#16a34a",
 ] as const;
 
-/** Config default de um avatar novo, semeada com o padrão da agência + marca. */
-export function defaultAvatarConfig(settings: AvatarSettings, brandLogoUrl?: string): AvatarConfig {
+/**
+ * Config default de um avatar novo, semeada com uma RECEITA de padrão + marca.
+ * Aceita tanto o `AvatarSettings` (padrão da agência) quanto um `AvatarPreset`
+ * escolhido — os dois são `AvatarRecipe`.
+ */
+export function defaultAvatarConfig(settings: AvatarRecipe, brandLogoUrl?: string): AvatarConfig {
   const framePresetId = settings.defaultFramePresetId || AVATAR_FRAME_PRESETS[0].id;
   // Moldura padrão: se a agência definiu uma PNG enviada, o avatar novo já nasce
   // com ela; senão cai no preset. (É o "padrão da agência" — criar = só nome+foto.)
@@ -191,4 +202,54 @@ export const DEFAULT_AVATAR_SETTINGS: AvatarSettings = {
   defaultFont: AVATAR_FONTS[0].family,
   defaultBackgroundColor: "#0b1220",
   defaultFramePresetId: AVATAR_FRAME_PRESETS[0].id,
+  presets: [],
 };
+
+/** Extrai só os campos de RECEITA (sem frames/presets) de um settings ou padrão. */
+export function recipeOf(r: AvatarRecipe): AvatarRecipe {
+  return {
+    logoUrl: r.logoUrl,
+    backgroundUrl: r.backgroundUrl,
+    fixedSubtitle: r.fixedSubtitle,
+    defaultFont: r.defaultFont,
+    defaultBackgroundColor: r.defaultBackgroundColor,
+    defaultFramePresetId: r.defaultFramePresetId,
+    defaultFrameUrl: r.defaultFrameUrl,
+    defaultLogoCorner: r.defaultLogoCorner,
+    defaultLogoPos: r.defaultLogoPos,
+    defaultTitleColor: r.defaultTitleColor,
+    defaultSubtitleColor: r.defaultSubtitleColor,
+    defaultUppercase: r.defaultUppercase,
+    defaultSubtitleCurved: r.defaultSubtitleCurved,
+    defaultTitleScale: r.defaultTitleScale,
+    defaultTitleOffsetY: r.defaultTitleOffsetY,
+    defaultTitleOffsetX: r.defaultTitleOffsetX,
+  };
+}
+
+/**
+ * Lista de PADRÕES a partir do settings. Se a agência ainda não criou padrões
+ * nomeados, sintetiza UM ("Padrão 1") a partir da receita do topo — assim os
+ * dados de padrão ÚNICO legado viram automaticamente o primeiro padrão. Garante
+ * sempre ≥ 1 padrão.
+ */
+export function avatarPresets(settings: AvatarSettings): AvatarPreset[] {
+  const list = (settings.presets ?? []).filter(
+    (p): p is AvatarPreset => !!p && typeof p.id === "string" && !!p.id,
+  );
+  if (list.length > 0) return list;
+  return [{ id: settings.defaultPresetId || "principal", name: "Padrão 1", ...recipeOf(settings) }];
+}
+
+/**
+ * Resolve QUAL padrão usar: o de `id` pedido, senão o marcado como inicial
+ * (`defaultPresetId`), senão o primeiro. Nunca devolve `undefined`.
+ */
+export function resolveAvatarPreset(settings: AvatarSettings, id?: string): AvatarPreset {
+  const list = avatarPresets(settings);
+  return (
+    (id ? list.find((p) => p.id === id) : undefined) ??
+    list.find((p) => p.id === settings.defaultPresetId) ??
+    list[0]
+  );
+}
