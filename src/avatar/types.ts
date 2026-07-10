@@ -51,8 +51,19 @@ export type AvatarPhotoTransform = {
   zoom: number;
 };
 
-/** Canto onde a logo da agência aparece (ou nenhum). `bottom` = centralizada no rodapé. */
-export type AvatarLogoCorner = "top" | "bottom" | "bottom-left" | "bottom-right" | "none";
+/**
+ * Onde a logo da agência aparece (ou nenhum). `top`/`bottom` = centralizada em cima/
+ * embaixo; os `*-left`/`*-right` ficam nos cantos do círculo. Tudo posicionado
+ * DENTRO do círculo (a moldura preenche o quadrado, então canto = arco do círculo).
+ */
+export type AvatarLogoCorner =
+  | "top"
+  | "top-left"
+  | "top-right"
+  | "bottom"
+  | "bottom-left"
+  | "bottom-right"
+  | "none";
 
 /**
  * Config COMPLETA de um avatar — o suficiente pra REABRIR e regenerar idêntico.
@@ -82,6 +93,11 @@ export type AvatarConfig = {
    * Negativo sobe, positivo desce. Ausente = 0. Opcional (configs antigas).
    */
   titleOffsetY?: number;
+  /**
+   * Multiplicador do tamanho do NOME (1 = padrão). Ausente = 1. Opcional (configs
+   * antigas). Deixa a agência aumentar/diminuir o nome sem depender do comprimento.
+   */
+  titleScale?: number;
 };
 
 /** Resumo de um avatar já criado (card da galeria). */
@@ -117,6 +133,14 @@ export type AvatarSettings = {
   defaultBackgroundColor: string;
   /** Preset de moldura padrão. */
   defaultFramePresetId: string;
+  /**
+   * Moldura PNG da agência usada como padrão (URL de um item de `frames`). Quando
+   * preenchida, todo avatar novo já nasce com ESSA moldura enviada em vez do preset.
+   * Vazio/ausente = usa `defaultFramePresetId`.
+   */
+  defaultFrameUrl?: string;
+  /** Posição padrão da logo nos avatares novos (ausente = topo, ou nenhuma sem logo). */
+  defaultLogoCorner?: AvatarLogoCorner;
 };
 
 /** Marca do tenant (fallback pra logo/cores). */

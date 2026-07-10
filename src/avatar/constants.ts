@@ -107,20 +107,28 @@ export const AVATAR_FRAME_PRESETS: readonly AvatarFramePreset[] = [
 ] as const;
 
 /**
- * Geometria da composição, em frações do lado (S). O círculo fica um pouco ACIMA
- * do centro pra sobrar espaço pro texto no rodapé.
+ * Geometria da composição, em frações do lado (S). O círculo é GRANDE e centrado:
+ * a moldura chega até a borda do quadrado (`outerRFrac`) e a foto ocupa o miolo
+ * (raio = outer − faixa da moldura). O fundo e o nome vivem DENTRO do círculo — o
+ * nome sobrepõe a base da foto com um escurecimento (scrim) pra legibilidade.
  */
 export const AVATAR_LAYOUT = {
+  /** Centro do círculo — no meio exato do quadrado. */
   circleCx: 0.5,
-  circleCy: 0.435,
-  circleR: 0.335,
-  titleBaselineY: 0.86,
-  subtitleBaselineY: 0.935,
-  textMaxWidth: 0.9,
-  titleFontFrac: 0.115,
-  subtitleFontFrac: 0.05,
+  circleCy: 0.5,
+  /** Raio EXTERNO da moldura (quase encostando na borda do quadrado). */
+  outerRFrac: 0.49,
+  /** Raio nominal da foto (fallback do pan/zoom; o real desconta a faixa da moldura). */
+  circleR: 0.45,
+  /** Rodapé do NOME, sobreposto à base da foto (fração do lado). */
+  titleBaselineY: 0.82,
+  /** Rodapé da LEGENDA fixa, logo abaixo do nome. */
+  subtitleBaselineY: 0.915,
+  textMaxWidth: 0.82,
+  titleFontFrac: 0.12,
+  subtitleFontFrac: 0.048,
   logoWidthFrac: 0.2,
-  logoMarginFrac: 0.045,
+  logoMarginFrac: 0.05,
 } as const;
 
 /** Paleta do seletor de cor (fundo/texto). */
@@ -133,6 +141,12 @@ export const AVATAR_COLORS = [
 /** Config default de um avatar novo, semeada com o padrão da agência + marca. */
 export function defaultAvatarConfig(settings: AvatarSettings, brandLogoUrl?: string): AvatarConfig {
   const framePresetId = settings.defaultFramePresetId || AVATAR_FRAME_PRESETS[0].id;
+  // Moldura padrão: se a agência definiu uma PNG enviada, o avatar novo já nasce
+  // com ela; senão cai no preset. (É o "padrão da agência" — criar = só nome+foto.)
+  const defaultFrameUrl = (settings.defaultFrameUrl || "").trim();
+  const frame: AvatarConfig["frame"] = defaultFrameUrl
+    ? { kind: "image", url: defaultFrameUrl }
+    : { kind: "preset", presetId: framePresetId };
   const background: AvatarConfig["background"] = settings.backgroundUrl
     ? { kind: "image", url: settings.backgroundUrl }
     : { kind: "color", color: settings.defaultBackgroundColor || "#0b1220" };
@@ -140,16 +154,17 @@ export function defaultAvatarConfig(settings: AvatarSettings, brandLogoUrl?: str
   return {
     photoUrl: null,
     photo: { offsetX: 0, offsetY: 0, zoom: 1 },
-    frame: { kind: "preset", presetId: framePresetId },
+    frame,
     background,
     logoUrl,
-    logoCorner: logoUrl ? "top" : "none",
+    logoCorner: settings.defaultLogoCorner ?? (logoUrl ? "top" : "none"),
     font: settings.defaultFont || AVATAR_FONTS[0].family,
     titleColor: "#ffffff",
     subtitleColor: "#ffffff",
     uppercase: true,
     subtitleCurved: false,
     titleOffsetY: 0,
+    titleScale: 1,
   };
 }
 
