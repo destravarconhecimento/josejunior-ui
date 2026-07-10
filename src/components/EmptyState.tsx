@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Box, Icon, Stack, Text } from "@chakra-ui/react";
+import { Box, Stack, Text } from "@chakra-ui/react";
 import type { LucideIcon } from "lucide-react";
 
 /** Estado vazio padrão: ícone + título + texto + ação opcional. */
@@ -14,9 +14,14 @@ export function EmptyState({
   description?: ReactNode;
   action?: ReactNode;
 }) {
+  // Renderiza o ícone como ELEMENTO (não passa a função lucide como prop pro
+  // <Icon as=…> client do Chakra) — senão, em Server Component, o RSC tenta
+  // serializar o forwardRef e quebra ("Functions cannot be passed directly to
+  // Client Components"). Como elemento, vira um <svg> serializável.
+  const IconCmp = icon;
   return (
     <Stack align="center" textAlign="center" gap={3} py={{ base: 10, md: 14 }} px={6}>
-      {icon ? (
+      {IconCmp ? (
         <Box
           w="52px"
           h="52px"
@@ -27,7 +32,7 @@ export function EmptyState({
           justifyContent="center"
           color="var(--admin-primary)"
         >
-          <Icon as={icon} boxSize={6} />
+          <IconCmp size={24} />
         </Box>
       ) : null}
       <Text fontWeight="700" fontSize="lg" color="var(--admin-primary)">
