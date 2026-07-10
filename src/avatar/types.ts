@@ -10,8 +10,12 @@
 /** Tamanho final do PNG exportado (px, quadrado). */
 export type AvatarSize = 1024 | 512;
 
-/** Um anel concêntrico da moldura procedural. `width` = fração do lado (S). */
-export type AvatarRing = { color: string; width: number };
+/**
+ * Um anel concêntrico da moldura procedural. `width` = fração do lado (S).
+ * `colors` (opcional) pinta o anel com um gradiente cônico (efeito "rajado" que dá
+ * a volta na moldura); quando ausente usa a cor sólida `color`.
+ */
+export type AvatarRing = { color: string; width: number; colors?: string[] };
 
 /**
  * MOLDURA "preset": anéis concêntricos desenhados no próprio canvas (ex.: o
@@ -47,8 +51,8 @@ export type AvatarPhotoTransform = {
   zoom: number;
 };
 
-/** Canto onde a logo da agência aparece (ou nenhum). */
-export type AvatarLogoCorner = "top" | "bottom-left" | "bottom-right" | "none";
+/** Canto onde a logo da agência aparece (ou nenhum). `bottom` = centralizada no rodapé. */
+export type AvatarLogoCorner = "top" | "bottom" | "bottom-left" | "bottom-right" | "none";
 
 /**
  * Config COMPLETA de um avatar — o suficiente pra REABRIR e regenerar idêntico.
@@ -68,6 +72,16 @@ export type AvatarConfig = {
   subtitleColor: string;
   /** Nome e legenda em CAIXA ALTA (padrão do estilo "cara pintada"). */
   uppercase: boolean;
+  /**
+   * Legenda fixa desenhada CURVADA (acompanhando o redondo da moldura) em vez de
+   * reta no rodapé. Ausente/false = reta. Opcional pra não quebrar configs antigas.
+   */
+  subtitleCurved?: boolean;
+  /**
+   * Ajuste fino da altura do NOME (fração do lado, somada à baseline padrão).
+   * Negativo sobe, positivo desce. Ausente = 0. Opcional (configs antigas).
+   */
+  titleOffsetY?: number;
 };
 
 /** Resumo de um avatar já criado (card da galeria). */

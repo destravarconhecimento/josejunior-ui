@@ -17,7 +17,7 @@ import {
   Upload,
   Wand2,
 } from "lucide-react";
-import { Box, Flex, HStack, SimpleGrid, Stack, Text } from "../primitives";
+import { Box, Flex, HStack, Stack, Text } from "../primitives";
 import { Button } from "../components/Button";
 import { FormInput, FormSelect } from "../components/form";
 import { ColorPicker } from "../components/ColorPicker";
@@ -139,6 +139,11 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
 
   const [uploading, setUploading] = useState(false);
   const [removingBg, setRemovingBg] = useState(false);
+  // Auto-remover o fundo da foto quando há um fundo montado (a foto entra "limpa"
+  // sobre o fundo da agência). Liga sozinho quando o padrão já tem fundo.
+  const [autoRemoveBg, setAutoRemoveBg] = useState(
+    props.initialConfig.background.kind !== "none",
+  );
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<{ url: string; blobUrl: string } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -155,6 +160,7 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
     setSize(props.initialSize ?? AVATAR_SIZES[0]);
     setAvatarId(props.avatarId);
     setRawPhotoUrl(props.initialConfig.photoUrl);
+    setAutoRemoveBg(props.initialConfig.background.kind !== "none");
     photoFileRef.current = null;
     setResult(null);
     setCopied(false);
@@ -183,6 +189,8 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
         photoFileRef.current = file;
         setRawPhotoUrl(url);
         patch({ photoUrl: url, photo: { offsetX: 0, offsetY: 0, zoom: 1 } });
+        // Fundo montado + auto ligado → já tira o fundo da foto (fica profissional).
+        if (autoRemoveBg && onRemoveBackground) void removeBg();
       } else if (kind === "frame") {
         patch({ frame: { kind: "image", url } });
       } else if (kind === "logo") {
@@ -303,7 +311,7 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
       open={props.open}
       onClose={props.onClose}
       title={avatarId ? "Editar avatar" : "Gerar avatar"}
-      size="xl"
+      size="full"
       footer={
         <Stack gap={3} w="100%">
           {result ? (
@@ -334,48 +342,59 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
     >
       <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onFile} />
 
-      <SimpleGrid columns={{ base: 1, lg: 2 }} gap={5}>
-        {/* Preview ao vivo */}
-        <Stack gap={3} order={{ base: -1, lg: 0 }}>
-          <AvatarCanvas
-            config={config}
-            title={name || "Nome"}
-            subtitle={subtitle}
-            presets={presets}
-            interactive
-            onPhotoChange={(photo) => patch({ photo })}
-          />
-          {config.photoUrl ? (
-            <Stack gap={1}>
-              <HStack justify="space-between">
-                <Text fontSize="xs" color="var(--admin-text-soft)">
-                  Zoom da foto — arraste a foto para posicionar
-                </Text>
-                <Button
-                  size="xs"
-                  tone="ghost"
-                  onClick={() => patch({ photo: { offsetX: 0, offsetY: 0, zoom: 1 } })}
-                >
-                  <RotateCcw size={13} /> Centralizar
-                </Button>
-              </HStack>
-              <Range
-                value={config.photo.zoom}
-                min={0.5}
-                max={4}
-                step={0.02}
-                onChange={(zoom) => patch({ photo: { ...config.photo, zoom } })}
-              />
-            </Stack>
-          ) : (
-            <Text fontSize="xs" color="var(--admin-text-soft)" textAlign="center">
-              Envie a foto da pessoa para começar.
-            </Text>
-          )}
-        </Stack>
+      <Flex gap={6} direction={{ base: "column", lg: "row" }} align="flex-start">
+        {/* Preview ao vivo — ocupa todo o espaço disponível */}
+        <Box
+          order={{ base: -1, lg: 0 }}
+          flex="1"
+          minW={0}
+          w="100%"
+          position={{ lg: "sticky" }}
+          top={{ lg: "0" }}
+          alignSelf={{ lg: "flex-start" }}
+        >
+          <Stack gap={3} align="center">
+            <AvatarCanvas
+              config={config}
+              title={name || "Nome"}
+              subtitle={subtitle}
+              presets={presets}
+              interactive
+              onPhotoChange={(photo) => patch({ photo })}
+              maxSize={520}
+            />
+            {config.photoUrl ? (
+              <Stack gap={1} w="100%" maxW="520px">
+                <HStack justify="space-between">
+                  <Text fontSize="xs" color="var(--admin-text-soft)">
+                    Zoom da foto — arraste a foto para posicionar
+                  </Text>
+                  <Button
+                    size="xs"
+                    tone="ghost"
+                    onClick={() => patch({ photo: { offsetX: 0, offsetY: 0, zoom: 1 } })}
+                  >
+                    <RotateCcw size={13} /> Centralizar
+                  </Button>
+                </HStack>
+                <Range
+                  value={config.photo.zoom}
+                  min={0.5}
+                  max={4}
+                  step={0.02}
+                  onChange={(zoom) => patch({ photo: { ...config.photo, zoom } })}
+                />
+              </Stack>
+            ) : (
+              <Text fontSize="xs" color="var(--admin-text-soft)" textAlign="center">
+                Envie a foto da pessoa para começar.
+              </Text>
+            )}
+          </Stack>
+        </Box>
 
         {/* Controles */}
-        <Stack gap={5}>
+        <Stack gap={5} w={{ base: "100%", lg: "400px" }} flexShrink={0}>
           <Section title="Foto da pessoa">
             <HStack gap={2} flexWrap="wrap">
               <Button tone="outline" size="sm" onClick={() => pickFile("photo")} loading={uploading}>
@@ -392,7 +411,19 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
                 </Button>
               ) : null}
             </HStack>
+            {onRemoveBackground ? (
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
+                <input
+                  type="checkbox"
+                  checked={autoRemoveBg}
+                  onChange={(e) => setAutoRemoveBg(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: "var(--admin-primary)" }}
+                />
+                Remover o fundo automaticamente ao enviar
+              </label>
+            ) : null}
             <Text fontSize="xs" color="var(--admin-text-soft)">
+              Com um fundo montado, a foto fica mais profissional sem o fundo original.
               Pode subir já sem fundo ou usar “Remover fundo” (grátis, no navegador).
             </Text>
           </Section>
@@ -438,6 +469,27 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
               />
               Texto em CAIXA ALTA
             </label>
+            <Stack gap={1}>
+              <Text fontSize="xs" color="var(--admin-text-soft)">Altura do nome</Text>
+              <SegButtons
+                value={String(config.titleOffsetY ?? 0)}
+                onChange={(v) => patch({ titleOffsetY: Number(v) })}
+                options={[
+                  { value: "-0.05", label: "Mais alto" },
+                  { value: "0", label: "Padrão" },
+                  { value: "0.04", label: "Mais baixo" },
+                ]}
+              />
+            </Stack>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(config.subtitleCurved)}
+                onChange={(e) => patch({ subtitleCurved: e.target.checked })}
+                style={{ width: 16, height: 16, accentColor: "var(--admin-primary)" }}
+              />
+              Legenda curvada (acompanha a moldura)
+            </label>
           </Section>
 
           <Section title="Moldura">
@@ -450,6 +502,10 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
             <Button tone="ghost" size="xs" onClick={() => pickFile("frame")} loading={uploading}>
               <Upload size={13} /> Enviar moldura própria (PNG com centro vazado)
             </Button>
+            <Text fontSize="xs" color="var(--admin-text-soft)">
+              A moldura é a borda em volta da foto. Escolha “Nenhuma” para foto sem borda,
+              ou estilos prontos (fina, dupla, sólida, rajada…).
+            </Text>
           </Section>
 
           <Section title="Fundo">
@@ -524,6 +580,7 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
                 onChange={(v) => patch({ logoCorner: v })}
                 options={[
                   { value: "top", label: "Topo" },
+                  { value: "bottom", label: "Rodapé" },
                   { value: "bottom-left", label: "Inf. esq." },
                   { value: "bottom-right", label: "Inf. dir." },
                   { value: "none", label: "Sem logo" },
@@ -547,7 +604,7 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
             />
           </Section>
         </Stack>
-      </SimpleGrid>
+      </Flex>
 
       {result ? (
         <Flex mt={4} p={3} borderRadius="12px" bg="var(--admin-nav-active)" gap={2} align="center" flexWrap="wrap">

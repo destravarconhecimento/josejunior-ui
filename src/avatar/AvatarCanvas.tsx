@@ -111,6 +111,8 @@ export function AvatarCanvas({
       titleColor: config.titleColor,
       subtitleColor: config.subtitleColor,
       uppercase: config.uppercase,
+      subtitleCurved: config.subtitleCurved ?? false,
+      titleOffsetY: config.titleOffsetY ?? 0,
     };
     // imgVersion força recomputo quando uma imagem termina de carregar.
     // eslint-disable-next-line react-hooks/exhaustive-deps

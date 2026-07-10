@@ -52,6 +52,10 @@ export type AvatarScene = {
   titleColor: string;
   subtitleColor: string;
   uppercase: boolean;
+  /** Legenda curvada acompanhando a moldura (senão reta no rodapé). */
+  subtitleCurved: boolean;
+  /** Ajuste fino da altura do nome (fração do lado). */
+  titleOffsetY: number;
 };
 
 /** Desenha uma imagem cobrindo (object-fit: cover) o retângulo dst. */
@@ -159,12 +163,34 @@ function drawFrame(
       ctx.beginPath();
       ctx.arc(cx, cy, r + w / 2, 0, Math.PI * 2);
       ctx.lineWidth = w;
-      ctx.strokeStyle = ring.color;
+      // Anel "rajado": gradiente cônico dando a volta na moldura (senão cor sólida).
+      const makeConic = (ctx as unknown as {
+        createConicGradient?: (a: number, x: number, y: number) => CanvasGradient;
+      }).createConicGradient;
+      if (ring.colors && ring.colors.length > 1 && typeof makeConic === "function") {
+        const g = makeConic.call(ctx, -Math.PI / 2, cx, cy);
+        const stops = ring.colors;
+        stops.forEach((c, i) => g.addColorStop(i / (stops.length - 1), c));
+        ctx.strokeStyle = g;
+      } else {
+        ctx.strokeStyle = ring.color;
+      }
       ctx.stroke();
       r += w;
     }
   }
   // kind === "none": nada.
+}
+
+/** Largura total da faixa da moldura (fração do lado × S) — pra ancorar texto curvo. */
+function frameBandPx(S: number, scene: AvatarScene): number {
+  if (scene.frame.kind === "preset") {
+    const preset = scene.presets.find((p) => p.id === (scene.frame as { presetId: string }).presetId);
+    if (!preset) return 0;
+    return preset.rings.reduce((sum, r) => sum + (r.width > 0 ? r.width : 0), 0) * S;
+  }
+  if (scene.frame.kind === "image") return S * 0.03;
+  return 0;
 }
 
 /** Desenha a logo (contida) no canto configurado. */
@@ -183,6 +209,9 @@ function drawLogo(ctx: CanvasRenderingContext2D, S: number, scene: AvatarScene):
   if (scene.logoCorner === "top") {
     x = (S - w) / 2;
     y = m;
+  } else if (scene.logoCorner === "bottom") {
+    x = (S - w) / 2;
+    y = S - h - m;
   } else if (scene.logoCorner === "bottom-left") {
     x = m;
     y = S - h - m;
@@ -237,7 +266,56 @@ function drawTextLine(
   if (hasSpacing) (ctx as unknown as { letterSpacing: string }).letterSpacing = "0px";
 }
 
-/** Desenha as 2 linhas do rodapé (nome + legenda fixa). */
+/**
+ * Desenha uma linha de texto CURVADA acompanhando a parte de baixo de um círculo
+ * (centro cx,cy · raio radius). Lê da esquerda pra direita, em pé (as bases das
+ * letras apontam pra fora). Cada glifo é posicionado e girado pela tangente.
+ */
+function drawTextArc(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  cx: number,
+  cy: number,
+  radius: number,
+  px: number,
+  weight: number,
+  family: string,
+  color: string,
+  letterSpacingPx: number,
+): void {
+  const chars = [...text];
+  if (!chars.length || radius <= 0) return;
+  ctx.save();
+  ctx.font = `${weight} ${px}px "${family}", system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.miterLimit = 2;
+  const widths = chars.map((c) => ctx.measureText(c).width + letterSpacingPx);
+  const totalAngle = widths.reduce((a, b) => a + b, 0) / radius;
+  // Começa na esquerda do arco de baixo e vai reduzindo o ângulo (→ direita).
+  let theta = Math.PI / 2 + totalAngle / 2;
+  const strokeW = Math.max(2, px * 0.09);
+  for (let i = 0; i < chars.length; i++) {
+    const charAngle = widths[i] / radius;
+    const t = theta - charAngle / 2; // centro do glifo
+    const x = cx + radius * Math.cos(t);
+    const y = cy + radius * Math.sin(t);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(t - Math.PI / 2);
+    ctx.lineWidth = strokeW;
+    ctx.strokeStyle = "rgba(0,0,0,0.6)";
+    ctx.strokeText(chars[i], 0, 0);
+    ctx.fillStyle = color;
+    ctx.fillText(chars[i], 0, 0);
+    ctx.restore();
+    theta -= charAngle;
+  }
+  ctx.restore();
+}
+
+/** Desenha as 2 linhas do rodapé (nome + legenda fixa, reta ou curvada). */
 function drawText(ctx: CanvasRenderingContext2D, S: number, scene: AvatarScene): void {
   const cx = S / 2;
   const maxW = S * AVATAR_LAYOUT.textMaxWidth;
@@ -247,34 +325,39 @@ function drawText(ctx: CanvasRenderingContext2D, S: number, scene: AvatarScene):
   const title = cap((scene.title || "").trim());
   if (title) {
     const px = fitFontPx(ctx, title, maxW, S * AVATAR_LAYOUT.titleFontFrac, weight, scene.font, S * 0.03);
-    drawTextLine(
-      ctx,
-      title,
-      cx,
-      S * AVATAR_LAYOUT.titleBaselineY,
-      px,
-      weight,
-      scene.font,
-      scene.titleColor,
-      px * 0.01,
-    );
+    const baselineY = (AVATAR_LAYOUT.titleBaselineY + (scene.titleOffsetY || 0)) * S;
+    drawTextLine(ctx, title, cx, baselineY, px, weight, scene.font, scene.titleColor, px * 0.01);
   }
 
   const subtitle = cap((scene.subtitle || "").trim());
-  if (subtitle) {
-    const px = fitFontPx(ctx, subtitle, maxW, S * AVATAR_LAYOUT.subtitleFontFrac, weight, scene.font, S * 0.02);
-    drawTextLine(
-      ctx,
-      subtitle,
-      cx,
-      S * AVATAR_LAYOUT.subtitleBaselineY,
-      px,
-      weight,
-      scene.font,
-      scene.subtitleColor,
-      px * 0.14,
+  if (!subtitle) return;
+
+  if (scene.subtitleCurved) {
+    // Curvada: hugueia a moldura (raio = foto + faixa da moldura + folga).
+    const cxCircle = S * AVATAR_LAYOUT.circleCx;
+    const cyCircle = S * AVATAR_LAYOUT.circleCy;
+    const rP = S * AVATAR_LAYOUT.circleR;
+    const px = Math.min(
+      S * AVATAR_LAYOUT.subtitleFontFrac * 1.1,
+      fitFontPx(ctx, subtitle, S * 1.4, S * AVATAR_LAYOUT.subtitleFontFrac * 1.1, weight, scene.font, S * 0.02),
     );
+    const arcR = rP + frameBandPx(S, scene) + px * 0.62 + S * 0.01;
+    drawTextArc(ctx, subtitle, cxCircle, cyCircle, arcR, px, weight, scene.font, scene.subtitleColor, px * 0.12);
+    return;
   }
+
+  const px = fitFontPx(ctx, subtitle, maxW, S * AVATAR_LAYOUT.subtitleFontFrac, weight, scene.font, S * 0.02);
+  drawTextLine(
+    ctx,
+    subtitle,
+    cx,
+    S * AVATAR_LAYOUT.subtitleBaselineY,
+    px,
+    weight,
+    scene.font,
+    scene.subtitleColor,
+    px * 0.14,
+  );
 }
 
 /** Desenha a cena completa num contexto de lado S (preview ou export). */
@@ -376,6 +459,8 @@ export async function composeAvatar(input: {
     titleColor: config.titleColor,
     subtitleColor: config.subtitleColor,
     uppercase: config.uppercase,
+    subtitleCurved: config.subtitleCurved ?? false,
+    titleOffsetY: config.titleOffsetY ?? 0,
   };
 
   const render = document.createElement("canvas");

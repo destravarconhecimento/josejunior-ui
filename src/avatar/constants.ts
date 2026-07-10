@@ -74,6 +74,36 @@ export const AVATAR_FRAME_PRESETS: readonly AvatarFramePreset[] = [
       { color: "#39ff14", width: 0.026 },
     ],
   },
+  {
+    id: "fina",
+    label: "Fina (linha)",
+    rings: [{ color: "#ffffff", width: 0.008 }],
+  },
+  {
+    id: "dupla",
+    label: "Dupla (dois fios)",
+    rings: [
+      { color: "#ffffff", width: 0.007 },
+      { color: "rgba(0,0,0,0)", width: 0.012 },
+      { color: "#ffffff", width: 0.007 },
+    ],
+  },
+  {
+    id: "solida",
+    label: "Sólida (faixa)",
+    rings: [{ color: "#0b1220", width: 0.036 }],
+  },
+  {
+    id: "rajada",
+    label: "Rajada (colorida)",
+    rings: [
+      {
+        color: "#e0311d",
+        width: 0.034,
+        colors: ["#e0311d", "#f2c500", "#149a4b", "#2563eb", "#7c3aed", "#e0311d"],
+      },
+    ],
+  },
 ] as const;
 
 /**
@@ -118,6 +148,8 @@ export function defaultAvatarConfig(settings: AvatarSettings, brandLogoUrl?: str
     titleColor: "#ffffff",
     subtitleColor: "#ffffff",
     uppercase: true,
+    subtitleCurved: false,
+    titleOffsetY: 0,
   };
 }
 
