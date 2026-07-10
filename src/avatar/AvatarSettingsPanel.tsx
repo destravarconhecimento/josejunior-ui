@@ -7,10 +7,10 @@
  * formulário, e explica cada campo (o usuário se confundia com "moldura" etc.).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ImagePlus, Trash2, Upload } from "lucide-react";
+import { ImagePlus, RotateCcw, Trash2, Upload } from "lucide-react";
 import { Box, Flex, HStack, Image, SimpleGrid, Stack, Text } from "../primitives";
 import { Button } from "../components/Button";
-import { Card } from "../components/Card";
+import { Accordion } from "../components/Accordion";
 import { FormInput, FormSelect } from "../components/form";
 import { ColorPicker } from "../components/ColorPicker";
 import { SidePanel } from "../components/SidePanel";
@@ -25,6 +25,33 @@ import type {
   AvatarUploadKind,
 } from "./types";
 
+/** Slider fino (mesmo padrão do estúdio). */
+function Range({
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <input
+      type="range"
+      value={value}
+      min={min}
+      max={max}
+      step={step}
+      onChange={(e) => onChange(Number(e.target.value))}
+      style={{ width: "100%", accentColor: "var(--admin-primary)" }}
+    />
+  );
+}
+
 export type AvatarSettingsPanelProps = {
   open: boolean;
   onClose: () => void;
@@ -38,15 +65,6 @@ export type AvatarSettingsPanelProps = {
 
 function frameId(): string {
   return `m_${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
-}
-
-/** Rótulo em maiúsculas de seção (padrão dos painéis). */
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <Text fontSize="sm" fontWeight="700" color="var(--admin-text)">
-      {children}
-    </Text>
-  );
 }
 
 /** Texto de ajuda (explica o campo). */
@@ -149,7 +167,7 @@ export function AvatarSettingsPanel(props: AvatarSettingsPanelProps) {
       open={props.open}
       onClose={props.onClose}
       title="Padrão da agência"
-      size="xl"
+      size="full"
       footer={
         <HStack gap={2} w="100%" justify="flex-end">
           <Button tone="ghost" onClick={props.onClose}>
@@ -164,207 +182,293 @@ export function AvatarSettingsPanel(props: AvatarSettingsPanelProps) {
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
 
       <Flex gap={6} direction={{ base: "column", lg: "row" }} align="flex-start">
-        {/* PRÉVIA ao vivo do molde — fica visível enquanto se edita (sticky no desktop). */}
-        <Stack
-          gap={3}
-          w={{ base: "100%", lg: "300px" }}
-          flexShrink={0}
+        {/* PRÉVIA ao vivo do molde — grande e interativa (arraste nome e logo). */}
+        <Box
+          order={{ base: -1, lg: 0 }}
+          flex="1"
+          minW={0}
+          w="100%"
           position={{ lg: "sticky" }}
-          top="0"
+          top={{ lg: "0" }}
+          alignSelf={{ lg: "flex-start" }}
         >
-          <SectionLabel>Prévia</SectionLabel>
-          <AvatarCanvas
-            config={previewConfig}
-            title={sampleName || "Nome"}
-            subtitle={s.fixedSubtitle}
-            presets={props.presets}
-            maxSize={300}
-          />
-          <Help>
-            É assim que <b>todo avatar novo</b> já começa. A foto da pessoa entra no círculo
-            depois, na hora de criar.
-          </Help>
-          <FormInput
-            label="Ver com o nome"
-            size="sm"
-            value={sampleName}
-            onChange={(e) => setSampleName(e.target.value)}
-            placeholder="Ex.: Maria"
-          />
-        </Stack>
+          <Stack gap={3} align="center">
+            <AvatarCanvas
+              config={previewConfig}
+              title={sampleName || "Nome"}
+              subtitle={s.fixedSubtitle}
+              presets={props.presets}
+              interactive
+              onTitleMove={(o) => setS((p) => ({ ...p, defaultTitleOffsetX: o.x, defaultTitleOffsetY: o.y }))}
+              onLogoMove={(pos) => setS((p) => ({ ...p, defaultLogoPos: pos }))}
+              maxSize={520}
+            />
+            <Text fontSize="xs" color="var(--admin-text-soft)" textAlign="center">
+              Este é o molde de <b>todo avatar novo</b>. Arraste o <b>nome</b> e a <b>logo</b> na
+              prévia para definir a posição padrão. A foto da pessoa entra depois, na hora de criar.
+            </Text>
+            <FormInput
+              label="Ver com o nome"
+              size="sm"
+              value={sampleName}
+              onChange={(e) => setSampleName(e.target.value)}
+              placeholder="Ex.: Maria"
+            />
+          </Stack>
+        </Box>
 
-        {/* FORMULÁRIO do padrão. */}
-        <Stack gap={4} flex="1" minW={0} w="100%">
-          <Help>
-            O <b>padrão da agência</b> é o molde dos seus avatares: tudo que você definir aqui já
-            vem pronto em todo avatar novo. Configure uma vez — depois é só subir a foto de cada
-            pessoa e ajustar o que quiser.
-          </Help>
-
-          {/* Molduras */}
-          <Card p={4}>
-            <Stack gap={3}>
-              <SectionLabel>Molduras</SectionLabel>
-              <Help>
-                A <b>moldura</b> é a borda decorativa em volta da foto — tipo o anel colorido do
-                exemplo. Já vêm algumas prontas (você escolhe a padrão em “Estilo”, abaixo). Aqui
-                você pode subir as <b>suas</b>: um PNG com o <b>meio vazado</b> (transparente), pra
-                a foto aparecer no buraco. Elas ficam disponíveis na hora de criar cada avatar.
-              </Help>
-              {s.frames.length > 0 ? (
-                <SimpleGrid columns={{ base: 2, sm: 3 }} gap={3}>
-                  {s.frames.map((f, i) => (
-                    <Stack key={f.id} gap={1} borderWidth="1px" borderColor="var(--admin-border)" borderRadius="12px" p={2}>
-                      <Box
-                        aspectRatio={1}
-                        borderRadius="10px"
-                        bg="repeating-conic-gradient(#e5e7eb 0% 25%, #f3f4f6 0% 50%) 50% / 16px 16px"
-                        overflow="hidden"
-                      >
-                        <Image src={f.url} alt={f.label} w="100%" h="100%" objectFit="contain" />
-                      </Box>
-                      <FormInput
-                        value={f.label}
-                        onChange={(e) =>
-                          setS((p) => {
-                            const frames = [...p.frames];
-                            frames[i] = { ...frames[i], label: e.target.value };
-                            return { ...p, frames };
-                          })
-                        }
+        {/* FORMULÁRIO do padrão — por categoria (acordeão). */}
+        <Box w={{ base: "100%", lg: "400px" }} flexShrink={0}>
+          <Accordion
+            multiple
+            defaultValue={["texto", "logo"]}
+            items={[
+              {
+                value: "texto",
+                title: "Nome e legenda",
+                content: (
+                  <Stack gap={3}>
+                    <FormInput
+                      label="Legenda fixa"
+                      value={s.fixedSubtitle}
+                      onChange={(e) => setS((p) => ({ ...p, fixedSubtitle: e.target.value }))}
+                      placeholder="Ex.: CARA PINTADA"
+                      help="2ª linha embaixo do nome, igual em todos (ex.: o nome da agência). Vazio = sem 2ª linha."
+                    />
+                    <FormSelect
+                      label="Fonte do nome"
+                      value={s.defaultFont}
+                      onChange={(e) => setS((p) => ({ ...p, defaultFont: e.target.value }))}
+                      options={AVATAR_FONTS.map((f) => ({ value: f.family, label: f.label }))}
+                      help="A tipografia do nome."
+                    />
+                    <HStack gap={4} align="flex-start" flexWrap="wrap">
+                      <Stack gap={1}>
+                        <Text fontSize="xs" color="var(--admin-text-soft)">Cor do nome</Text>
+                        <ColorPicker
+                          value={s.defaultTitleColor ?? "#ffffff"}
+                          onChange={(c) => setS((p) => ({ ...p, defaultTitleColor: c }))}
+                          colors={AVATAR_COLORS}
+                          columns={9}
+                          allowCustom
+                        />
+                      </Stack>
+                      <Stack gap={1}>
+                        <Text fontSize="xs" color="var(--admin-text-soft)">Cor da legenda</Text>
+                        <ColorPicker
+                          value={s.defaultSubtitleColor ?? "#ffffff"}
+                          onChange={(c) => setS((p) => ({ ...p, defaultSubtitleColor: c }))}
+                          colors={AVATAR_COLORS}
+                          columns={9}
+                          allowCustom
+                        />
+                      </Stack>
+                    </HStack>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
+                      <input
+                        type="checkbox"
+                        checked={s.defaultUppercase ?? true}
+                        onChange={(e) => setS((p) => ({ ...p, defaultUppercase: e.target.checked }))}
+                        style={{ width: 16, height: 16, accentColor: "var(--admin-primary)" }}
                       />
-                      <Button
-                        tone="ghost"
-                        size="xs"
-                        onClick={() => setS((p) => ({ ...p, frames: p.frames.filter((x) => x.id !== f.id) }))}
-                      >
-                        <Trash2 size={13} /> Remover
-                      </Button>
+                      Texto em CAIXA ALTA por padrão
+                    </label>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(s.defaultSubtitleCurved)}
+                        onChange={(e) => setS((p) => ({ ...p, defaultSubtitleCurved: e.target.checked }))}
+                        style={{ width: 16, height: 16, accentColor: "var(--admin-primary)" }}
+                      />
+                      Legenda curvada por padrão
+                    </label>
+                    <Stack gap={1}>
+                      <HStack justify="space-between">
+                        <Text fontSize="xs" color="var(--admin-text-soft)">Tamanho padrão do nome</Text>
+                        <Button size="xs" tone="ghost" onClick={() => setS((p) => ({ ...p, defaultTitleScale: 1 }))}>
+                          <RotateCcw size={12} /> Padrão
+                        </Button>
+                      </HStack>
+                      <Range
+                        value={s.defaultTitleScale ?? 1}
+                        min={0.6}
+                        max={1.6}
+                        step={0.02}
+                        onChange={(v) => setS((p) => ({ ...p, defaultTitleScale: v }))}
+                      />
                     </Stack>
-                  ))}
-                </SimpleGrid>
-              ) : (
-                <Help>Nenhuma moldura sua ainda — as prontas continuam disponíveis.</Help>
-              )}
-              <Button tone="outline" size="sm" onClick={() => pick("frame")} loading={uploading} alignSelf="flex-start">
-                <ImagePlus size={15} /> Adicionar moldura
-              </Button>
-            </Stack>
-          </Card>
-
-          {/* Logo */}
-          <Card p={4}>
-            <Stack gap={3}>
-              <SectionLabel>Logo</SectionLabel>
-              <Help>
-                Marca d’água que aparece num canto do avatar. Deixe <b>vazio</b> pra usar o logo do
-                site automaticamente.
-              </Help>
-              <HStack gap={3} align="center" flexWrap="wrap">
-                {s.logoUrl ? (
-                  <Box w="64px" h="64px" borderRadius="10px" borderWidth="1px" borderColor="var(--admin-border)" overflow="hidden" bg="#0b1220">
-                    <Image src={s.logoUrl} alt="Logo" w="100%" h="100%" objectFit="contain" />
-                  </Box>
-                ) : null}
-                <Button tone="outline" size="sm" onClick={() => pick("logo")} loading={uploading}>
-                  <Upload size={15} /> {s.logoUrl ? "Trocar logo" : "Enviar logo"}
-                </Button>
-                {s.logoUrl ? (
-                  <Button tone="ghost" size="sm" onClick={() => setS((p) => ({ ...p, logoUrl: "" }))}>
-                    Usar logo do site
-                  </Button>
-                ) : null}
-              </HStack>
-            </Stack>
-          </Card>
-
-          {/* Fundo */}
-          <Card p={4}>
-            <Stack gap={3}>
-              <SectionLabel>Fundo</SectionLabel>
-              <Help>
-                O que aparece <b>atrás</b> da foto. Pode ser uma imagem (ex.: um respingo de tinta)
-                ou uma cor sólida. Sem imagem, usa a <b>cor</b> escolhida abaixo.
-              </Help>
-              <HStack gap={3} align="center" flexWrap="wrap">
-                {s.backgroundUrl ? (
-                  <Box w="64px" h="64px" borderRadius="10px" borderWidth="1px" borderColor="var(--admin-border)" overflow="hidden">
-                    <Image src={s.backgroundUrl} alt="Fundo" w="100%" h="100%" objectFit="cover" />
-                  </Box>
-                ) : null}
-                <Button tone="outline" size="sm" onClick={() => pick("background")} loading={uploading}>
-                  <Upload size={15} /> {s.backgroundUrl ? "Trocar fundo" : "Enviar fundo"}
-                </Button>
-                {s.backgroundUrl ? (
-                  <Button tone="ghost" size="sm" onClick={() => setS((p) => ({ ...p, backgroundUrl: "" }))}>
-                    Remover (usar cor)
-                  </Button>
-                ) : null}
-              </HStack>
-              <Stack gap={1}>
-                <Text fontSize="xs" color="var(--admin-text-soft)">Cor de fundo (quando não há imagem)</Text>
-                <ColorPicker
-                  value={s.defaultBackgroundColor}
-                  onChange={(c) => setS((p) => ({ ...p, defaultBackgroundColor: c }))}
-                  colors={AVATAR_COLORS}
-                  columns={9}
-                />
-              </Stack>
-            </Stack>
-          </Card>
-
-          {/* Texto & estilo */}
-          <Card p={4}>
-            <Stack gap={3}>
-              <SectionLabel>Texto e estilo</SectionLabel>
-              <FormInput
-                label="Legenda fixa"
-                value={s.fixedSubtitle}
-                onChange={(e) => setS((p) => ({ ...p, fixedSubtitle: e.target.value }))}
-                placeholder="Ex.: CARA PINTADA"
-                help="2ª linha embaixo do nome, igual em todos (ex.: o nome da agência). Vazio = sem 2ª linha."
-              />
-              <Flex gap={4} direction={{ base: "column", sm: "row" }}>
-                <Box flex="1">
-                  <FormSelect
-                    label="Fonte"
-                    value={s.defaultFont}
-                    onChange={(e) => setS((p) => ({ ...p, defaultFont: e.target.value }))}
-                    options={AVATAR_FONTS.map((f) => ({ value: f.family, label: f.label }))}
-                    help="A tipografia do nome."
-                  />
-                </Box>
-                <Box flex="1">
-                  <FormSelect
-                    label="Moldura padrão"
-                    value={defaultFrameValue}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v.startsWith("image:")) {
-                        setS((p) => ({ ...p, defaultFrameUrl: v.slice(6) }));
-                      } else {
-                        setS((p) => ({ ...p, defaultFrameUrl: "", defaultFramePresetId: v.slice(7) }));
+                    <Stack gap={1}>
+                      <HStack justify="space-between">
+                        <Text fontSize="xs" color="var(--admin-text-soft)">Altura padrão do nome (ou arraste na prévia)</Text>
+                        <Button
+                          size="xs"
+                          tone="ghost"
+                          onClick={() => setS((p) => ({ ...p, defaultTitleOffsetX: 0, defaultTitleOffsetY: 0 }))}
+                        >
+                          <RotateCcw size={12} /> Padrão
+                        </Button>
+                      </HStack>
+                      <Range
+                        value={s.defaultTitleOffsetY ?? 0}
+                        min={-0.15}
+                        max={0.15}
+                        step={0.005}
+                        onChange={(v) => setS((p) => ({ ...p, defaultTitleOffsetY: v }))}
+                      />
+                    </Stack>
+                  </Stack>
+                ),
+              },
+              {
+                value: "logo",
+                title: "Logo",
+                content: (
+                  <Stack gap={3}>
+                    <Help>
+                      Marca d’água que aparece num canto do avatar. Deixe <b>vazio</b> pra usar o logo
+                      do site automaticamente. Arraste a logo na prévia para posicioná-la livremente.
+                    </Help>
+                    <HStack gap={3} align="center" flexWrap="wrap">
+                      {s.logoUrl ? (
+                        <Box w="64px" h="64px" borderRadius="10px" borderWidth="1px" borderColor="var(--admin-border)" overflow="hidden" bg="#0b1220">
+                          <Image src={s.logoUrl} alt="Logo" w="100%" h="100%" objectFit="contain" />
+                        </Box>
+                      ) : null}
+                      <Button tone="outline" size="sm" onClick={() => pick("logo")} loading={uploading}>
+                        <Upload size={15} /> {s.logoUrl ? "Trocar logo" : "Enviar logo"}
+                      </Button>
+                      {s.logoUrl ? (
+                        <Button tone="ghost" size="sm" onClick={() => setS((p) => ({ ...p, logoUrl: "" }))}>
+                          Usar logo do site
+                        </Button>
+                      ) : null}
+                    </HStack>
+                    <FormSelect
+                      label="Posição da logo"
+                      value={defaultLogoValue}
+                      onChange={(e) =>
+                        setS((p) => ({ ...p, defaultLogoCorner: e.target.value as AvatarLogoCorner, defaultLogoPos: null }))
                       }
-                    }}
-                    options={defaultFrameOptions}
-                    help="A borda que já vem selecionada em cada avatar novo — inclusive as suas."
-                  />
-                </Box>
-              </Flex>
-              <Box>
-                <FormSelect
-                  label="Posição da logo"
-                  value={defaultLogoValue}
-                  onChange={(e) =>
-                    setS((p) => ({ ...p, defaultLogoCorner: e.target.value as AvatarLogoCorner }))
-                  }
-                  options={logoCornerOptions}
-                  help="Onde a logo aparece por padrão em cada avatar novo."
-                />
-              </Box>
-            </Stack>
-          </Card>
-        </Stack>
+                      options={logoCornerOptions}
+                      help="Canto padrão. Arrastar na prévia sobrepõe o canto."
+                    />
+                    {s.defaultLogoPos ? (
+                      <Button
+                        size="xs"
+                        tone="ghost"
+                        onClick={() => setS((p) => ({ ...p, defaultLogoPos: null }))}
+                        alignSelf="flex-start"
+                      >
+                        <RotateCcw size={12} /> Voltar a logo pro canto
+                      </Button>
+                    ) : null}
+                  </Stack>
+                ),
+              },
+              {
+                value: "moldura",
+                title: "Molduras",
+                content: (
+                  <Stack gap={3}>
+                    <Help>
+                      A <b>moldura</b> é a borda decorativa em volta da foto — tipo o anel colorido do
+                      exemplo. Já vêm algumas prontas. Aqui você pode subir as <b>suas</b>: um PNG com
+                      o <b>meio vazado</b> (transparente), pra a foto aparecer no buraco.
+                    </Help>
+                    <FormSelect
+                      label="Moldura padrão"
+                      value={defaultFrameValue}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v.startsWith("image:")) {
+                          setS((p) => ({ ...p, defaultFrameUrl: v.slice(6) }));
+                        } else {
+                          setS((p) => ({ ...p, defaultFrameUrl: "", defaultFramePresetId: v.slice(7) }));
+                        }
+                      }}
+                      options={defaultFrameOptions}
+                      help="A borda que já vem selecionada em cada avatar novo — inclusive as suas."
+                    />
+                    {s.frames.length > 0 ? (
+                      <SimpleGrid columns={{ base: 2, sm: 3 }} gap={3}>
+                        {s.frames.map((f, i) => (
+                          <Stack key={f.id} gap={1} borderWidth="1px" borderColor="var(--admin-border)" borderRadius="12px" p={2}>
+                            <Box
+                              aspectRatio={1}
+                              borderRadius="10px"
+                              bg="repeating-conic-gradient(#e5e7eb 0% 25%, #f3f4f6 0% 50%) 50% / 16px 16px"
+                              overflow="hidden"
+                            >
+                              <Image src={f.url} alt={f.label} w="100%" h="100%" objectFit="contain" />
+                            </Box>
+                            <FormInput
+                              value={f.label}
+                              onChange={(e) =>
+                                setS((p) => {
+                                  const frames = [...p.frames];
+                                  frames[i] = { ...frames[i], label: e.target.value };
+                                  return { ...p, frames };
+                                })
+                              }
+                            />
+                            <Button
+                              tone="ghost"
+                              size="xs"
+                              onClick={() => setS((p) => ({ ...p, frames: p.frames.filter((x) => x.id !== f.id) }))}
+                            >
+                              <Trash2 size={13} /> Remover
+                            </Button>
+                          </Stack>
+                        ))}
+                      </SimpleGrid>
+                    ) : (
+                      <Help>Nenhuma moldura sua ainda — as prontas continuam disponíveis.</Help>
+                    )}
+                    <Button tone="outline" size="sm" onClick={() => pick("frame")} loading={uploading} alignSelf="flex-start">
+                      <ImagePlus size={15} /> Adicionar moldura
+                    </Button>
+                  </Stack>
+                ),
+              },
+              {
+                value: "fundo",
+                title: "Fundo",
+                content: (
+                  <Stack gap={3}>
+                    <Help>
+                      O que aparece <b>atrás</b> da foto. Pode ser uma imagem (ex.: um respingo de
+                      tinta) ou uma cor sólida. Sem imagem, usa a <b>cor</b> escolhida abaixo.
+                    </Help>
+                    <HStack gap={3} align="center" flexWrap="wrap">
+                      {s.backgroundUrl ? (
+                        <Box w="64px" h="64px" borderRadius="10px" borderWidth="1px" borderColor="var(--admin-border)" overflow="hidden">
+                          <Image src={s.backgroundUrl} alt="Fundo" w="100%" h="100%" objectFit="cover" />
+                        </Box>
+                      ) : null}
+                      <Button tone="outline" size="sm" onClick={() => pick("background")} loading={uploading}>
+                        <Upload size={15} /> {s.backgroundUrl ? "Trocar fundo" : "Enviar fundo"}
+                      </Button>
+                      {s.backgroundUrl ? (
+                        <Button tone="ghost" size="sm" onClick={() => setS((p) => ({ ...p, backgroundUrl: "" }))}>
+                          Remover (usar cor)
+                        </Button>
+                      ) : null}
+                    </HStack>
+                    <Stack gap={1}>
+                      <Text fontSize="xs" color="var(--admin-text-soft)">Cor de fundo (quando não há imagem)</Text>
+                      <ColorPicker
+                        value={s.defaultBackgroundColor}
+                        onChange={(c) => setS((p) => ({ ...p, defaultBackgroundColor: c }))}
+                        colors={AVATAR_COLORS}
+                        columns={9}
+                      />
+                    </Stack>
+                  </Stack>
+                ),
+              },
+            ]}
+          />
+        </Box>
       </Flex>
     </SidePanel>
   );

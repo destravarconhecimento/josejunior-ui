@@ -58,17 +58,6 @@ export type AvatarStudioPanelProps = {
   onSaved?: () => void;
 };
 
-/** Rótulo de seção do estúdio. */
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <Stack gap={2}>
-      <Text fontSize="xs" fontWeight="700" textTransform="uppercase" letterSpacing="0.04em" color="var(--admin-text-soft)">
-        {title}
-      </Text>
-      {children}
-    </Stack>
-  );
-}
 
 /** Grupo de botões tipo "segmented" (uma opção ativa). */
 function SegButtons<T extends string>({
@@ -382,241 +371,346 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
           </Stack>
         </Box>
 
-        {/* Controles */}
-        <Stack gap={5} w={{ base: "100%", lg: "400px" }} flexShrink={0}>
-          <Section title="Foto da pessoa">
-            <HStack gap={2} flexWrap="wrap">
-              <Button tone="outline" size="sm" onClick={() => pickFile("photo")} loading={uploading}>
-                <Upload size={15} /> {config.photoUrl ? "Trocar foto" : "Enviar foto"}
-              </Button>
-              {config.photoUrl && onRemoveBackground ? (
-                <Button tone="outline" size="sm" onClick={removeBg} loading={removingBg}>
-                  <Wand2 size={15} /> Remover fundo
-                </Button>
-              ) : null}
-              {config.photoUrl && rawPhotoUrl && config.photoUrl !== rawPhotoUrl ? (
-                <Button tone="ghost" size="sm" onClick={restoreBg}>
-                  <ImageOff size={15} /> Restaurar fundo
-                </Button>
-              ) : null}
-            </HStack>
-            {onRemoveBackground ? (
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
-                <input
-                  type="checkbox"
-                  checked={autoRemoveBg}
-                  onChange={(e) => setAutoRemoveBg(e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: "var(--admin-primary)" }}
-                />
-                Remover o fundo automaticamente ao enviar
-              </label>
-            ) : null}
-            <Text fontSize="xs" color="var(--admin-text-soft)">
-              Com um fundo montado, a foto fica mais profissional sem o fundo original.
-              Pode subir já sem fundo ou usar “Remover fundo” (grátis, no navegador).
-            </Text>
-          </Section>
-
-          <Section title="Nome e legenda">
-            <FormInput
-              label="Nome (linha de cima)"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ex.: João Silva"
-            />
-            <FormInput
-              label="Legenda fixa (linha de baixo)"
-              value={subtitle}
-              onChange={(e) => setSubtitle(e.target.value)}
-              placeholder={settings.fixedSubtitle || "Ex.: CARA PINTADA"}
-              help="Padrão da agência — igual em todos os avatares."
-            />
-            <FormSelect
-              label="Fonte do texto"
-              value={config.font}
-              onChange={(e) => patch({ font: e.target.value })}
-              options={AVATAR_FONTS.map((f) => ({ value: f.family, label: f.label }))}
-            />
-            <HStack gap={4} flexWrap="wrap" align="flex-start">
-              <Stack gap={1}>
-                <Text fontSize="xs" color="var(--admin-text-soft)">Cor do nome</Text>
-                <ColorPicker
-                  value={config.titleColor}
-                  onChange={(c) => patch({ titleColor: c })}
-                  colors={AVATAR_COLORS}
-                  columns={9}
-                  allowCustom
-                />
-              </Stack>
-            </HStack>
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
-              <input
-                type="checkbox"
-                checked={config.uppercase}
-                onChange={(e) => patch({ uppercase: e.target.checked })}
-                style={{ width: 16, height: 16, accentColor: "var(--admin-primary)" }}
-              />
-              Texto em CAIXA ALTA
-            </label>
-            <Stack gap={1}>
-              <HStack justify="space-between">
-                <Text fontSize="xs" color="var(--admin-text-soft)">Posição do nome (arraste)</Text>
-                <Button
-                  size="xs"
-                  tone="ghost"
-                  onClick={() => patch({ titleOffsetY: 0 })}
-                >
-                  <RotateCcw size={12} /> Padrão
-                </Button>
-              </HStack>
-              <Range
-                value={config.titleOffsetY ?? 0}
-                min={-0.15}
-                max={0.15}
-                step={0.005}
-                onChange={(v) => patch({ titleOffsetY: v })}
-              />
-            </Stack>
-            <Stack gap={1}>
-              <HStack justify="space-between">
-                <Text fontSize="xs" color="var(--admin-text-soft)">Tamanho do nome</Text>
-                <Button size="xs" tone="ghost" onClick={() => patch({ titleScale: 1 })}>
-                  <RotateCcw size={12} /> Padrão
-                </Button>
-              </HStack>
-              <Range
-                value={config.titleScale ?? 1}
-                min={0.6}
-                max={1.6}
-                step={0.02}
-                onChange={(v) => patch({ titleScale: v })}
-              />
-            </Stack>
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
-              <input
-                type="checkbox"
-                checked={Boolean(config.subtitleCurved)}
-                onChange={(e) => patch({ subtitleCurved: e.target.checked })}
-                style={{ width: 16, height: 16, accentColor: "var(--admin-primary)" }}
-              />
-              Legenda curvada (acompanha a moldura)
-            </label>
-          </Section>
-
-          <Section title="Moldura">
-            <FormSelect
-              label=""
-              value={frameChoiceValue(config.frame)}
-              onChange={(e) => patch({ frame: parseFrame(e.target.value) })}
-              options={frameOptions}
-            />
-            <Button tone="ghost" size="xs" onClick={() => pickFile("frame")} loading={uploading}>
-              <Upload size={13} /> Enviar moldura própria (PNG com centro vazado)
-            </Button>
-            <Text fontSize="xs" color="var(--admin-text-soft)">
-              A moldura é a borda em volta da foto. Escolha “Nenhuma” para foto sem borda,
-              ou estilos prontos (fina, dupla, sólida, rajada…).
-            </Text>
-          </Section>
-
-          <Section title="Fundo">
-            <SegButtons
-              value={bgMode}
-              onChange={(v) => patch({ background: switchBg(v, config.background, settings) })}
-              options={[
-                { value: "color", label: "Cor" },
-                { value: "gradient", label: "Gradiente" },
-                { value: "image", label: "Imagem" },
-                { value: "none", label: "Transparente" },
-              ]}
-            />
-            {config.background.kind === "color" ? (
-              <ColorPicker
-                value={config.background.color}
-                onChange={(c) => patch({ background: { kind: "color", color: c } })}
-                colors={AVATAR_COLORS}
-                columns={9}
-              />
-            ) : null}
-            {config.background.kind === "gradient" ? (
-              <HStack gap={4} align="flex-start" flexWrap="wrap">
-                <Stack gap={1}>
-                  <Text fontSize="xs" color="var(--admin-text-soft)">De</Text>
-                  <ColorPicker
-                    value={config.background.from}
-                    onChange={(c) =>
-                      patch({ background: { kind: "gradient", from: c, to: (config.background as { to: string }).to } })
-                    }
-                    colors={AVATAR_COLORS}
-                    columns={9}
-                    allowCustom={false}
+        {/* Controles — organizados por categoria (acordeão) */}
+        <Box w={{ base: "100%", lg: "400px" }} flexShrink={0}>
+          <Accordion
+            multiple
+            defaultValue={["foto", "nome"]}
+            items={[
+              {
+                value: "foto",
+                title: "Foto da pessoa",
+                content: (
+                  <Stack gap={3}>
+                    <HStack gap={2} flexWrap="wrap">
+                      <Button tone="outline" size="sm" onClick={() => pickFile("photo")} loading={uploading}>
+                        <Upload size={15} /> {config.photoUrl ? "Trocar foto" : "Enviar foto"}
+                      </Button>
+                      {config.photoUrl && onRemoveBackground ? (
+                        <Button tone="outline" size="sm" onClick={removeBg} loading={removingBg}>
+                          <Wand2 size={15} /> Tirar fundo
+                        </Button>
+                      ) : null}
+                      {config.photoUrl && rawPhotoUrl && config.photoUrl !== rawPhotoUrl ? (
+                        <Button tone="ghost" size="sm" onClick={restoreBg}>
+                          <ImageOff size={15} /> Restaurar fundo
+                        </Button>
+                      ) : null}
+                    </HStack>
+                    {config.photoUrl ? (
+                      <>
+                        <HStack gap={2} flexWrap="wrap">
+                          <Button
+                            tone={config.photo.flipH ? "primary" : "outline"}
+                            size="sm"
+                            onClick={() => patch({ photo: { ...config.photo, flipH: !config.photo.flipH } })}
+                          >
+                            <FlipHorizontal2 size={15} /> Espelhar
+                          </Button>
+                          <Button
+                            tone="ghost"
+                            size="sm"
+                            onClick={() => patch({ photo: { offsetX: 0, offsetY: 0, zoom: 1, flipH: config.photo.flipH } })}
+                          >
+                            <RotateCcw size={14} /> Centralizar
+                          </Button>
+                        </HStack>
+                        <Stack gap={1}>
+                          <Text fontSize="xs" color="var(--admin-text-soft)">
+                            Zoom / enquadramento — arraste a foto na prévia para posicionar
+                          </Text>
+                          <Range
+                            value={config.photo.zoom}
+                            min={0.5}
+                            max={4}
+                            step={0.02}
+                            onChange={(zoom) => patch({ photo: { ...config.photo, zoom } })}
+                          />
+                        </Stack>
+                      </>
+                    ) : null}
+                    {onRemoveBackground ? (
+                      <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
+                        <input
+                          type="checkbox"
+                          checked={autoRemoveBg}
+                          onChange={(e) => setAutoRemoveBg(e.target.checked)}
+                          style={{ width: 16, height: 16, accentColor: "var(--admin-primary)" }}
+                        />
+                        Tirar o fundo automaticamente ao enviar
+                      </label>
+                    ) : null}
+                    <Text fontSize="xs" color="var(--admin-text-soft)">
+                      Com um fundo montado, a foto fica mais profissional sem o fundo original.
+                      Pode subir já sem fundo ou usar “Tirar fundo” (grátis, no navegador).
+                    </Text>
+                  </Stack>
+                ),
+              },
+              {
+                value: "nome",
+                title: "Nome",
+                content: (
+                  <Stack gap={3}>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(config.hideTitle)}
+                        onChange={(e) => patch({ hideTitle: e.target.checked })}
+                        style={{ width: 16, height: 16, accentColor: "var(--admin-primary)" }}
+                      />
+                      Sem nome (não escrever o nome no avatar)
+                    </label>
+                    <FormInput
+                      label="Nome"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Ex.: João Silva"
+                      disabled={Boolean(config.hideTitle)}
+                      help={config.hideTitle ? "Desmarque “Sem nome” para escrever o nome." : undefined}
+                    />
+                    {!config.hideTitle ? (
+                      <>
+                        <FormSelect
+                          label="Fonte do nome"
+                          value={config.font}
+                          onChange={(e) => patch({ font: e.target.value })}
+                          options={AVATAR_FONTS.map((f) => ({ value: f.family, label: f.label }))}
+                        />
+                        <Stack gap={1}>
+                          <Text fontSize="xs" color="var(--admin-text-soft)">Cor do nome</Text>
+                          <ColorPicker
+                            value={config.titleColor}
+                            onChange={(c) => patch({ titleColor: c })}
+                            colors={AVATAR_COLORS}
+                            columns={9}
+                            allowCustom
+                          />
+                        </Stack>
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
+                          <input
+                            type="checkbox"
+                            checked={config.uppercase}
+                            onChange={(e) => patch({ uppercase: e.target.checked })}
+                            style={{ width: 16, height: 16, accentColor: "var(--admin-primary)" }}
+                          />
+                          Texto em CAIXA ALTA
+                        </label>
+                        <Stack gap={1}>
+                          <HStack justify="space-between">
+                            <Text fontSize="xs" color="var(--admin-text-soft)">Altura do nome (ou arraste na prévia)</Text>
+                            <Button size="xs" tone="ghost" onClick={() => patch({ titleOffsetX: 0, titleOffsetY: 0 })}>
+                              <RotateCcw size={12} /> Padrão
+                            </Button>
+                          </HStack>
+                          <Range
+                            value={config.titleOffsetY ?? 0}
+                            min={-0.15}
+                            max={0.15}
+                            step={0.005}
+                            onChange={(v) => patch({ titleOffsetY: v })}
+                          />
+                        </Stack>
+                        <Stack gap={1}>
+                          <HStack justify="space-between">
+                            <Text fontSize="xs" color="var(--admin-text-soft)">Tamanho do nome</Text>
+                            <Button size="xs" tone="ghost" onClick={() => patch({ titleScale: 1 })}>
+                              <RotateCcw size={12} /> Padrão
+                            </Button>
+                          </HStack>
+                          <Range
+                            value={config.titleScale ?? 1}
+                            min={0.6}
+                            max={1.6}
+                            step={0.02}
+                            onChange={(v) => patch({ titleScale: v })}
+                          />
+                        </Stack>
+                      </>
+                    ) : null}
+                  </Stack>
+                ),
+              },
+              {
+                value: "legenda",
+                title: "Legenda",
+                content: (
+                  <Stack gap={3}>
+                    <FormInput
+                      label="Legenda fixa (linha de baixo)"
+                      value={subtitle}
+                      onChange={(e) => setSubtitle(e.target.value)}
+                      placeholder={settings.fixedSubtitle || "Ex.: CARA PINTADA"}
+                      help="Padrão da agência — igual em todos os avatares. Vazio = sem legenda."
+                    />
+                    <Stack gap={1}>
+                      <Text fontSize="xs" color="var(--admin-text-soft)">Cor da legenda</Text>
+                      <ColorPicker
+                        value={config.subtitleColor}
+                        onChange={(c) => patch({ subtitleColor: c })}
+                        colors={AVATAR_COLORS}
+                        columns={9}
+                        allowCustom
+                      />
+                    </Stack>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(config.subtitleCurved)}
+                        onChange={(e) => patch({ subtitleCurved: e.target.checked })}
+                        style={{ width: 16, height: 16, accentColor: "var(--admin-primary)" }}
+                      />
+                      Legenda curvada (acompanha a moldura)
+                    </label>
+                  </Stack>
+                ),
+              },
+              {
+                value: "logo",
+                title: "Logo",
+                content: (
+                  <Stack gap={3}>
+                    {hasLogo ? (
+                      <>
+                        <SegButtons<AvatarLogoCorner>
+                          value={config.logoCorner}
+                          onChange={(v) => patch({ logoCorner: v, logoPos: null })}
+                          options={[
+                            { value: "top", label: "Topo" },
+                            { value: "top-left", label: "Sup. esq." },
+                            { value: "top-right", label: "Sup. dir." },
+                            { value: "bottom", label: "Rodapé" },
+                            { value: "bottom-left", label: "Inf. esq." },
+                            { value: "bottom-right", label: "Inf. dir." },
+                            { value: "none", label: "Sem logo" },
+                          ]}
+                        />
+                        {config.logoPos ? (
+                          <Button size="xs" tone="ghost" onClick={() => patch({ logoPos: null })} alignSelf="flex-start">
+                            <RotateCcw size={12} /> Voltar a logo pro canto
+                          </Button>
+                        ) : (
+                          <Text fontSize="xs" color="var(--admin-text-soft)">
+                            Dica: arraste a logo na prévia para posicioná-la livremente.
+                          </Text>
+                        )}
+                        <Button tone="ghost" size="xs" onClick={() => pickFile("logo")} loading={uploading} alignSelf="flex-start">
+                          <Upload size={13} /> Trocar logo
+                        </Button>
+                      </>
+                    ) : (
+                      <Button tone="outline" size="sm" onClick={() => pickFile("logo")} loading={uploading} alignSelf="flex-start">
+                        <Upload size={13} /> Adicionar logo da agência
+                      </Button>
+                    )}
+                  </Stack>
+                ),
+              },
+              {
+                value: "moldura",
+                title: "Moldura",
+                content: (
+                  <Stack gap={3}>
+                    <FormSelect
+                      label=""
+                      value={frameChoiceValue(config.frame)}
+                      onChange={(e) => patch({ frame: parseFrame(e.target.value) })}
+                      options={frameOptions}
+                    />
+                    <Button tone="ghost" size="xs" onClick={() => pickFile("frame")} loading={uploading} alignSelf="flex-start">
+                      <Upload size={13} /> Enviar moldura própria (PNG com centro vazado)
+                    </Button>
+                    <Text fontSize="xs" color="var(--admin-text-soft)">
+                      A moldura é a borda em volta da foto. Escolha “Nenhuma” para foto sem borda,
+                      ou estilos prontos (fina, dupla, sólida, rajada…).
+                    </Text>
+                  </Stack>
+                ),
+              },
+              {
+                value: "fundo",
+                title: "Fundo",
+                content: (
+                  <Stack gap={3}>
+                    <SegButtons
+                      value={bgMode}
+                      onChange={(v) => patch({ background: switchBg(v, config.background, settings) })}
+                      options={[
+                        { value: "color", label: "Cor" },
+                        { value: "gradient", label: "Gradiente" },
+                        { value: "image", label: "Imagem" },
+                        { value: "none", label: "Transparente" },
+                      ]}
+                    />
+                    {config.background.kind === "color" ? (
+                      <ColorPicker
+                        value={config.background.color}
+                        onChange={(c) => patch({ background: { kind: "color", color: c } })}
+                        colors={AVATAR_COLORS}
+                        columns={9}
+                      />
+                    ) : null}
+                    {config.background.kind === "gradient" ? (
+                      <HStack gap={4} align="flex-start" flexWrap="wrap">
+                        <Stack gap={1}>
+                          <Text fontSize="xs" color="var(--admin-text-soft)">De</Text>
+                          <ColorPicker
+                            value={config.background.from}
+                            onChange={(c) =>
+                              patch({ background: { kind: "gradient", from: c, to: (config.background as { to: string }).to } })
+                            }
+                            colors={AVATAR_COLORS}
+                            columns={9}
+                            allowCustom={false}
+                          />
+                        </Stack>
+                        <Stack gap={1}>
+                          <Text fontSize="xs" color="var(--admin-text-soft)">Para</Text>
+                          <ColorPicker
+                            value={config.background.to}
+                            onChange={(c) =>
+                              patch({ background: { kind: "gradient", from: (config.background as { from: string }).from, to: c } })
+                            }
+                            colors={AVATAR_COLORS}
+                            columns={9}
+                            allowCustom={false}
+                          />
+                        </Stack>
+                      </HStack>
+                    ) : null}
+                    {config.background.kind === "image" ? (
+                      <HStack gap={2} flexWrap="wrap">
+                        <Button tone="outline" size="xs" onClick={() => pickFile("background")} loading={uploading}>
+                          <Upload size={13} /> Enviar fundo
+                        </Button>
+                        {settings.backgroundUrl ? (
+                          <Button
+                            tone="ghost"
+                            size="xs"
+                            onClick={() => patch({ background: { kind: "image", url: settings.backgroundUrl } })}
+                          >
+                            Usar fundo da agência
+                          </Button>
+                        ) : null}
+                      </HStack>
+                    ) : null}
+                  </Stack>
+                ),
+              },
+              {
+                value: "tamanho",
+                title: "Tamanho do arquivo",
+                content: (
+                  <SegButtons
+                    value={String(size)}
+                    onChange={(v) => setSize(Number(v))}
+                    options={AVATAR_SIZES.map((s) => ({ value: String(s), label: `${s}×${s}` }))}
                   />
-                </Stack>
-                <Stack gap={1}>
-                  <Text fontSize="xs" color="var(--admin-text-soft)">Para</Text>
-                  <ColorPicker
-                    value={config.background.to}
-                    onChange={(c) =>
-                      patch({ background: { kind: "gradient", from: (config.background as { from: string }).from, to: c } })
-                    }
-                    colors={AVATAR_COLORS}
-                    columns={9}
-                    allowCustom={false}
-                  />
-                </Stack>
-              </HStack>
-            ) : null}
-            {config.background.kind === "image" ? (
-              <HStack gap={2} flexWrap="wrap">
-                <Button tone="outline" size="xs" onClick={() => pickFile("background")} loading={uploading}>
-                  <Upload size={13} /> Enviar fundo
-                </Button>
-                {settings.backgroundUrl ? (
-                  <Button
-                    tone="ghost"
-                    size="xs"
-                    onClick={() => patch({ background: { kind: "image", url: settings.backgroundUrl } })}
-                  >
-                    Usar fundo da agência
-                  </Button>
-                ) : null}
-              </HStack>
-            ) : null}
-          </Section>
-
-          {hasLogo ? (
-            <Section title="Logo da agência">
-              <SegButtons<AvatarLogoCorner>
-                value={config.logoCorner}
-                onChange={(v) => patch({ logoCorner: v })}
-                options={[
-                  { value: "top", label: "Topo" },
-                  { value: "top-left", label: "Sup. esq." },
-                  { value: "top-right", label: "Sup. dir." },
-                  { value: "bottom", label: "Rodapé" },
-                  { value: "bottom-left", label: "Inf. esq." },
-                  { value: "bottom-right", label: "Inf. dir." },
-                  { value: "none", label: "Sem logo" },
-                ]}
-              />
-              <Button tone="ghost" size="xs" onClick={() => pickFile("logo")} loading={uploading}>
-                <Upload size={13} /> Trocar logo
-              </Button>
-            </Section>
-          ) : (
-            <Button tone="ghost" size="xs" onClick={() => pickFile("logo")} loading={uploading} alignSelf="flex-start">
-              <Upload size={13} /> Adicionar logo da agência
-            </Button>
-          )}
-
-          <Section title="Tamanho">
-            <SegButtons
-              value={String(size)}
-              onChange={(v) => setSize(Number(v))}
-              options={AVATAR_SIZES.map((s) => ({ value: String(s), label: `${s}×${s}` }))}
-            />
-          </Section>
-        </Stack>
+                ),
+              },
+            ]}
+          />
+        </Box>
       </Flex>
 
       {result ? (
