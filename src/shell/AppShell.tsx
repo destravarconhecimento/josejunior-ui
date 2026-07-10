@@ -33,6 +33,7 @@ export function AppShell({
   accountHref,
   version,
   searchSlot,
+  utilitiesSlot,
   children,
 }: {
   brand: Brand;
@@ -47,6 +48,8 @@ export function AppShell({
   version?: string;
   /** Acessório à direita da busca do menu (ex.: botão de instalar o PWA). */
   searchSlot?: ReactNode;
+  /** Atalhos com badge no rodapé do sidebar, acima do menu do usuário (ex.: sino/e-mail). */
+  utilitiesSlot?: ReactNode;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -285,8 +288,9 @@ export function AppShell({
           </Stack>
         </Box>
 
-        {/* rodapé: menu do usuário (avatar + nome + seta → Meu perfil / Sair) */}
+        {/* rodapé: atalhos com badge (sino/e-mail) + menu do usuário (avatar + nome + seta) */}
         <Box flexShrink={0} px={collapsed ? 2 : 3} py={3} borderTopWidth="1px" borderColor="rgba(255,255,255,0.08)">
+          {utilitiesSlot ? <Box mb={2.5}>{utilitiesSlot}</Box> : null}
           <Menu.Root positioning={{ placement: collapsed ? "right-end" : "top" }}>
             <Menu.Trigger asChild>
               <HStack
