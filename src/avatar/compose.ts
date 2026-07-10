@@ -242,7 +242,7 @@ function drawPhoto(
       const dh = ih * scale;
       const dx = cx - dw / 2 + scene.photo.offsetX * rP;
       const dy = cy - dh / 2 + scene.photo.offsetY * rP;
-      // Rotação (0/90/180/270) + espelho horizontal — em torno do centro do
+      // Rotação em QUALQUER ângulo + espelho horizontal — em torno do centro do
       // círculo. O clip circular é invariante à rotação, então a foto gira dentro
       // do mesmo recorte redondo.
       const rot = (((scene.photo.rotate ?? 0) % 360) * Math.PI) / 180;

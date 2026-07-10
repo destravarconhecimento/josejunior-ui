@@ -118,6 +118,12 @@ function Range({
 const frameChoiceValue = (f: AvatarFrameChoice): string =>
   f.kind === "preset" ? `preset:${f.presetId}` : f.kind === "image" ? `image:${f.url}` : "none";
 
+/** Normaliza um ângulo (graus) para o intervalo (−180, 180] — o eixo do slider de girar. */
+function signDeg(deg: number): number {
+  const d = ((deg % 360) + 360) % 360;
+  return d > 180 ? d - 360 : d;
+}
+
 export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
   const { settings, brand, presets, onUpload, onRemoveBackground, onSave } = props;
 
@@ -410,10 +416,10 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
                             <FlipHorizontal2 size={15} /> Espelhar
                           </Button>
                           <Button
-                            tone={(config.photo.rotate ?? 0) % 360 !== 0 ? "primary" : "outline"}
+                            tone={signDeg(config.photo.rotate ?? 0) !== 0 ? "primary" : "outline"}
                             size="sm"
                             onClick={() =>
-                              patch({ photo: { ...config.photo, rotate: (((config.photo.rotate ?? 0) + 90) % 360) } })
+                              patch({ photo: { ...config.photo, rotate: signDeg((config.photo.rotate ?? 0) + 90) } })
                             }
                           >
                             <RotateCw size={15} /> Girar 90°
@@ -428,6 +434,29 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
                             <RotateCcw size={14} /> Centralizar
                           </Button>
                         </HStack>
+                        <Stack gap={1}>
+                          <HStack justify="space-between" align="center">
+                            <Text fontSize="xs" color="var(--admin-text-soft)">
+                              Girar — {Math.round(signDeg(config.photo.rotate ?? 0))}° (arraste para qualquer ângulo)
+                            </Text>
+                            {signDeg(config.photo.rotate ?? 0) !== 0 ? (
+                              <Button
+                                size="xs"
+                                tone="ghost"
+                                onClick={() => patch({ photo: { ...config.photo, rotate: 0 } })}
+                              >
+                                <RotateCcw size={12} /> Zerar
+                              </Button>
+                            ) : null}
+                          </HStack>
+                          <Range
+                            value={signDeg(config.photo.rotate ?? 0)}
+                            min={-180}
+                            max={180}
+                            step={1}
+                            onChange={(deg) => patch({ photo: { ...config.photo, rotate: deg } })}
+                          />
+                        </Stack>
                         <Stack gap={1}>
                           <Text fontSize="xs" color="var(--admin-text-soft)">
                             Zoom / enquadramento — arraste a foto na prévia para posicionar

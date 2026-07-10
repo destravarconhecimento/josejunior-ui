@@ -51,7 +51,10 @@ export type AvatarPhotoTransform = {
   zoom: number;
   /** Espelha a foto na horizontal (efeito "selfie"). Ausente/false = normal. */
   flipH?: boolean;
-  /** Rotação da foto em graus (0/90/180/270 pelo botão "Girar"). Ausente = 0. */
+  /**
+   * Rotação da foto em graus, QUALQUER ângulo (slider livre −180..180; o botão
+   * "Girar 90°" só dá saltos rápidos). O canvas aplica via `ctx.rotate`. Ausente = 0.
+   */
   rotate?: number;
 };
 
