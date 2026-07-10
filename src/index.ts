@@ -55,6 +55,11 @@ export {
   type MailMessage,
   type MailCallbacks,
 } from "./components/email/MailClient";
+export {
+  GoogleCredentialForm,
+  type GoogleCredentialSaveResult,
+  type GoogleRedirectUri,
+} from "./components/GoogleCredentialForm";
 export { FormField, FormGrid, FormActions, FormInput, FormSelect, FormTextarea } from "./components/form";
 export { DataTable, TableCard, type Column } from "./components/DataTable";
 export { Pagination } from "./components/Pagination";

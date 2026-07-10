@@ -13,6 +13,7 @@ import {
   Text,
 } from "@chakra-ui/react";
 import {
+  AlertTriangle,
   ArrowLeft,
   AtSign,
   Check,
@@ -26,6 +27,8 @@ import {
   Reply,
   Send,
   Settings,
+  ShieldAlert,
+  Star,
   Trash2,
   X,
 } from "lucide-react";
@@ -37,6 +40,7 @@ import { DataTable } from "../DataTable";
 import { EmailHtmlView } from "../EmailHtmlView";
 import { EmptyState } from "../EmptyState";
 import { FormField, FormInput, FormSelect, FormTextarea } from "../form";
+import { GoogleCredentialForm } from "../GoogleCredentialForm";
 import { PageBody } from "../PageBody";
 import { PageHeader } from "../PageHeader";
 import { useConfirm } from "../useConfirm";
@@ -105,6 +109,8 @@ export type MailAccountRow = {
   type: "shared" | "personal";
   active: boolean;
   assignedUserIds: string[];
+  /** Motor da conta. Ausente = 'resend' (compat. com o sistema). */
+  provider?: MailProvider;
 };
 
 export type MailInboxAccount = {
@@ -112,6 +118,8 @@ export type MailInboxAccount = {
   address: string;
   name: string | null;
   type: "shared" | "personal";
+  /** Motor da conta. Ausente = 'resend'. Só Gmail traz a pasta de Spam. */
+  provider?: MailProvider;
 };
 
 export type MailAttachment = { filename: string; url?: string };
@@ -120,6 +128,8 @@ export type MailMessage = {
   id: string;
   accountId: string;
   direction: "inbound" | "sent";
+  /** Caixa lógica. Ausente → deriva de `direction` (compat. sistema). */
+  mailbox?: "inbox" | "sent" | "spam";
   fromAddress: string;
   fromName: string | null;
   toAddresses: string[];
@@ -192,11 +202,32 @@ export type MailCallbacks = {
   onUploadAttachment?: (file: File) => Promise<{ ok: true; url: string; filename: string } | { ok: false; error: string }>;
   onSync: () => Promise<MailResult<{ synced: number }>>;
   onMarkRead: (id: string, read: boolean) => Promise<MailResult>;
+  /** Inicia o OAuth do Gmail (redireciona pro Google). Ausente = "em breve". */
+  onConnectGmail?: () => void;
+  /** Salva a credencial OAuth do Google (Client ID/Secret) — compartilhada Gmail+Drive.
+   *  Presente = mostra o formulário de credencial inline quando ela falta. */
+  onSaveGoogleCredential?: (input: {
+    clientId: string;
+    clientSecret: string;
+  }) => Promise<MailResult>;
+  /** Define a conta PRINCIPAL do tenant. Ausente = recurso oculto (ex.: sistema). */
+  onSetDefaultAccount?: (id: string) => Promise<MailResult>;
   // recarregar a tela (router.refresh no app)
   onRefresh: () => void;
 };
 
-type Folder = "inbox" | "sent";
+type Folder = "inbox" | "sent" | "spam";
+
+/** Caixa lógica de uma mensagem — cai na direção p/ linhas antigas/sistema. */
+function mailboxOf(m: MailMessage): Folder {
+  return m.mailbox ?? (m.direction === "sent" ? "sent" : "inbox");
+}
+
+const FOLDER_LABEL: Record<Folder, string> = {
+  inbox: "Caixa de entrada",
+  sent: "Enviados",
+  spam: "Spam",
+};
 
 type ComposeState = {
   fromAccountId: string;
@@ -224,6 +255,15 @@ function displayName(addr: string, name: string | null) {
   return name && name.trim() ? name : addr;
 }
 
+/** decodeURIComponent que nunca lança (URI malformada → devolve como veio). */
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
 function snippet(m: MailMessage): string {
   const base = (m.bodyText || m.bodyHtml || "")
     .replace(/<[^>]*>/g, " ")
@@ -249,6 +289,17 @@ export function MailClient(props: {
   users: MailUserOption[];
   messages: MailMessage[];
   callbacks: MailCallbacks;
+  /** Id da conta PRINCIPAL do tenant (abre a caixa nela + marca nas configs). */
+  defaultAccountId?: string;
+  /** Credencial OAuth do Google pronta (client id/secret)? `false` desabilita o
+   *  botão "Conectar Google" e mostra o que falta configurar. Ausente = não checa. */
+  gmailOAuthReady?: boolean;
+  /** Resultado do fluxo OAuth do Gmail (`?gmail=ok|denied|missing-client|err:...`). */
+  gmailResult?: string;
+  /** Redirect URI do callback do Gmail — pra cadastrar na credencial OAuth do Google. */
+  gmailRedirectUri?: string;
+  /** Link pra tela dedicada de credencial do Google (ex.: "/integracoes-google"). */
+  gmailCredentialHref?: string;
   /** Contas Resend (multi-conta). Quando presente, as Configurações mostram o
    *  gerenciador de contas em vez do "1 provedor". Ausente = mono-conta (tenants). */
   connections?: MailConnectionRow[];
@@ -258,6 +309,17 @@ export function MailClient(props: {
   const [view, setView] = useState<"inbox" | "settings">(props.initialView);
   const hasAccounts = props.inboxAccounts.length > 0;
   const cb = props.callbacks;
+  // Gmail conecta por CONTA (não pelo `conn.provider`, que é o editor do Resend).
+  const gmailConnected = props.accounts.some((a) => a.provider === "gmail");
+  const anyConnected = Boolean(props.conn.provider) || gmailConnected;
+  const providerLabel =
+    props.conn.provider === "resend" && gmailConnected
+      ? "Resend + Gmail"
+      : props.conn.provider === "resend"
+        ? "Resend conectado"
+        : props.conn.provider === "gmail" || gmailConnected
+          ? "Gmail conectado"
+          : "Provedor não configurado";
 
   return (
     <Box>
@@ -266,14 +328,10 @@ export function MailClient(props: {
         actions={
           <>
             <Tag
-              bg={props.conn.provider ? "rgba(34,197,94,0.12)" : "rgba(234,179,8,0.14)"}
-              color={props.conn.provider ? "#15803d" : "#a16207"}
+              bg={anyConnected ? "rgba(34,197,94,0.12)" : "rgba(234,179,8,0.14)"}
+              color={anyConnected ? "#15803d" : "#a16207"}
             >
-              {props.conn.provider === "resend"
-                ? "Resend conectado"
-                : props.conn.provider === "gmail"
-                  ? "Gmail conectado"
-                  : "Provedor não configurado"}
+              {providerLabel}
             </Tag>
             {props.headerActions}
             {props.isAdmin ? (
@@ -300,12 +358,18 @@ export function MailClient(props: {
             accounts={props.accounts}
             users={props.users}
             connections={props.connections}
+            defaultAccountId={props.defaultAccountId}
+            gmailOAuthReady={props.gmailOAuthReady}
+            gmailResult={props.gmailResult}
+            gmailRedirectUri={props.gmailRedirectUri}
+            gmailCredentialHref={props.gmailCredentialHref}
             callbacks={cb}
           />
         ) : (
           <Mailbox
             accounts={props.inboxAccounts}
             messages={props.messages}
+            defaultAccountId={props.defaultAccountId}
             callbacks={cb}
             onGoSettings={props.isAdmin ? () => setView("settings") : undefined}
           />
@@ -326,6 +390,11 @@ function SettingsView(props: {
   accounts: MailAccountRow[];
   users: MailUserOption[];
   connections?: MailConnectionRow[];
+  defaultAccountId?: string;
+  gmailOAuthReady?: boolean;
+  gmailResult?: string;
+  gmailRedirectUri?: string;
+  gmailCredentialHref?: string;
   callbacks: MailCallbacks;
 }) {
   const domainOptions: MailDomainOption[] = props.domains.map((d) => ({
@@ -374,6 +443,11 @@ function SettingsView(props: {
             <ConnectProviderForm
               initial={props.conn}
               webhookUrl={props.webhookUrl}
+              gmailAccounts={props.accounts.filter((a) => a.provider === "gmail")}
+              gmailOAuthReady={props.gmailOAuthReady}
+              gmailResult={props.gmailResult}
+              gmailRedirectUri={props.gmailRedirectUri}
+              gmailCredentialHref={props.gmailCredentialHref}
               callbacks={props.callbacks}
             />
           ),
@@ -422,7 +496,140 @@ function SettingsView(props: {
     });
   }
 
-  return <Accordion items={items} multiple defaultValue={connected ? ["domains"] : ["provider"]} />;
+  return (
+    <Stack gap={5}>
+      {props.callbacks.onSetDefaultAccount && props.accounts.length > 0 ? (
+        <DefaultAccountCard
+          accounts={props.accounts}
+          defaultAccountId={props.defaultAccountId}
+          onSetDefault={props.callbacks.onSetDefaultAccount}
+          onRefresh={props.callbacks.onRefresh}
+        />
+      ) : null}
+      <Accordion
+        items={items}
+        multiple
+        // Voltando do Google (?gmail=...) ou sem provedor → abre no passo 1 (provedor/
+        // credencial). Só pula pra "Domínios" quando já está conectado E não é retorno OAuth.
+        defaultValue={!props.gmailResult && connected ? ["domains"] : ["provider"]}
+      />
+    </Stack>
+  );
+}
+
+// ============================================================
+// Conta principal (remetente do sistema + pré-seleção + caixa padrão)
+// ============================================================
+
+function DefaultAccountCard({
+  accounts,
+  defaultAccountId,
+  onSetDefault,
+  onRefresh,
+}: {
+  accounts: MailAccountRow[];
+  defaultAccountId?: string;
+  onSetDefault: (id: string) => Promise<MailResult>;
+  onRefresh: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const active = accounts.filter((a) => a.active);
+  const current = (defaultAccountId && active.find((a) => a.id === defaultAccountId)) || null;
+
+  const label = (a: MailAccountRow) =>
+    `${a.name ? `${a.name} ` : ""}<${a.address}>${a.provider === "gmail" ? " · Gmail" : ""}`;
+
+  function choose(id: string) {
+    if (!id || id === (current?.id ?? "")) return;
+    setErr(null);
+    setMsg(null);
+    start(async () => {
+      const r = await onSetDefault(id);
+      if (r.ok) {
+        setMsg("Conta principal atualizada.");
+        onRefresh();
+      } else {
+        setErr(r.error);
+      }
+    });
+  }
+
+  return (
+    <Card>
+      <Stack gap={4}>
+        <HStack gap={2} align="flex-start">
+          <Box color="var(--admin-primary)" mt="2px">
+            <Star size={18} />
+          </Box>
+          <Stack gap={0}>
+            <Text fontWeight="700" color="var(--admin-primary)">
+              Conta principal
+            </Text>
+            <Text fontSize="sm" color="var(--admin-text-soft)">
+              É o remetente dos e-mails automáticos do sistema (acesso e redefinição de senha),
+              a opção já selecionada em campanhas e ao escrever, e a caixa que a tela abre por padrão.
+            </Text>
+          </Stack>
+        </HStack>
+
+        {active.length === 0 ? (
+          <Box
+            bg="var(--admin-surface-2)"
+            borderRadius="12px"
+            p={4}
+            borderWidth="1px"
+            borderColor="var(--admin-border)"
+          >
+            <Text fontSize="sm" color="var(--admin-text-soft)">
+              Conecte o Gmail ou crie uma conta de e-mail para escolher a principal.
+            </Text>
+          </Box>
+        ) : (
+          <Box maxW="440px">
+            <FormSelect
+              label="Conta que envia pelo sistema"
+              value={current?.id ?? ""}
+              disabled={pending}
+              onChange={(e) => choose(e.currentTarget.value)}
+              options={[
+                ...(current ? [] : [{ value: "", label: "— selecione a conta principal" }]),
+                ...active.map((a) => ({ value: a.id, label: label(a) })),
+              ]}
+            />
+          </Box>
+        )}
+
+        {current ? (
+          <HStack gap={2}>
+            <Tag bg="rgba(234,179,8,0.14)" color="#a16207">
+              <Star size={11} /> principal
+            </Tag>
+            <Text fontSize="sm" color="var(--admin-text)">
+              {current.name ? `${current.name} · ` : ""}
+              {current.address}
+            </Text>
+          </HStack>
+        ) : active.length > 0 ? (
+          <Text fontSize="xs" color="var(--admin-text-soft)">
+            Nenhuma conta principal definida — os e-mails do sistema usam a primeira conta ativa.
+          </Text>
+        ) : null}
+
+        {err && (
+          <Text color="red.600" fontSize="sm">
+            {err}
+          </Text>
+        )}
+        {msg && (
+          <Text color="green.600" fontSize="sm">
+            {msg}
+          </Text>
+        )}
+      </Stack>
+    </Card>
+  );
 }
 
 // ============================================================
@@ -432,14 +639,28 @@ function SettingsView(props: {
 function ConnectProviderForm({
   initial,
   webhookUrl,
+  gmailAccounts = [],
+  gmailOAuthReady,
+  gmailResult,
+  gmailRedirectUri,
+  gmailCredentialHref,
   callbacks,
 }: {
   initial: MailConnEditor;
   webhookUrl?: string;
+  gmailAccounts?: MailAccountRow[];
+  gmailOAuthReady?: boolean;
+  gmailResult?: string;
+  gmailRedirectUri?: string;
+  gmailCredentialHref?: string;
   callbacks: MailCallbacks;
 }) {
+  const { confirm, confirmDialog } = useConfirm();
   const [pending, start] = useTransition();
-  const [provider, setProvider] = useState<MailProvider>(initial.provider ?? "resend");
+  // Voltando do Google (?gmail=...), abre já na aba Gmail pra mostrar o resultado.
+  const [provider, setProvider] = useState<MailProvider>(
+    gmailResult ? "gmail" : (initial.provider ?? "resend"),
+  );
   const [apiKey, setApiKey] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
   const [region, setRegion] = useState(initial.resendRegion || "us-east-1");
@@ -490,6 +711,15 @@ function ConnectProviderForm({
     });
   }
 
+  async function removeGmail(id: string, address: string) {
+    if (!(await confirm({ title: `Desconectar ${address}?`, confirmLabel: "Desconectar", tone: "danger" }))) return;
+    start(async () => {
+      const r = await callbacks.onRemoveAccount(id);
+      if (!r.ok) setErr(r.error);
+      else callbacks.onRefresh();
+    });
+  }
+
   return (
     <Card>
       <Stack gap={5}>
@@ -515,8 +745,8 @@ function ConnectProviderForm({
             onClick={() => setProvider("gmail")}
             icon={<Mail size={18} />}
             title="Gmail"
-            desc="Cada usuário conecta a própria caixa via Google."
-            badge="em breve"
+            desc="Conecte uma caixa do Google (ler + enviar) via autorização."
+            badge={callbacks.onConnectGmail ? undefined : "em breve"}
           />
         </HStack>
 
@@ -640,6 +870,169 @@ function ConnectProviderForm({
               </Button>
             </HStack>
           </Stack>
+        ) : callbacks.onConnectGmail ? (
+          <Stack gap={4}>
+            <Box
+              bg="var(--admin-surface-2)"
+              borderRadius="12px"
+              p={4}
+              borderWidth="1px"
+              borderColor="var(--admin-border)"
+            >
+              <Text fontSize="sm" color="var(--admin-text-soft)" lineHeight="1.7">
+                Conecte uma caixa do Google para <strong>ler e enviar</strong> direto por aqui.
+                Você será levado ao Google para autorizar (ler + enviar) — nenhuma senha é
+                compartilhada. Dá pra conectar mais de uma conta.
+              </Text>
+            </Box>
+
+            {gmailResult === "ok" ? (
+              <HStack gap={2} color="green.600" fontSize="sm">
+                <Check size={16} />
+                <Text>Conta Google conectada com sucesso!</Text>
+              </HStack>
+            ) : gmailResult === "denied" ? (
+              <HStack gap={2} color="red.600" fontSize="sm">
+                <X size={16} />
+                <Text>Autorização cancelada no Google.</Text>
+              </HStack>
+            ) : gmailResult === "missing-client" ? (
+              <HStack gap={2} color="#a16207" fontSize="sm">
+                <AlertTriangle size={16} />
+                <Text>Credencial OAuth do Google ainda não configurada — veja abaixo como resolver.</Text>
+              </HStack>
+            ) : gmailResult && gmailResult.startsWith("err") ? (
+              <HStack gap={2} color="red.600" fontSize="sm">
+                <X size={16} />
+                <Text>Falha ao conectar: {safeDecode(gmailResult.slice(4))}</Text>
+              </HStack>
+            ) : null}
+
+            {gmailAccounts.length > 0 ? (
+              <Stack gap={2}>
+                {gmailAccounts.map((a) => (
+                  <HStack
+                    key={a.id}
+                    justify="space-between"
+                    borderWidth="1px"
+                    borderColor="var(--admin-border)"
+                    borderRadius="10px"
+                    px={3}
+                    py={2}
+                    flexWrap="wrap"
+                    gap={2}
+                  >
+                    <HStack gap={2} minW={0}>
+                      <Mail size={16} color="#15803d" />
+                      <Stack gap={0} minW={0}>
+                        <Text fontWeight="600" fontSize="sm" truncate>
+                          {a.address}
+                        </Text>
+                        <Text fontSize="xs" color="var(--admin-text-soft)">
+                          {a.active ? "conectada" : "inativa"}
+                          {a.name ? ` · ${a.name}` : ""}
+                        </Text>
+                      </Stack>
+                    </HStack>
+                    <Button
+                      size="xs"
+                      tone="ghost"
+                      color="#dc2626"
+                      onClick={() => removeGmail(a.id, a.address)}
+                      loading={pending}
+                    >
+                      <Trash2 size={13} /> Desconectar
+                    </Button>
+                  </HStack>
+                ))}
+              </Stack>
+            ) : null}
+
+            {gmailOAuthReady === false ? (
+              <Box
+                bg="rgba(234,179,8,0.10)"
+                borderWidth="1px"
+                borderColor="rgba(234,179,8,0.35)"
+                borderRadius="12px"
+                p={4}
+              >
+                <HStack gap={2} mb={2} color="#a16207">
+                  <AlertTriangle size={16} />
+                  <Text fontWeight="700" fontSize="sm">
+                    Falta 1 passo: conectar sua conta Google
+                  </Text>
+                </HStack>
+                <Text fontSize="sm" color="var(--admin-text-soft)" lineHeight="1.7" mb={3}>
+                  Pra ativar o Gmail aqui, cadastre a credencial do Google{" "}
+                  <strong>uma única vez</strong> (vale também pro Drive). Siga o passo a passo
+                  abaixo e cole o Client ID + Secret — depois é só clicar em{" "}
+                  <strong>Conectar Google</strong>.
+                </Text>
+
+                {callbacks.onSaveGoogleCredential ? (
+                  <GoogleCredentialForm
+                    redirectUris={
+                      gmailRedirectUri ? [{ label: "Redirect URI do Gmail", uri: gmailRedirectUri }] : []
+                    }
+                    hasClientId={false}
+                    hasSecret={false}
+                    onSave={callbacks.onSaveGoogleCredential}
+                    onSaved={callbacks.onRefresh}
+                    defaultGuideOpen
+                  />
+                ) : gmailRedirectUri ? (
+                  <Box
+                    mt={1}
+                    p={3}
+                    borderRadius="10px"
+                    bg="var(--admin-surface)"
+                    borderWidth="1px"
+                    borderColor="var(--admin-border)"
+                  >
+                    <Text fontSize="xs" color="var(--admin-text-soft)" mb={1}>
+                      Redirect URI (cadastre EXATAMENTE este na credencial OAuth):
+                    </Text>
+                    <Text fontSize="xs" fontFamily="mono" wordBreak="break-all">
+                      {gmailRedirectUri}
+                    </Text>
+                  </Box>
+                ) : null}
+
+                {gmailCredentialHref ? (
+                  <HStack mt={3} gap={1} flexWrap="wrap">
+                    <Text fontSize="xs" color="var(--admin-text-soft)">
+                      Prefere gerenciar num só lugar (Gmail + Drive)?
+                    </Text>
+                    <chakra.a
+                      href={gmailCredentialHref}
+                      fontSize="xs"
+                      fontWeight="600"
+                      color="var(--admin-primary)"
+                      textDecoration="underline"
+                    >
+                      Abrir Integrações Google
+                    </chakra.a>
+                  </HStack>
+                ) : null}
+              </Box>
+            ) : null}
+
+            {err && (
+              <Text color="red.600" fontSize="sm">
+                {err}
+              </Text>
+            )}
+
+            <HStack justify="flex-end">
+              <Button
+                tone="primary"
+                onClick={() => callbacks.onConnectGmail?.()}
+                disabled={gmailOAuthReady === false}
+              >
+                <Mail size={16} /> Conectar Google
+              </Button>
+            </HStack>
+          </Stack>
         ) : (
           <Box
             bg="var(--admin-surface-2)"
@@ -662,6 +1055,7 @@ function ConnectProviderForm({
           </Box>
         )}
       </Stack>
+      {confirmDialog}
     </Card>
   );
 }
@@ -955,7 +1349,7 @@ function ConnectionsManager({
             <FormInput
               label="Nome da conta"
               value={nLabel}
-              placeholder="josejunior.com.br"
+              placeholder="themion.com.br"
               onChange={(e) => setNLabel(e.target.value)}
               autoComplete="off"
               help="Só pra você identificar (ex.: o domínio principal dela)."
@@ -1500,17 +1894,24 @@ function AccountManager({
 function Mailbox({
   accounts,
   messages,
+  defaultAccountId,
   callbacks,
   onGoSettings,
 }: {
   accounts: MailInboxAccount[];
   messages: MailMessage[];
+  defaultAccountId?: string;
   callbacks: MailCallbacks;
   onGoSettings?: () => void;
 }) {
   const [pending, start] = useTransition();
   const ALL = "__all__";
-  const [accountId, setAccountId] = useState<string>(accounts.length > 1 ? ALL : (accounts[0]?.id ?? ""));
+  // Conta principal acessível (se houver) — é onde a caixa abre e o "De:" padrão.
+  const primaryId =
+    defaultAccountId && accounts.some((a) => a.id === defaultAccountId) ? defaultAccountId : null;
+  const [accountId, setAccountId] = useState<string>(
+    primaryId ?? (accounts.length > 1 ? ALL : (accounts[0]?.id ?? "")),
+  );
   const [folder, setFolder] = useState<Folder>("inbox");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [compose, setCompose] = useState<null | ComposeState>(null);
@@ -1537,20 +1938,28 @@ function Mailbox({
     () => (isAll ? messages : messages.filter((m) => m.accountId === accountId)),
     [messages, accountId, isAll],
   );
+  // Spam só existe no Gmail. Mostra a pasta quando a visão atual tem conta Google
+  // (ou já há mensagens de spam ingeridas). Sem isso, some — e nunca fica "presa".
+  const currentAccounts = isAll ? accounts : accounts.filter((a) => a.id === accountId);
+  const hasGmail = currentAccounts.some((a) => a.provider === "gmail");
+  const showSpam = hasGmail || accountMessages.some((m) => mailboxOf(m) === "spam");
+  const activeFolder: Folder = folder === "spam" && !showSpam ? "inbox" : folder;
+
   const folderMessages = useMemo(
     () =>
       accountMessages
-        .filter((m) => (folder === "inbox" ? m.direction === "inbound" : m.direction === "sent"))
+        .filter((m) => mailboxOf(m) === activeFolder)
         .sort((a, b) => +new Date(b.date) - +new Date(a.date)),
-    [accountMessages, folder],
+    [accountMessages, activeFolder],
   );
-  /** Não-lidas por conta (para o seletor) + total. */
+  /** Não-lidas por conta (para o seletor) + total — só a Caixa de entrada (exclui spam). */
   const unreadByAccount = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const m of messages) if (m.direction === "inbound" && !m.read) map[m.accountId] = (map[m.accountId] ?? 0) + 1;
+    for (const m of messages) if (mailboxOf(m) === "inbox" && !m.read) map[m.accountId] = (map[m.accountId] ?? 0) + 1;
     return map;
   }, [messages]);
-  const unreadCount = accountMessages.filter((m) => m.direction === "inbound" && !m.read).length;
+  const unreadCount = accountMessages.filter((m) => mailboxOf(m) === "inbox" && !m.read).length;
+  const spamUnread = accountMessages.filter((m) => mailboxOf(m) === "spam" && !m.read).length;
   const selected = folderMessages.find((m) => m.id === selectedId) ?? null;
 
   function openMessage(m: MailMessage) {
@@ -1563,10 +1972,13 @@ function Mailbox({
     }
   }
 
+  // "De:" padrão ao escrever: a conta em foco, ou a principal quando em "Todas".
+  const composeDefaultId = isAll ? (primaryId ?? accounts[0]?.id ?? "") : accountId;
+
   function startCompose() {
     setSelectedId(null);
     setCompose({
-      fromAccountId: isAll ? (accounts[0]?.id ?? "") : accountId,
+      fromAccountId: composeDefaultId,
       to: "", cc: "", subject: "", html: "", inReplyTo: null, threadId: null, attachments: [],
     });
   }
@@ -1575,8 +1987,8 @@ function Mailbox({
     const replyTo = m.direction === "inbound" ? m.fromAddress : m.toAddresses[0] ?? "";
     const subj = m.subject ?? "";
     setCompose({
-      // responde PELA conta que recebeu (ou a atual, se enviado)
-      fromAccountId: m.accountId || (isAll ? (accounts[0]?.id ?? "") : accountId),
+      // responde PELA conta que recebeu (ou a principal/atual, se enviado)
+      fromAccountId: m.accountId || composeDefaultId,
       to: replyTo,
       cc: "",
       subject: subj.toLowerCase().startsWith("re:") ? subj : `Re: ${subj}`,
@@ -1649,7 +2061,10 @@ function Mailbox({
             }}
             options={[
               { value: ALL, label: `📥 Todas as contas${Object.values(unreadByAccount).reduce((a, b) => a + b, 0) ? ` (${Object.values(unreadByAccount).reduce((a, b) => a + b, 0)})` : ""}` },
-              ...accounts.map((a) => ({ value: a.id, label: `${a.address}${unreadByAccount[a.id] ? ` (${unreadByAccount[a.id]})` : ""}` })),
+              ...accounts.map((a) => ({
+                value: a.id,
+                label: `${a.id === primaryId ? "★ " : ""}${a.address}${unreadByAccount[a.id] ? ` (${unreadByAccount[a.id]})` : ""}`,
+              })),
             ]}
           />
         ) : (
@@ -1665,18 +2080,27 @@ function Mailbox({
 
         <Stack gap={1}>
           <FolderButton
-            active={folder === "inbox"}
+            active={activeFolder === "inbox"}
             onClick={() => { setFolder("inbox"); setSelectedId(null); }}
             icon={<Inbox size={16} />}
             label="Caixa de entrada"
             count={unreadCount}
           />
           <FolderButton
-            active={folder === "sent"}
+            active={activeFolder === "sent"}
             onClick={() => { setFolder("sent"); setSelectedId(null); }}
             icon={<Send size={16} />}
             label="Enviados"
           />
+          {showSpam ? (
+            <FolderButton
+              active={activeFolder === "spam"}
+              onClick={() => { setFolder("spam"); setSelectedId(null); }}
+              icon={<ShieldAlert size={16} />}
+              label="Spam"
+              count={spamUnread}
+            />
+          ) : null}
         </Stack>
       </Stack>
 
@@ -1693,18 +2117,18 @@ function Mailbox({
       >
         <HStack justify="space-between" px={4} py={3} borderBottomWidth="1px" borderColor="var(--admin-border)">
           <Text fontWeight="700" fontSize="sm">
-            {folder === "inbox" ? "Caixa de entrada" : "Enviados"}
+            {FOLDER_LABEL[activeFolder]}
           </Text>
           <HStack gap={2}>
             {syncMsg ? (
               <Text fontSize="2xs" color="var(--admin-text-soft)">{syncMsg}</Text>
             ) : null}
             <IconButton
-              aria-label="Buscar novos no Resend"
-              title="Buscar novos e-mails (Resend)"
+              aria-label="Buscar novos e-mails"
+              title="Buscar novos e-mails"
               size="xs"
               variant="ghost"
-              onClick={folder === "inbox" ? doSync : callbacks.onRefresh}
+              onClick={activeFolder === "sent" ? callbacks.onRefresh : doSync}
               loading={pending}
             >
               <RefreshCw size={14} />
@@ -1715,26 +2139,30 @@ function Mailbox({
         {folderMessages.length === 0 ? (
           <Stack p={6} gap={3} align="flex-start">
             <Text fontSize="sm" color="var(--admin-text-soft)">
-              {folder === "inbox"
+              {activeFolder === "inbox"
                 ? "Nenhuma mensagem recebida ainda."
-                : "Nenhuma mensagem enviada ainda."}
+                : activeFolder === "spam"
+                  ? "Nenhuma mensagem marcada como spam."
+                  : "Nenhuma mensagem enviada ainda."}
             </Text>
-            {folder === "inbox" ? (
+            {activeFolder !== "sent" ? (
               <>
                 <Button size="xs" tone="outline" borderRadius="8px" onClick={doSync} loading={pending}>
-                  <RefreshCw size={13} /> Buscar no Resend
+                  <RefreshCw size={13} /> Buscar novos
                 </Button>
                 <Text fontSize="2xs" color="var(--admin-text-soft)" lineHeight="1.6">
-                  Para receber, ative o Inbound do domínio no Resend e aponte o webhook.
+                  {hasGmail
+                    ? "Sincroniza a Caixa de entrada e o Spam da conta Google conectada."
+                    : "Para receber, ative o recebimento (inbound) do domínio nas Configurações."}
                 </Text>
               </>
             ) : null}
           </Stack>
         ) : (
           folderMessages.map((m) => {
-            const who = folder === "inbox"
-              ? displayName(m.fromAddress, m.fromName)
-              : m.toAddresses.join(", ");
+            const who = activeFolder === "sent"
+              ? m.toAddresses.join(", ")
+              : displayName(m.fromAddress, m.fromName);
             const unread = m.direction === "inbound" && !m.read;
             return (
               <Box
