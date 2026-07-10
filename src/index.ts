@@ -161,3 +161,46 @@ export type {
   FlyerBrand,
   FlyerSummary,
 } from "./flyer/types";
+
+// Gerador de Avatares (canvas puro + estúdio + galeria + padrão da agência) — apps/site
+export { AvatarStudio, type AvatarStudioProps, type AvatarEditData } from "./avatar/AvatarStudio";
+export { AvatarGallery, type AvatarGalleryProps } from "./avatar/AvatarGallery";
+export { AvatarStudioPanel, type AvatarStudioPanelProps } from "./avatar/AvatarStudioPanel";
+export { AvatarSettingsPanel, type AvatarSettingsPanelProps } from "./avatar/AvatarSettingsPanel";
+export { AvatarCanvas, type AvatarCanvasProps } from "./avatar/AvatarCanvas";
+export {
+  composeAvatar,
+  drawAvatarScene,
+  ensureAvatarFont,
+  loadAvatarImage,
+  type AvatarScene,
+} from "./avatar/compose";
+export {
+  AVATAR_SIZES,
+  AVATAR_RENDER_SIZE,
+  AVATAR_FONTS,
+  AVATAR_FRAME_PRESETS,
+  AVATAR_LAYOUT,
+  AVATAR_COLORS,
+  DEFAULT_AVATAR_SETTINGS,
+  avatarFontWeight,
+  avatarFontsHref,
+  defaultAvatarConfig,
+  type AvatarFont,
+} from "./avatar/constants";
+export type {
+  AvatarSize,
+  AvatarRing,
+  AvatarFramePreset,
+  AvatarFrameChoice,
+  AvatarBackground,
+  AvatarPhotoTransform,
+  AvatarLogoCorner,
+  AvatarConfig,
+  AvatarSummary,
+  AvatarSettings,
+  AvatarBrand,
+  AvatarSaveData,
+  AvatarActionResult,
+  AvatarUploadKind,
+} from "./avatar/types";

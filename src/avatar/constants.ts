@@ -1,0 +1,133 @@
+/** Constantes do Gerador de Avatares. Puro — sem React, seguro server+client. */
+import type { AvatarConfig, AvatarFramePreset, AvatarSettings, AvatarSize } from "./types";
+
+/** Tamanhos finais oferecidos (px, quadrado). */
+export const AVATAR_SIZES: readonly AvatarSize[] = [1024, 512] as const;
+
+/** Lado em que o canvas SEMPRE compõe (qualidade). 512 é um downscale disto. */
+export const AVATAR_RENDER_SIZE = 1024;
+
+/**
+ * Fontes do seletor do nome — display fonts do Google. ATENÇÃO: o painel só linka
+ * Hanken/Newsreader, então estas NÃO estão carregadas por padrão. O componente
+ * injeta o próprio <link> (via `avatarFontsHref`) e ESPERA `document.fonts.load`
+ * antes de escrever no canvas — senão o `fillText` cai no fallback em silêncio.
+ */
+export const AVATAR_FONTS = [
+  { family: "Anton", weight: 400, label: "Anton (impacto)" },
+  { family: "Bebas Neue", weight: 400, label: "Bebas Neue (condensada)" },
+  { family: "Archivo Black", weight: 400, label: "Archivo Black" },
+  { family: "Oswald", weight: 700, label: "Oswald" },
+  { family: "Montserrat", weight: 800, label: "Montserrat (black)" },
+  { family: "Poppins", weight: 700, label: "Poppins" },
+  { family: "Teko", weight: 700, label: "Teko" },
+  { family: "Righteous", weight: 400, label: "Righteous" },
+] as const;
+
+export type AvatarFont = (typeof AVATAR_FONTS)[number];
+
+/** Peso da família (default 700 se a família não estiver na lista). */
+export function avatarFontWeight(family: string): number {
+  return AVATAR_FONTS.find((f) => f.family === family)?.weight ?? 700;
+}
+
+/** URL do stylesheet Google Fonts com TODAS as famílias/pesos do seletor. */
+export function avatarFontsHref(): string {
+  const families = AVATAR_FONTS.map(
+    (f) => `family=${encodeURIComponent(f.family).replace(/%20/g, "+")}:wght@${f.weight}`,
+  ).join("&");
+  return `https://fonts.googleapis.com/css2?${families}&display=swap`;
+}
+
+/**
+ * Molduras "preset" — anéis concêntricos (de dentro pra fora) desenhados no
+ * canvas. O primeiro é o mais colado na foto. `width` = fração do lado (S).
+ */
+export const AVATAR_FRAME_PRESETS: readonly AvatarFramePreset[] = [
+  {
+    id: "rasta",
+    label: "Rasta (verde·amarelo·vermelho)",
+    rings: [
+      { color: "#149a4b", width: 0.02 },
+      { color: "#f2c500", width: 0.02 },
+      { color: "#e0311d", width: 0.02 },
+    ],
+  },
+  {
+    id: "gold",
+    label: "Dourado",
+    rings: [
+      { color: "#0b1220", width: 0.01 },
+      { color: "#e8c25a", width: 0.028 },
+    ],
+  },
+  {
+    id: "white",
+    label: "Branco",
+    rings: [{ color: "#ffffff", width: 0.032 }],
+  },
+  {
+    id: "neon",
+    label: "Neon",
+    rings: [
+      { color: "#050505", width: 0.012 },
+      { color: "#39ff14", width: 0.026 },
+    ],
+  },
+] as const;
+
+/**
+ * Geometria da composição, em frações do lado (S). O círculo fica um pouco ACIMA
+ * do centro pra sobrar espaço pro texto no rodapé.
+ */
+export const AVATAR_LAYOUT = {
+  circleCx: 0.5,
+  circleCy: 0.435,
+  circleR: 0.335,
+  titleBaselineY: 0.86,
+  subtitleBaselineY: 0.935,
+  textMaxWidth: 0.9,
+  titleFontFrac: 0.115,
+  subtitleFontFrac: 0.05,
+  logoWidthFrac: 0.2,
+  logoMarginFrac: 0.045,
+} as const;
+
+/** Paleta do seletor de cor (fundo/texto). */
+export const AVATAR_COLORS = [
+  "#050505", "#0b1220", "#111827", "#1f2937", "#374151", "#ffffff",
+  "#e0311d", "#f2c500", "#149a4b", "#e8c25a", "#39ff14", "#7c3aed",
+  "#2563eb", "#0ea5e9", "#ec4899", "#f97316", "#dc2626", "#16a34a",
+] as const;
+
+/** Config default de um avatar novo, semeada com o padrão da agência + marca. */
+export function defaultAvatarConfig(settings: AvatarSettings, brandLogoUrl?: string): AvatarConfig {
+  const framePresetId = settings.defaultFramePresetId || AVATAR_FRAME_PRESETS[0].id;
+  const background: AvatarConfig["background"] = settings.backgroundUrl
+    ? { kind: "image", url: settings.backgroundUrl }
+    : { kind: "color", color: settings.defaultBackgroundColor || "#0b1220" };
+  const logoUrl = (settings.logoUrl || brandLogoUrl || "").trim() || null;
+  return {
+    photoUrl: null,
+    photo: { offsetX: 0, offsetY: 0, zoom: 1 },
+    frame: { kind: "preset", presetId: framePresetId },
+    background,
+    logoUrl,
+    logoCorner: logoUrl ? "top" : "none",
+    font: settings.defaultFont || AVATAR_FONTS[0].family,
+    titleColor: "#ffffff",
+    subtitleColor: "#ffffff",
+    uppercase: true,
+  };
+}
+
+/** Settings default (agência ainda não configurou). */
+export const DEFAULT_AVATAR_SETTINGS: AvatarSettings = {
+  frames: [],
+  logoUrl: "",
+  backgroundUrl: "",
+  fixedSubtitle: "",
+  defaultFont: AVATAR_FONTS[0].family,
+  defaultBackgroundColor: "#0b1220",
+  defaultFramePresetId: AVATAR_FRAME_PRESETS[0].id,
+};
