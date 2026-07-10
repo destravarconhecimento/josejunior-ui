@@ -377,7 +377,8 @@ export function AppShell({
           zIndex={50}
           align="center"
           gap={2}
-          h="60px"
+          h="calc(60px + env(safe-area-inset-top))"
+          pt="env(safe-area-inset-top)"
           px={3}
         >
           <MobileNav brand={brand} sections={sections} logoutSlot={logoutSlot} />
@@ -402,7 +403,7 @@ export function AppShell({
           mx="auto"
           px={{ base: 4, md: 7 }}
           py={{ base: 5, md: 7 }}
-          pb={{ base: "78px", lg: 7 }}
+          pb={{ base: "calc(78px + env(safe-area-inset-bottom))", lg: 7 }}
         >
           {children}
         </Box>

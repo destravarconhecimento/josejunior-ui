@@ -106,7 +106,8 @@ export function BottomNav({
       left={0}
       right={0}
       zIndex={50}
-      h="62px"
+      h="calc(62px + env(safe-area-inset-bottom))"
+      pb="env(safe-area-inset-bottom)"
       align="stretch"
       borderTopWidth="1px"
       borderColor="var(--admin-border)"
