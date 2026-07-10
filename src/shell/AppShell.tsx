@@ -288,71 +288,80 @@ export function AppShell({
           </Stack>
         </Box>
 
-        {/* rodapé: atalhos com badge (sino/e-mail) + menu do usuário (avatar + nome + seta) */}
+        {/* rodapé: menu do usuário (avatar + nome + cargo) e, na MESMA linha à direita,
+            os atalhos com badge (e-mail/sino). Recolhido: atalhos empilham acima. */}
         <Box flexShrink={0} px={collapsed ? 2 : 3} py={3} borderTopWidth="1px" borderColor="rgba(255,255,255,0.08)">
-          {utilitiesSlot ? <Box mb={2.5}>{utilitiesSlot}</Box> : null}
-          <Menu.Root positioning={{ placement: collapsed ? "right-end" : "top" }}>
-            <Menu.Trigger asChild>
-              <HStack
-                as="button"
-                className="admin-side-item"
-                w="full"
-                gap={2.5}
-                px={collapsed ? 0 : 3}
-                py={2}
-                justify={collapsed ? "center" : "flex-start"}
-                title={collapsed ? user.name || "Conta" : undefined}
-              >
-                <UserAvatar
-                  name={user.name || user.email || "?"}
-                  image={user.image}
-                  color={user.color}
-                  email={user.email}
-                  perfil={user.roleLabel}
-                  size="sm"
-                />
-                {!collapsed ? (
-                  <>
-                    <VStack gap={0} align="stretch" minW={0} flex="1">
-                      <Text color="white" fontSize="sm" fontWeight="600" lineClamp={1}>
-                        {user.name || "Conta"}
-                      </Text>
-                      {user.roleLabel || user.email ? (
-                        <Text color="rgba(255,255,255,0.5)" fontSize="xs" lineClamp={1}>
-                          {user.roleLabel || user.email}
-                        </Text>
-                      ) : null}
-                    </VStack>
-                    <Box color="rgba(255,255,255,0.5)" flexShrink={0}>
-                      <ChevronsUpDown size={15} />
-                    </Box>
-                  </>
-                ) : null}
-              </HStack>
-            </Menu.Trigger>
-            <Portal>
-              <Menu.Positioner>
-                <Menu.Content className="admin-dropdown" minW="240px" p={2} borderRadius="14px">
-                  <Box px={2.5} py={1.5}>
-                    <Text fontSize="sm" fontWeight="700" color="var(--admin-text)" lineClamp={1}>
-                      {user.name || "Conta"}
-                    </Text>
-                    {user.email ? (
-                      <Text fontSize="xs" color="var(--admin-text-soft)" lineClamp={1}>
-                        {user.email}
-                      </Text>
+          {collapsed && utilitiesSlot ? <Box mb={2.5}>{utilitiesSlot}</Box> : null}
+          <HStack gap={1.5} align="center">
+            <Box flex="1" minW={0}>
+              <Menu.Root positioning={{ placement: collapsed ? "right-end" : "top" }}>
+                <Menu.Trigger asChild>
+                  <HStack
+                    as="button"
+                    className="admin-side-item"
+                    w="full"
+                    gap={2.5}
+                    px={collapsed ? 0 : 3}
+                    py={2}
+                    justify={collapsed ? "center" : "flex-start"}
+                    title={collapsed ? user.name || "Conta" : undefined}
+                  >
+                    <UserAvatar
+                      name={user.name || user.email || "?"}
+                      image={user.image}
+                      color={user.color}
+                      email={user.email}
+                      perfil={user.roleLabel}
+                      size="sm"
+                    />
+                    {!collapsed ? (
+                      <>
+                        <VStack gap={0} align="stretch" minW={0} flex="1">
+                          <Text color="white" fontSize="sm" fontWeight="600" lineClamp={1}>
+                            {user.name || "Conta"}
+                          </Text>
+                          {user.roleLabel || user.email ? (
+                            <Text color="rgba(255,255,255,0.5)" fontSize="xs" lineClamp={1}>
+                              {user.roleLabel || user.email}
+                            </Text>
+                          ) : null}
+                        </VStack>
+                        {/* seta do menu só quando NÃO há atalhos à direita (apps sem utilitiesSlot) */}
+                        {!utilitiesSlot ? (
+                          <Box color="rgba(255,255,255,0.5)" flexShrink={0}>
+                            <ChevronsUpDown size={15} />
+                          </Box>
+                        ) : null}
+                      </>
                     ) : null}
-                  </Box>
-                  <Box mb={1} mx={1} borderTopWidth="1px" borderColor="var(--admin-divider)" />
-                  {accountSlot}
-                  {accountSlot && logoutSlot ? (
-                    <Box my={1} mx={1} borderTopWidth="1px" borderColor="var(--admin-divider)" />
-                  ) : null}
-                  {logoutSlot}
-                </Menu.Content>
-              </Menu.Positioner>
-            </Portal>
-          </Menu.Root>
+                  </HStack>
+                </Menu.Trigger>
+                <Portal>
+                  <Menu.Positioner>
+                    <Menu.Content className="admin-dropdown" minW="240px" p={2} borderRadius="14px">
+                      <Box px={2.5} py={1.5}>
+                        <Text fontSize="sm" fontWeight="700" color="var(--admin-text)" lineClamp={1}>
+                          {user.name || "Conta"}
+                        </Text>
+                        {user.email ? (
+                          <Text fontSize="xs" color="var(--admin-text-soft)" lineClamp={1}>
+                            {user.email}
+                          </Text>
+                        ) : null}
+                      </Box>
+                      <Box mb={1} mx={1} borderTopWidth="1px" borderColor="var(--admin-divider)" />
+                      {accountSlot}
+                      {accountSlot && logoutSlot ? (
+                        <Box my={1} mx={1} borderTopWidth="1px" borderColor="var(--admin-divider)" />
+                      ) : null}
+                      {logoutSlot}
+                    </Menu.Content>
+                  </Menu.Positioner>
+                </Portal>
+              </Menu.Root>
+            </Box>
+            {!collapsed && utilitiesSlot ? <Box flexShrink={0}>{utilitiesSlot}</Box> : null}
+          </HStack>
         </Box>
 
         {/* versão (canto inferior esquerdo, discreto) */}

@@ -14,11 +14,12 @@ import {
   FlipHorizontal2,
   ImageOff,
   RotateCcw,
+  RotateCw,
   Sparkles,
   Upload,
   Wand2,
 } from "lucide-react";
-import { Box, Flex, HStack, SimpleGrid, Stack, Text } from "../primitives";
+import { Box, Flex, HStack, Stack, Text } from "../primitives";
 import { Button } from "../components/Button";
 import { Accordion } from "../components/Accordion";
 import { FormInput, FormSelect } from "../components/form";
@@ -373,12 +374,11 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
           </Stack>
         )}
       >
-        {/* Controles — DUAS COLUNAS iguais no desktop; 1 coluna no mobile. */}
-        <SimpleGrid columns={{ base: 1, lg: 2 }} gap={4} alignItems="start">
-          <Accordion
-            multiple
-            defaultValue={["foto", "nome"]}
-            items={[
+        {/* Controles — uma seção embaixo da outra (a prévia fica na coluna ao lado). */}
+        <Accordion
+          multiple
+          defaultValue={["foto", "nome"]}
+          items={[
               {
                 value: "foto",
                 title: "Foto da pessoa",
@@ -410,9 +410,20 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
                             <FlipHorizontal2 size={15} /> Espelhar
                           </Button>
                           <Button
+                            tone={(config.photo.rotate ?? 0) % 360 !== 0 ? "primary" : "outline"}
+                            size="sm"
+                            onClick={() =>
+                              patch({ photo: { ...config.photo, rotate: (((config.photo.rotate ?? 0) + 90) % 360) } })
+                            }
+                          >
+                            <RotateCw size={15} /> Girar 90°
+                          </Button>
+                          <Button
                             tone="ghost"
                             size="sm"
-                            onClick={() => patch({ photo: { offsetX: 0, offsetY: 0, zoom: 1, flipH: config.photo.flipH } })}
+                            onClick={() =>
+                              patch({ photo: { offsetX: 0, offsetY: 0, zoom: 1, flipH: config.photo.flipH, rotate: config.photo.rotate } })
+                            }
                           >
                             <RotateCcw size={14} /> Centralizar
                           </Button>
@@ -608,12 +619,6 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
                   </Stack>
                 ),
               },
-            ]}
-          />
-          <Accordion
-            multiple
-            defaultValue={[]}
-            items={[
               {
                 value: "moldura",
                 title: "Moldura",
@@ -718,7 +723,6 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
               },
             ]}
           />
-        </SimpleGrid>
       </AvatarStudioLayout>
 
       {result ? (

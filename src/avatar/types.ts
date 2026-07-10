@@ -51,6 +51,8 @@ export type AvatarPhotoTransform = {
   zoom: number;
   /** Espelha a foto na horizontal (efeito "selfie"). Ausente/false = normal. */
   flipH?: boolean;
+  /** Rotação da foto em graus (0/90/180/270 pelo botão "Girar"). Ausente = 0. */
+  rotate?: number;
 };
 
 /**
