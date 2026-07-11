@@ -77,6 +77,7 @@ export { SidePanel } from "./components/SidePanel";
 export { ConfirmDialog } from "./components/ConfirmDialog";
 export { useConfirm } from "./components/useConfirm";
 export { FilterBar, type SelectFilter } from "./components/FilterBar";
+export { rowMatchesQuery } from "./search";
 export { InlineSelect, type InlineSelectOption } from "./components/InlineSelect";
 export { SearchSelect, type SearchSelectOption } from "./components/SearchSelect";
 export { MonthPicker } from "./components/MonthPicker";
