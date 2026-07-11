@@ -13,6 +13,7 @@ import {
   Download,
   FlipHorizontal2,
   ImageOff,
+  Loader2,
   RotateCcw,
   RotateCw,
   Sparkles,
@@ -304,6 +305,11 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
   };
 
   const busy = uploading || removingBg || generating;
+  // A foto trava a tela: enviar pro Blob e (principalmente) TIRAR O FUNDO demoram
+  // alguns segundos e a pessoa fica "a ver navios" olhando a prévia parada. Overlay
+  // com spinner + rótulo NA PRÓPRIA PRÉVIA (onde o olho está), não só no botão.
+  const photoBusy = removingBg || (uploading && pendingUpload.current === "photo");
+  const photoBusyLabel = removingBg ? "Tirando o fundo…" : "Enviando foto…";
   const hasLogo = Boolean(config.logoUrl || settings.logoUrl || brand.logoUrl);
 
   const frameOptions = [
@@ -354,19 +360,45 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
       <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onFile} />
 
       <AvatarStudioLayout
-        preview={(variant) => (
+        preview={(variant) => {
+          const maxSize = variant === "compact" ? 300 : 460;
+          return (
           <Stack gap={3} align="center" w="100%">
-            <AvatarCanvas
-              config={config}
-              title={config.hideTitle ? "" : name || "Nome"}
-              subtitle={subtitle}
-              presets={presets}
-              interactive
-              onPhotoChange={(photo) => patch({ photo })}
-              onTitleMove={(o) => patch({ titleOffsetX: o.x, titleOffsetY: o.y })}
-              onLogoMove={(pos) => patch({ logoPos: pos })}
-              maxSize={variant === "compact" ? 300 : 460}
-            />
+            <Box position="relative" w="100%" maxW={`${maxSize}px`} mx="auto">
+              <AvatarCanvas
+                config={config}
+                title={config.hideTitle ? "" : name || "Nome"}
+                subtitle={subtitle}
+                presets={presets}
+                interactive
+                onPhotoChange={(photo) => patch({ photo })}
+                onTitleMove={(o) => patch({ titleOffsetX: o.x, titleOffsetY: o.y })}
+                onLogoMove={(pos) => patch({ logoPos: pos })}
+                maxSize={maxSize}
+              />
+              {photoBusy ? (
+                <Flex
+                  position="absolute"
+                  top={0}
+                  left={0}
+                  right={0}
+                  bottom={0}
+                  direction="column"
+                  align="center"
+                  justify="center"
+                  gap={2}
+                  borderRadius="16px"
+                  css={{ background: "rgba(2,6,23,0.62)", backdropFilter: "blur(2px)" }}
+                >
+                  <Box css={{ display: "inline-flex", color: "#fff", animation: "spin 1s linear infinite", "@keyframes spin": { to: { transform: "rotate(360deg)" } } }}>
+                    <Loader2 size={32} />
+                  </Box>
+                  <Text fontSize="sm" fontWeight="600" css={{ color: "#fff" }}>
+                    {photoBusyLabel}
+                  </Text>
+                </Flex>
+              ) : null}
+            </Box>
             {variant === "full" ? (
               <>
                 <Text fontSize="xs" color="var(--admin-text-soft)" textAlign="center">
@@ -385,7 +417,8 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
               </Text>
             )}
           </Stack>
-        )}
+          );
+        }}
       >
         {/* Controles — uma seção embaixo da outra (a prévia fica na coluna ao lado). */}
         <Accordion
