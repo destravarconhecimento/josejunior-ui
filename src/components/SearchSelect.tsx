@@ -70,6 +70,12 @@ export function SearchSelect({
   const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const optionRefs = useRef<(HTMLElement | null)[]>([]);
+  // Quando dentro de um Modal/Drawer (Chakra Dialog), portamos o popover PARA
+  // DENTRO do conteúdo do dialog (não pro <body>). Assim o dialog trata os
+  // cliques como "dentro" — senão o focus-trap/interact-outside do Ark engole o
+  // clique (fecha o modal / não deixa selecionar) e bloqueia a busca. Fora de
+  // um dialog fica null → Portal cai no default (<body>).
+  const portalRef = useRef<HTMLElement | null>(null);
 
   const selected = useMemo(() => options.find((o) => o.value === value) ?? null, [options, value]);
   const showClear = (clearable ?? !required) && !disabled && Boolean(value);
@@ -98,6 +104,8 @@ export function SearchSelect({
     setQuery("");
     const idx = options.findIndex((o) => o.value === value);
     setActive(idx >= 0 ? idx : 0);
+    // Alvo do Portal: o conteúdo do dialog que envolve o gatilho (se houver).
+    portalRef.current = triggerRef.current?.closest<HTMLElement>('[role="dialog"],[role="alertdialog"]') ?? null;
     position();
     setOpen(true);
   }
@@ -226,7 +234,7 @@ export function SearchSelect({
       </Box>
 
       {open && !disabled && place ? (
-        <Portal>
+        <Portal container={portalRef}>
           <Stack
             ref={menuRef}
             gap={0}
