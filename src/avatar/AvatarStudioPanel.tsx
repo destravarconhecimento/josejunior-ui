@@ -270,7 +270,10 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
       if (!saved.ok) throw new Error(saved.error);
       if (saved.id) setAvatarId(saved.id);
       setResult({ url, blobUrl: objectUrl });
-      toaster.create({ title: "Avatar gerado!", type: "success" });
+      toaster.create({
+        title: avatarId ? "Avatar atualizado na galeria" : "Avatar salvo na galeria",
+        type: "success",
+      });
       props.onSaved?.();
     } catch (err) {
       toaster.create({ title: "Falha ao gerar", description: String(err), type: "error" });

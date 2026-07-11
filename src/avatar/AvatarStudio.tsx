@@ -52,6 +52,22 @@ export type AvatarEditData = {
 
 type ActionResult = { ok: true; id?: number } | { ok: false; error: string };
 
+/**
+ * Nome de membro LIMPO pro estúdio. Os nicks (Kako etc.) vêm cheios de emoji,
+ * símbolos e letras "decoradas" (full-width): "✨Ｌｕａｎ✨", "『JR』". Ao escolher um
+ * host (em vez de digitar à mão), tira essa sujeira — dobra full-width pra ASCII
+ * (NFKC), remove tudo que não é letra/número/espaço/pontuação básica e normaliza
+ * os espaços. Assim o nome que vai pro avatar (e pro registro salvo) fica legível.
+ */
+function cleanMemberName(raw: string): string {
+  return (raw || "")
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}\s'.,&-]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60);
+}
+
 export type AvatarStudioProps = {
   /** Título da tela (fica no PageHeader, junto das ações). */
   title?: string;
@@ -118,7 +134,7 @@ export function AvatarStudio(props: AvatarStudioProps) {
   };
 
   const pickMember = (m: AvatarMember, padraoId?: string) =>
-    openBlank({ name: m.name, photoUrl: m.photoUrl }, padraoId);
+    openBlank({ name: cleanMemberName(m.name), photoUrl: m.photoUrl }, padraoId);
 
   const openExisting = async (id: number) => {
     if (opening) return;
