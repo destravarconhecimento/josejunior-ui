@@ -119,6 +119,7 @@ export function AvatarCanvas({
       logoImg: logoUrl ? pick(logoUrl) : undefined,
       logoCorner: config.logoCorner,
       logoPos: config.logoPos ?? null,
+      logoScale: config.logoScale ?? 1,
       title,
       subtitle,
       font: config.font,
@@ -180,7 +181,7 @@ export function AvatarCanvas({
       const hasLogo = sc.logoCorner !== "none" && !!logoUrl;
       if (onLogoMove && hasLogo) {
         const c = avatarLogoCenterFrac(sc);
-        const half = AVATAR_LAYOUT.logoWidthFrac * 0.62;
+        const half = AVATAR_LAYOUT.logoWidthFrac * 0.62 * (sc.logoScale > 0 ? sc.logoScale : 1);
         if (Math.abs(fx - c.x) < half && Math.abs(fy - c.y) < half) {
           dragRef.current = { mode: "logo", sx: fx, sy: fy, bx: c.x, by: c.y };
           e.currentTarget.setPointerCapture(e.pointerId);

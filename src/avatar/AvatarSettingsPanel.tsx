@@ -496,6 +496,21 @@ export function AvatarSettingsPanel(props: AvatarSettingsPanelProps) {
                         <RotateCcw size={12} /> Voltar a logo pro canto
                       </Button>
                     ) : null}
+                    <Stack gap={1}>
+                      <HStack justify="space-between">
+                        <Text fontSize="xs" color="var(--admin-text-soft)">Tamanho padrão da logo</Text>
+                        <Button size="xs" tone="ghost" onClick={() => patchSel({ defaultLogoScale: 1 })}>
+                          <RotateCcw size={12} /> Padrão
+                        </Button>
+                      </HStack>
+                      <Range
+                        value={sel.defaultLogoScale ?? 1}
+                        min={0.5}
+                        max={2.5}
+                        step={0.05}
+                        onChange={(v) => patchSel({ defaultLogoScale: v })}
+                      />
+                    </Stack>
                   </Stack>
                 ),
               },

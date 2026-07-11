@@ -643,6 +643,21 @@ export function AvatarStudioPanel(props: AvatarStudioPanelProps) {
                             Dica: arraste a logo na prévia para posicioná-la livremente.
                           </Text>
                         )}
+                        <Stack gap={1}>
+                          <HStack justify="space-between">
+                            <Text fontSize="xs" color="var(--admin-text-soft)">Tamanho da logo</Text>
+                            <Button size="xs" tone="ghost" onClick={() => patch({ logoScale: 1 })}>
+                              <RotateCcw size={12} /> Padrão
+                            </Button>
+                          </HStack>
+                          <Range
+                            value={config.logoScale ?? 1}
+                            min={0.5}
+                            max={2.5}
+                            step={0.05}
+                            onChange={(v) => patch({ logoScale: v })}
+                          />
+                        </Stack>
                         <Button tone="ghost" size="xs" onClick={() => pickFile("logo")} loading={uploading} alignSelf="flex-start">
                           <Upload size={13} /> Trocar logo
                         </Button>

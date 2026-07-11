@@ -108,6 +108,11 @@ export type AvatarConfig = {
    * logo na prévia. Sobrepõe `logoCorner`. Ausente/null = usa o canto. Opcional.
    */
   logoPos?: { x: number; y: number } | null;
+  /**
+   * Multiplicador do tamanho da LOGO (1 = padrão, ~20% do lado). Ausente = 1.
+   * Opcional (configs antigas). Deixa a agência deixar a logo maior/menor.
+   */
+  logoScale?: number;
   /** Família da fonte do nome (ver AVATAR_FONTS). */
   font: string;
   titleColor: string;
@@ -185,6 +190,8 @@ export type AvatarRecipe = {
   defaultLogoCorner?: AvatarLogoCorner;
   /** Posição LIVRE padrão da logo (arrastada na prévia do padrão). Sobrepõe o canto. */
   defaultLogoPos?: { x: number; y: number } | null;
+  /** Tamanho padrão da logo (multiplicador; ausente = 1). */
+  defaultLogoScale?: number;
   /** Cor padrão do NOME (todo avatar novo começa assim). */
   defaultTitleColor?: string;
   /** Cor padrão da LEGENDA fixa. */

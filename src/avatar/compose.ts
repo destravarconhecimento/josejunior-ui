@@ -48,6 +48,8 @@ export type AvatarScene = {
   logoCorner: AvatarLogoCorner;
   /** Posição livre da logo (fração, quando arrastada). Sobrepõe o canto. */
   logoPos?: { x: number; y: number } | null;
+  /** Multiplicador do tamanho da logo (1 = padrão). */
+  logoScale: number;
   title: string;
   subtitle: string;
   font: string;
@@ -328,7 +330,7 @@ function drawLogo(ctx: CanvasRenderingContext2D, S: number, scene: AvatarScene):
   const iw = imgW(scene.logoImg);
   const ih = imgH(scene.logoImg);
   if (!iw || !ih) return;
-  const targetW = S * AVATAR_LAYOUT.logoWidthFrac;
+  const targetW = S * AVATAR_LAYOUT.logoWidthFrac * (scene.logoScale > 0 ? scene.logoScale : 1);
   const w = targetW;
   const h = ih * (targetW / iw);
   // Centro (fração) livre ou derivado do canto — mesma fonte usada no hit-test.
@@ -570,6 +572,7 @@ export async function composeAvatar(input: {
     logoImg,
     logoCorner: config.logoCorner,
     logoPos: config.logoPos ?? null,
+    logoScale: config.logoScale ?? 1,
     title: input.title,
     subtitle: input.subtitle,
     font: config.font,

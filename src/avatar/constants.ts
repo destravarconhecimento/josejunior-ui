@@ -186,6 +186,7 @@ export function defaultAvatarConfig(settings: AvatarRecipe, brandLogoUrl?: strin
     logoUrl,
     logoCorner: settings.defaultLogoCorner ?? (logoUrl ? "top" : "none"),
     logoPos: settings.defaultLogoPos ?? null,
+    logoScale: settings.defaultLogoScale ?? 1,
     font: settings.defaultFont || AVATAR_FONTS[0].family,
     titleColor: settings.defaultTitleColor || "#ffffff",
     subtitleColor: settings.defaultSubtitleColor || "#ffffff",
