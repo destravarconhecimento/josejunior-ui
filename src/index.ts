@@ -56,6 +56,18 @@ export {
   type MailCallbacks,
 } from "./components/email/MailClient";
 export {
+  WhatsAppInbox,
+  type WaInboxApi,
+  type WaInboxResult,
+  type WaChat,
+  type WaMessage,
+  type WaMediaKind,
+} from "./components/whatsapp/WhatsAppInbox";
+export {
+  WhatsAppWorkspace,
+  type WhatsAppWorkspaceProps,
+} from "./components/whatsapp/WhatsAppWorkspace";
+export {
   GoogleCredentialForm,
   type GoogleCredentialSaveResult,
   type GoogleRedirectUri,
