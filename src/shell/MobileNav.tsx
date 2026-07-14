@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Box, CloseButton, Drawer, HStack, Input, Portal, SimpleGrid, Stack, Text } from "@chakra-ui/react";
+import { Box, CloseButton, Drawer, HStack, Input, Portal, Stack, Text } from "@chakra-ui/react";
 import { Menu as MenuIcon, Search } from "lucide-react";
 import { ActiveLink } from "./ActiveLink";
 import { filterSections } from "./navFilter";
@@ -101,19 +101,10 @@ export function MobileNav({
                           {section.title}
                         </Text>
                       ) : null}
-                      {/* 2 por linha (tiles densos) quando há vários itens — cabe mais
-                          sem rolar; item único fica em linha cheia. */}
-                      {section.items.length > 1 ? (
-                        <SimpleGrid columns={2} gap={1.5}>
-                          {section.items.map((item) => (
-                            <ActiveLink key={item.href} item={item} dense onNavigate={() => setOpen(false)} />
-                          ))}
-                        </SimpleGrid>
-                      ) : (
-                        section.items.map((item) => (
-                          <ActiveLink key={item.href} item={item} onNavigate={() => setOpen(false)} />
-                        ))
-                      )}
+                      {/* 1 item por linha (linha cheia) — mais legível que a grade. */}
+                      {section.items.map((item) => (
+                        <ActiveLink key={item.href} item={item} onNavigate={() => setOpen(false)} />
+                      ))}
                     </Stack>
                   ))}
                 </Stack>
