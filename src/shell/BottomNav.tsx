@@ -21,15 +21,36 @@ const PRIMARY_HREFS: string[][] = [
 ];
 
 function pickItems(sections: NavSection[]): NavItem[] {
-  const all = new Map<string, NavItem>();
-  for (const s of sections) for (const it of s.items) all.set(it.href, it);
+  const ordered: NavItem[] = [];
+  const byHref = new Map<string, NavItem>();
+  for (const s of sections)
+    for (const it of s.items) {
+      ordered.push(it);
+      byHref.set(it.href, it);
+    }
+
   const out: NavItem[] = [];
+  const used = new Set<string>();
+  // 1) Preferência CURADA (cartório/staff): mantém a ordem escolhida à mão.
   for (const prefs of PRIMARY_HREFS) {
-    const href = prefs.find((h) => all.has(h));
-    const item = href ? all.get(href) : undefined;
-    if (item) out.push(item);
+    const href = prefs.find((h) => byHref.has(h));
+    if (href && !used.has(href)) {
+      out.push(byHref.get(href)!);
+      used.add(href);
+    }
   }
-  return out;
+  // 2) Completa até 3 com os PRIMEIROS itens do menu do tenant (qualquer persona:
+  //    aluno, host, etc.). Sem isto, tenants cujas rotas não batem com a lista
+  //    curada (ex.: portal do aluno: /aluno, /hub…) ficavam com o dock vazio — só
+  //    o "Menu". Agora o dock sempre traz as ações principais.
+  for (const it of ordered) {
+    if (out.length >= 3) break;
+    if (!used.has(it.href)) {
+      out.push(it);
+      used.add(it.href);
+    }
+  }
+  return out.slice(0, 3);
 }
 
 /** Conteúdo interno de um slot (ícone + rótulo), com estado ativo. */
