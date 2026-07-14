@@ -94,6 +94,8 @@ export { InlineSelect, type InlineSelectOption } from "./components/InlineSelect
 export { SearchSelect, type SearchSelectOption } from "./components/SearchSelect";
 export { MonthPicker } from "./components/MonthPicker";
 export { ActionMenu, type ActionMenuItem } from "./components/ActionMenu";
+export { LocaleSelector, type LocaleOption } from "./components/LocaleSelector";
+export { FlagIcon } from "./components/FlagIcon";
 export { ColorPicker, type ColorScheme } from "./components/ColorPicker";
 export { Tabs, type TabDef } from "./components/Tabs";
 export { PanelTabs } from "./components/PanelTabs";

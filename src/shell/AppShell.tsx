@@ -36,6 +36,7 @@ export function AppShell({
   version,
   searchSlot,
   utilitiesSlot,
+  localeSlot,
   children,
 }: {
   brand: Brand;
@@ -56,6 +57,8 @@ export function AppShell({
   searchSlot?: ReactNode;
   /** Atalhos com badge no rodapé do sidebar, acima do menu do usuário (ex.: sino/e-mail). */
   utilitiesSlot?: ReactNode;
+  /** Seletor de idioma (só passado quando o tenant é multilíngue) — rodapé + topbar mobile. */
+  localeSlot?: ReactNode;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -298,6 +301,11 @@ export function AppShell({
             os atalhos com badge (e-mail/sino). Recolhido: atalhos empilham acima. */}
         <Box flexShrink={0} px={collapsed ? 2 : 3} py={3} borderTopWidth="1px" borderColor="rgba(255,255,255,0.08)">
           {collapsed && utilitiesSlot ? <Box mb={2.5}>{utilitiesSlot}</Box> : null}
+          {localeSlot ? (
+            <Box mb={2.5} display="flex" justifyContent={collapsed ? "center" : "flex-start"}>
+              {localeSlot}
+            </Box>
+          ) : null}
           <HStack gap={1.5} align="center">
             <Box flex="1" minW={0}>
               <Menu.Root positioning={{ placement: collapsed ? "right-end" : "top" }}>
@@ -420,9 +428,10 @@ export function AppShell({
               </Text>
             )}
           </Link>
-          <Box ml="auto">
+          <HStack ml="auto" gap={2} align="center">
+            {localeSlot}
             <UserMenu user={user} logoutSlot={logoutSlot} accountSlot={accountSlot} accountHref={accountHref} siteHref={siteHref} siteLabel={siteLabel} />
-          </Box>
+          </HStack>
         </Flex>
 
         <Box
