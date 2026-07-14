@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Box, HStack, Menu, Portal, Stack, Text } from "@chakra-ui/react";
 import { ChevronDown, Globe, KeyRound } from "lucide-react";
+import { Button } from "../components/Button";
 import { UserAvatar } from "../components/UserAvatar";
 import type { AppUser } from "./types";
 
@@ -15,12 +16,20 @@ import type { AppUser } from "./types";
  */
 export function SiteLinkItem({ href, label }: { href: string; label?: string }) {
   return (
-    <Link
-      href={href}
-      style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--admin-primary)", padding: "6px 4px" }}
+    <Button
+      asChild
+      tone="ghost"
+      size="sm"
+      w="full"
+      justifyContent="flex-start"
+      borderRadius="8px"
+      color="var(--admin-primary)"
+      _hover={{ bg: "var(--admin-nav-hover)", color: "var(--admin-primary)" }}
     >
-      <Globe size={14} /> {label ?? "Ir para o site"}
-    </Link>
+      <Link href={href}>
+        <Globe size={15} style={{ marginRight: 8 }} /> {label ?? "Ir para o site"}
+      </Link>
+    </Button>
   );
 }
 
@@ -91,12 +100,20 @@ export function UserMenu({
                 </Box>
               ) : accountHref ? (
                 <Box borderTopWidth="1px" borderColor="var(--admin-divider)" pt={2}>
-                  <Link
-                    href={accountHref}
-                    style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--admin-primary)", padding: "6px 4px" }}
+                  <Button
+                    asChild
+                    tone="ghost"
+                    size="sm"
+                    w="full"
+                    justifyContent="flex-start"
+                    borderRadius="8px"
+                    color="var(--admin-primary)"
+                    _hover={{ bg: "var(--admin-nav-hover)", color: "var(--admin-primary)" }}
                   >
-                    <KeyRound size={14} /> Conta &amp; senha
-                  </Link>
+                    <Link href={accountHref}>
+                      <KeyRound size={15} style={{ marginRight: 8 }} /> Conta &amp; senha
+                    </Link>
+                  </Button>
                 </Box>
               ) : null}
               {siteHref ? (

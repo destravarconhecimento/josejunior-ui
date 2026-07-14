@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Box, Flex, HStack, Input, Menu, Portal, Stack, Text, VStack } from "@chakra-ui/react";
 import { ChevronsUpDown, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
-import { MobileNav } from "./MobileNav";
 import { BottomNav } from "./BottomNav";
 import { UserMenu, SiteLinkItem } from "./UserMenu";
 import { isActiveHref } from "./ActiveLink";
@@ -370,9 +369,7 @@ export function AppShell({
                           {accountSlot ? (
                             <Box my={1} mx={1} borderTopWidth="1px" borderColor="var(--admin-divider)" />
                           ) : null}
-                          <Box px={1.5} py={0.5}>
-                            <SiteLinkItem href={siteHref} label={siteLabel} />
-                          </Box>
+                          <SiteLinkItem href={siteHref} label={siteLabel} />
                         </>
                       ) : null}
                       {(accountSlot || siteHref) && logoutSlot ? (
@@ -418,7 +415,6 @@ export function AppShell({
           pt="env(safe-area-inset-top)"
           px={3}
         >
-          <MobileNav brand={brand} sections={sections} logoutSlot={logoutSlot} />
           <Link href={homeHref} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
             {brand.logoUrl ? (
               <AdminBrandLogo logoUrl={brand.logoUrl} brandName={brand.name} height={32} maxWidth={150} />

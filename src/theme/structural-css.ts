@@ -62,7 +62,7 @@ export const ADMIN_STRUCTURAL_CSS = `
 }
 .admin-nav-item:hover { background: var(--admin-nav-hover); }
 .admin-nav-item[data-active="true"] {
-  background: linear-gradient(90deg, var(--admin-nav-active), color-mix(in srgb, var(--admin-nav-active) 25%, transparent));
+  background: var(--admin-nav-active);
   color: var(--admin-primary);
   font-weight: 600;
 }
