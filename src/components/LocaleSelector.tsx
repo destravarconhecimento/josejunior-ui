@@ -22,12 +22,19 @@ export function LocaleSelector({
   onSelect,
   size = "sm",
   align = "end",
+  onDark = false,
+  compact = false,
 }: {
   current: string;
   options: LocaleOption[];
   onSelect: (code: string) => void | Promise<void>;
   size?: "xs" | "sm" | "md";
   align?: "start" | "end";
+  /** Sobre fundo escuro/colorido (topbar de marca, sidebar): vira botão fantasma
+   *  claro, no mesmo esquema do sino e do avatar (sem pílula branca). */
+  onDark?: boolean;
+  /** Só bandeira + seta, sem a sigla — pra topbar, onde o espaço é curto. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [place, setPlace] = useState<{ top: number; left: number; right: number } | null>(null);
@@ -99,21 +106,22 @@ export function LocaleSelector({
           display="inline-flex"
           alignItems="center"
           gap={1.5}
-          {...pad}
+          {...(compact ? { px: 2, py: 1.5 } : pad)}
           fontSize={fs}
           fontWeight="600"
           lineHeight="1"
-          borderRadius="9px"
-          borderWidth="1px"
-          borderColor="rgba(0,0,0,0.12)"
-          bg="rgba(255,255,255,0.85)"
-          color="#1f2937"
+          borderRadius={onDark ? "10px" : "9px"}
+          borderWidth={onDark ? "0px" : "1px"}
+          borderColor={onDark ? "transparent" : "rgba(0,0,0,0.12)"}
+          bg={onDark ? "transparent" : "rgba(255,255,255,0.85)"}
+          color={onDark ? "white" : "#1f2937"}
           cursor="pointer"
           opacity={pending ? 0.6 : 1}
-          _hover={{ bg: "#fff", borderColor: "rgba(0,0,0,0.22)" }}
+          transition="background 140ms ease"
+          _hover={onDark ? { bg: "rgba(255,255,255,0.15)" } : { bg: "#fff", borderColor: "rgba(0,0,0,0.22)" }}
         >
           {cur?.flag ? <FlagIcon code={cur.flag} size={18} /> : <GlobeIcon />}
-          <Box as="span">{cur?.short ?? current.toUpperCase()}</Box>
+          {!compact ? <Box as="span">{cur?.short ?? current.toUpperCase()}</Box> : null}
           <Caret />
         </chakra.button>
       </Box>

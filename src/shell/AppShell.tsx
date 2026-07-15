@@ -430,9 +430,8 @@ export function AppShell({
         >
           <Link href={homeHref} style={{ display: "flex", alignItems: "center", flexShrink: 0, minWidth: 0 }}>
             {onBrandTopbar ? (
-              // Topbar de marca: o logo COMPLETO (nome/tagline), não o ícone. Sobre a
-              // cor primária qualquer logo vira silhueta BRANCA — legível em todo
-              // tenant, independente das cores do arquivo (mesma escolha da sidebar).
+              // Topbar de marca: o logo COMPLETO (nome/tagline), não o ícone, e do
+              // jeito que o tenant subiu — SEM filtro de cor. A marca é dele.
               topbarLogo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -444,7 +443,6 @@ export function AppShell({
                     maxWidth: 200,
                     objectFit: "contain",
                     display: "block",
-                    filter: "brightness(0) invert(1)",
                   }}
                 />
               ) : (
@@ -461,10 +459,11 @@ export function AppShell({
             )}
           </Link>
           <HStack ml="auto" gap={1.5} align="center" flexShrink={0}>
-            {localeSlot}
             {/* Sino/atalhos: no portal vêm pra topbar (é o único lugar no mobile —
-                a sidebar não existe aqui). No staff/sistema seguem só na sidebar. */}
+                a sidebar não existe aqui). No staff/sistema seguem só na sidebar.
+                Ordem: sino → idioma → usuário. */}
             {onBrandTopbar ? utilitiesSlot : null}
+            {localeSlot}
             <UserMenu
               user={user}
               logoutSlot={logoutSlot}
