@@ -37,7 +37,8 @@ export function LocaleSelector({
   size?: "xs" | "sm" | "md";
   align?: "start" | "end";
   /** Sobre fundo escuro/colorido (topbar de marca, sidebar): vira botão fantasma
-   *  claro, no mesmo esquema do sino e do avatar (sem pílula branca). */
+   *  claro, com a MESMA altura/cor/hover do sino e do e-mail (`UtilBadge`) — ele
+   *  divide a fileira com eles, então qualquer diferença vira remendo à vista. */
   onDark?: boolean;
   /** Só bandeira + seta, sem a sigla — pra topbar, onde o espaço é curto. */
   compact?: boolean;
@@ -61,7 +62,17 @@ export function LocaleSelector({
     const el = triggerRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    setPlace({ top: r.bottom + 6, left: r.left, right: r.right });
+    // Abre pra baixo só se couber. No rodapé da sidebar (painel/portal) o gatilho
+    // fica colado na base da tela — abrindo pra baixo o menu nascia fora dela.
+    // Altura estimada pelo nº de idiomas (item ~38px + padding); erra pra mais, e
+    // errar pra mais só faz virar pra cima antes da hora, que é o lado seguro.
+    const alturaEstimada = options.length * 38 + 14;
+    const cabeAbaixo = window.innerHeight - r.bottom >= alturaEstimada + 12;
+    setPlace(
+      cabeAbaixo
+        ? { top: r.bottom + 6, left: r.left, right: r.right }
+        : { bottom: window.innerHeight - r.top + 6, left: r.left, right: r.right },
+    );
   }
   function toggle() {
     if (!open) position();
@@ -115,11 +126,15 @@ export function LocaleSelector({
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label="Idioma"
+          // Compacto esconde a sigla: sem o tooltip, a bandeira sozinha não diz
+          // em que idioma o painel está — nem o que o botão faz.
+          title={cur ? `Idioma · ${cur.label}` : "Idioma"}
           disabled={pending}
           display="inline-flex"
           alignItems="center"
           gap={1.5}
           {...(bare ? { px: 1.5, py: 1.5 } : compact ? { px: 2, py: 1.5 } : pad)}
+          {...(onDark && !bare ? { h: "36px", py: 0 } : {})}
           fontSize={fs}
           fontWeight="600"
           lineHeight="1"
@@ -127,7 +142,7 @@ export function LocaleSelector({
           borderWidth={bare || onDark ? "0px" : "1px"}
           borderColor={bare || onDark ? "transparent" : "rgba(0,0,0,0.12)"}
           bg={bare || onDark ? "transparent" : "rgba(255,255,255,0.85)"}
-          color={bare ? "inherit" : onDark ? "white" : "#1f2937"}
+          color={bare ? "inherit" : onDark ? "rgba(255,255,255,0.72)" : "#1f2937"}
           cursor="pointer"
           opacity={pending ? 0.6 : 1}
           transition="background 140ms ease"
@@ -137,7 +152,9 @@ export function LocaleSelector({
                 // um véu claro; em header claro, um véu escuro. Sem saber o tema.
                 { bg: "color-mix(in srgb, currentColor 12%, transparent)" }
               : onDark
-                ? { bg: "rgba(255,255,255,0.15)" }
+                ? // Mesmos números do sino/e-mail (UtilBadge) — o seletor senta na
+                  // mesma fileira que eles, então tem que reagir igual ao mouse.
+                  { bg: "rgba(255,255,255,0.10)", color: "white" }
                 : { bg: "#fff", borderColor: "rgba(0,0,0,0.22)" }
           }
         >
@@ -153,7 +170,8 @@ export function LocaleSelector({
             role="menu"
             gap={0.5}
             position="fixed"
-            top={`${place.top}px`}
+            top={place.top != null ? `${place.top}px` : undefined}
+            bottom={place.bottom != null ? `${place.bottom}px` : undefined}
             left={align === "end" ? undefined : `${place.left}px`}
             right={align === "end" ? `${Math.max(8, window.innerWidth - place.right)}px` : undefined}
             minW="180px"

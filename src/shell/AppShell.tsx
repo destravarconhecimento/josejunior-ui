@@ -32,6 +32,7 @@ export function AppShell({
   accountHref,
   siteHref,
   siteLabel,
+  accountLabel,
   version,
   searchSlot,
   utilitiesSlot,
@@ -51,6 +52,9 @@ export function AppShell({
   siteHref?: string;
   /** Rótulo do link do site (default "Ir para o site"). */
   siteLabel?: string;
+  /** Rótulo do gatilho da conta ("Ver meu perfil") — vira o tooltip do avatar.
+   *  Vem do app porque, como o `accountSlot`, precisa passar pelo tradutor. */
+  accountLabel?: string;
   /** Versão exibida no rodapé do sidebar (canto inferior esquerdo). */
   version?: string;
   /** Acessório à direita da busca do menu (ex.: botão de instalar o PWA). */
@@ -108,6 +112,17 @@ export function AppShell({
       {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
     </HStack>
   );
+
+  // Atalhos do rodapé numa fileira só: sino/e-mail + idioma. O seletor tinha linha
+  // própria e virava uma pílula solta boiando acima do avatar. Mesma ordem da topbar
+  // mobile (sino → idioma → usuário). `wrap` porque recolhido a sidebar tem 84px.
+  const utilities =
+    utilitiesSlot || localeSlot ? (
+      <HStack gap={1.5} justify="center" flexWrap="wrap">
+        {utilitiesSlot}
+        {localeSlot}
+      </HStack>
+    ) : null;
 
   return (
     <Flex minH="100vh" align="stretch">
@@ -310,12 +325,7 @@ export function AppShell({
         {/* rodapé: menu do usuário (avatar + nome + cargo) e, na MESMA linha à direita,
             os atalhos com badge (e-mail/sino). Recolhido: atalhos empilham acima. */}
         <Box flexShrink={0} px={collapsed ? 2 : 3} py={3} borderTopWidth="1px" borderColor="rgba(255,255,255,0.08)">
-          {collapsed && utilitiesSlot ? <Box mb={2.5}>{utilitiesSlot}</Box> : null}
-          {localeSlot ? (
-            <Box mb={2.5} display="flex" justifyContent={collapsed ? "center" : "flex-start"}>
-              {localeSlot}
-            </Box>
-          ) : null}
+          {collapsed && utilities ? <Box mb={2.5}>{utilities}</Box> : null}
           <HStack gap={1.5} align="center">
             <Box flex="1" minW={0}>
               <Menu.Root positioning={{ placement: collapsed ? "right-end" : "top" }}>
@@ -328,7 +338,14 @@ export function AppShell({
                     px={collapsed ? 0 : 3}
                     py={2}
                     justify={collapsed ? "center" : "flex-start"}
-                    title={collapsed ? user.name || "Conta" : undefined}
+                    // Recolhido só sobra o avatar → o nome PRECISA vir no tooltip.
+                    // Aberto o nome já está à vista, então o tooltip serve pra dizer
+                    // o que o clique faz (o gatilho não tem rótulo visível).
+                    title={
+                      collapsed
+                        ? [accountLabel, user.name].filter(Boolean).join(" · ") || "Conta"
+                        : accountLabel || undefined
+                    }
                   >
                     <UserAvatar
                       name={user.name || user.email || "?"}
@@ -350,8 +367,8 @@ export function AppShell({
                             </Text>
                           ) : null}
                         </VStack>
-                        {/* seta do menu só quando NÃO há atalhos à direita (apps sem utilitiesSlot) */}
-                        {!utilitiesSlot ? (
+                        {/* seta do menu só quando NÃO há atalhos à direita (apps sem atalhos) */}
+                        {!utilities ? (
                           <Box color="rgba(255,255,255,0.5)" flexShrink={0}>
                             <ChevronsUpDown size={15} />
                           </Box>
@@ -392,7 +409,7 @@ export function AppShell({
                 </Portal>
               </Menu.Root>
             </Box>
-            {!collapsed && utilitiesSlot ? <Box flexShrink={0}>{utilitiesSlot}</Box> : null}
+            {!collapsed && utilities ? <Box flexShrink={0}>{utilities}</Box> : null}
           </HStack>
         </Box>
 
