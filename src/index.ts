@@ -22,9 +22,11 @@ export {
 export { buildAdminTokensCss, type AdminPalette } from "./theme/tokens";
 export { ADMIN_STRUCTURAL_CSS } from "./theme/structural-css";
 
-// Shell (top bar)
+// Shell — `AppShell` (sidebar escura) ou `TopBarShell` (header horizontal)
 export { AppShell } from "./shell/AppShell";
+export { TopBarShell } from "./shell/TopBarShell";
 export { TopNav } from "./shell/TopNav";
+export { NavSearch } from "./shell/NavSearch";
 export { UserMenu } from "./shell/UserMenu";
 export { MobileNav } from "./shell/MobileNav";
 export { BottomNav } from "./shell/BottomNav";

@@ -3,12 +3,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Box, Flex, HStack, Input, Menu, Portal, Stack, Text, VStack } from "@chakra-ui/react";
-import { ChevronsUpDown, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import { Box, Flex, HStack, Menu, Portal, Stack, Text, VStack } from "@chakra-ui/react";
+import { ChevronsUpDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { BottomNav } from "./BottomNav";
+import { NavSearch } from "./NavSearch";
 import { UserMenu, SiteLinkItem } from "./UserMenu";
 import { isActiveHref } from "./ActiveLink";
-import { filterSections } from "./navFilter";
 import { AdminBrandLogo, AdminCrest, initialsFrom } from "../theme/AdminThemeShell";
 import { UserAvatar } from "../components/UserAvatar";
 import type { AppUser, Brand, NavSection } from "./types";
@@ -77,9 +77,6 @@ export function AppShell({
   const onBrandTopbar = topbarVariant === "brand";
   // Logo do topo: o horizontal COMPLETO de preferência; cai no ícone da sidebar.
   const topbarLogo = brand.wideLogoUrl || brand.logoUrl;
-
-  const [query, setQuery] = useState("");
-  const visibleSections = filterSections(sections, query);
 
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
@@ -193,60 +190,18 @@ export function AppShell({
         {!collapsed ? (
           <Box px={4} pb={2} flexShrink={0}>
             <HStack gap={2} align="center">
-            <HStack
-              gap={2}
-              px={3}
-              h="38px"
-              flex="1"
-              minW={0}
-              borderRadius="10px"
-              bg="rgba(255,255,255,0.06)"
-              borderWidth="1px"
-              borderColor="rgba(255,255,255,0.12)"
-            >
-              <Box color="rgba(255,255,255,0.5)" flexShrink={0} display="flex">
-                <Search size={15} />
+              <Box flex="1" minW={0}>
+                <NavSearch sections={sections} onDark />
               </Box>
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.currentTarget.value)}
-                placeholder="Buscar no menu…"
-                aria-label="Buscar no menu"
-                type="text"
-                name="busca-menu"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                data-1p-ignore
-                data-lpignore="true"
-                data-form-type="other"
-                unstyled
-                flex="1"
-                minW={0}
-                h="full"
-                bg="transparent"
-                border="none"
-                fontSize="sm"
-                color="white"
-                _placeholder={{ color: "rgba(255,255,255,0.45)" }}
-                _focusVisible={{ outline: "none" }}
-              />
-            </HStack>
-            {searchSlot}
+              {searchSlot}
             </HStack>
           </Box>
         ) : null}
 
         {/* navegação */}
         <Box flex="1" overflowY="auto" overflowX="hidden" className="admin-scroll" px={collapsed ? 2 : 3} pb={3}>
-          {!collapsed && visibleSections.length === 0 ? (
-            <Text px={3} py={4} fontSize="sm" color="rgba(255,255,255,0.5)">
-              Nada encontrado.
-            </Text>
-          ) : null}
           <Stack gap={collapsed ? 1 : 4}>
-            {(collapsed ? sections : visibleSections).map((section, si) => (
+            {sections.map((section, si) => (
               <Stack key={section.title} gap={0.5}>
                 {!collapsed ? (
                   <Text
