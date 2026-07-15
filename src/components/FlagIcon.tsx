@@ -3,8 +3,9 @@ import { Box, chakra } from "@chakra-ui/react";
 /**
  * Bandeira de país em SVG INLINE (sem lib, sem emoji). Emoji de bandeira não
  * renderiza no Windows; este componente desenha a bandeira igual em qualquer SO.
- * Suporta os países que a plataforma usa hoje (br/us/es) e cai num globo neutro
+ * Suporta os países que a plataforma usa hoje (br/gb/es) e cai num globo neutro
  * pra qualquer outro código. Aspecto fixo 4:3, cantinho arredondado + hairline.
+ * `en` usa a bandeira do REINO UNIDO (gb) — o inglês da plataforma é o britânico.
  */
 export function FlagIcon({ code, size = 18 }: { code: string; size?: number }) {
   const h = Math.round((size * 3) / 4);

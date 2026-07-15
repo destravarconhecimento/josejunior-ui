@@ -35,6 +35,15 @@ export const ADMIN_STRUCTURAL_CSS = `
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
+/* Topbar de MARCA (portal do cliente): fundo na cor primária do tenant, conteúdo
+   claro (logo em branco, sino, avatar). Opt-in via topbarVariant="brand" — o
+   painel staff/sistema segue com a topbar "vidro" acima. */
+.admin-topbar[data-variant="brand"] {
+  background: var(--admin-primary);
+  border-bottom: 1px solid color-mix(in srgb, #000 16%, var(--admin-primary));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 .admin-navbtn {
   cursor: pointer;
   color: var(--admin-text-soft);

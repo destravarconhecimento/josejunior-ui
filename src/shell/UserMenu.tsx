@@ -41,6 +41,7 @@ export function UserMenu({
   accountHref,
   siteHref,
   siteLabel,
+  onDark = false,
 }: {
   user: AppUser;
   logoutSlot?: ReactNode;
@@ -52,18 +53,25 @@ export function UserMenu({
   siteHref?: string;
   /** Rótulo do link do site (default "Ir para o site"). */
   siteLabel?: string;
+  /** Está sobre fundo colorido (topbar de marca) → nome/seta claros. O
+   *  `admin-navbtn` pinta de texto escuro, então sai de cena aqui. */
+  onDark?: boolean;
 }) {
   return (
     <Menu.Root positioning={{ placement: "bottom-end" }}>
       <Menu.Trigger asChild>
         <HStack
           as="button"
-          className="admin-navbtn"
+          className={onDark ? undefined : "admin-navbtn"}
           gap={2}
           px={2}
           py={1.5}
           borderRadius="10px"
           flexShrink={0}
+          cursor={onDark ? "pointer" : undefined}
+          color={onDark ? "white" : undefined}
+          transition={onDark ? "background 140ms ease" : undefined}
+          _hover={onDark ? { bg: "rgba(255,255,255,0.15)" } : undefined}
         >
           <UserAvatar
             name={user.name || user.email || "?"}

@@ -22,6 +22,9 @@ export type Brand = {
   /** Variante do ícone pra FUNDO ESCURO (sidebar). Se ausente, o `logoUrl` é
    *  pintado de branco via filtro CSS. */
   darkLogoUrl?: string;
+  /** Logo HORIZONTAL completo (com nome/tagline) pra topbar de marca — usado no
+   *  `topbarVariant="brand"` do portal. Cai no `logoUrl` (ícone) se ausente. */
+  wideLogoUrl?: string;
 };
 
 export type AppUser = {

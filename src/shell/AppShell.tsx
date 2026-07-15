@@ -36,6 +36,7 @@ export function AppShell({
   searchSlot,
   utilitiesSlot,
   localeSlot,
+  topbarVariant = "glass",
   children,
 }: {
   brand: Brand;
@@ -58,10 +59,20 @@ export function AppShell({
   utilitiesSlot?: ReactNode;
   /** Seletor de idioma (só passado quando o tenant é multilíngue) — rodapé + topbar mobile. */
   localeSlot?: ReactNode;
+  /**
+   * Topbar mobile: `glass` (padrão — superfície translúcida, painel staff/sistema)
+   * ou `brand` (portal do cliente: fundo na cor PRIMÁRIA do tenant, logo completo
+   * em branco + sino de notificações + avatar). Ver `.admin-topbar[data-variant]`.
+   */
+  topbarVariant?: "glass" | "brand";
   children: ReactNode;
 }) {
   const pathname = usePathname();
   const brandInitials = initialsFrom(brand.name);
+  // Topbar na cor da marca (portal do cliente) — muda fundo, logo e contraste.
+  const onBrandTopbar = topbarVariant === "brand";
+  // Logo do topo: o horizontal COMPLETO de preferência; cai no ícone da sidebar.
+  const topbarLogo = brand.wideLogoUrl || brand.logoUrl;
 
   const [query, setQuery] = useState("");
   const visibleSections = filterSections(sections, query);
@@ -405,6 +416,7 @@ export function AppShell({
       <Flex direction="column" flex="1" minW={0}>
         <Flex
           className="admin-topbar"
+          data-variant={onBrandTopbar ? "brand" : undefined}
           display={{ base: "flex", lg: "none" }}
           position="sticky"
           top={0}
@@ -414,9 +426,33 @@ export function AppShell({
           h="calc(60px + env(safe-area-inset-top))"
           pt="env(safe-area-inset-top)"
           px={3}
+          color={onBrandTopbar ? "white" : undefined}
         >
-          <Link href={homeHref} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
-            {brand.logoUrl ? (
+          <Link href={homeHref} style={{ display: "flex", alignItems: "center", flexShrink: 0, minWidth: 0 }}>
+            {onBrandTopbar ? (
+              // Topbar de marca: o logo COMPLETO (nome/tagline), não o ícone. Sobre a
+              // cor primária qualquer logo vira silhueta BRANCA — legível em todo
+              // tenant, independente das cores do arquivo (mesma escolha da sidebar).
+              topbarLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={topbarLogo}
+                  alt={brand.name}
+                  style={{
+                    height: 34,
+                    width: "auto",
+                    maxWidth: 200,
+                    objectFit: "contain",
+                    display: "block",
+                    filter: "brightness(0) invert(1)",
+                  }}
+                />
+              ) : (
+                <Text className="admin-h" fontWeight="700" fontSize="md" color="white" lineClamp={1}>
+                  {brand.name}
+                </Text>
+              )
+            ) : brand.logoUrl ? (
               <AdminBrandLogo logoUrl={brand.logoUrl} brandName={brand.name} height={32} maxWidth={150} />
             ) : (
               <Text className="admin-h" fontWeight="700" fontSize="md" color="var(--admin-primary)">
@@ -424,9 +460,20 @@ export function AppShell({
               </Text>
             )}
           </Link>
-          <HStack ml="auto" gap={2} align="center">
+          <HStack ml="auto" gap={1.5} align="center" flexShrink={0}>
             {localeSlot}
-            <UserMenu user={user} logoutSlot={logoutSlot} accountSlot={accountSlot} accountHref={accountHref} siteHref={siteHref} siteLabel={siteLabel} />
+            {/* Sino/atalhos: no portal vêm pra topbar (é o único lugar no mobile —
+                a sidebar não existe aqui). No staff/sistema seguem só na sidebar. */}
+            {onBrandTopbar ? utilitiesSlot : null}
+            <UserMenu
+              user={user}
+              logoutSlot={logoutSlot}
+              accountSlot={accountSlot}
+              accountHref={accountHref}
+              siteHref={siteHref}
+              siteLabel={siteLabel}
+              onDark={onBrandTopbar}
+            />
           </HStack>
         </Flex>
 
