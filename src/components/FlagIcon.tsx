@@ -66,6 +66,20 @@ const FLAGS: Record<string, React.ReactNode> = {
       {usStars()}
     </>
   ),
+  // Reino Unido (Union Jack): campo azul, saltire branca + vermelha, cruz de São
+  // Jorge por cima (branca e depois vermelha). As diagonais estouram a viewBox de
+  // propósito — o Box pai tem overflow="hidden" e recorta nas bordas.
+  gb: (
+    <>
+      <rect width={24} height={18} fill="#012169" />
+      <path d="M0 0 L24 18 M24 0 L0 18" stroke="#fff" strokeWidth={3.6} />
+      <path d="M0 0 L24 18 M24 0 L0 18" stroke="#C8102E" strokeWidth={1.4} />
+      <rect x={9} width={6} height={18} fill="#fff" />
+      <rect y={6} width={24} height={6} fill="#fff" />
+      <rect x={10} width={4} height={18} fill="#C8102E" />
+      <rect y={7} width={24} height={4} fill="#C8102E" />
+    </>
+  ),
   // Espanha: vermelho/amarelo(dobro)/vermelho.
   es: (
     <>
