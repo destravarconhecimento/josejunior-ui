@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Box, chakra, Portal, Stack } from "@chakra-ui/react";
 import { FlagIcon } from "./FlagIcon";
 
-/** `flag` = código de país ISO (br/us/es…) — o FlagIcon desenha o SVG. */
+/** `flag` = código de país ISO (br/gb/es…) — o FlagIcon desenha o SVG. */
 export type LocaleOption = { code: string; label: string; short: string; flag?: string };
 
 /**
