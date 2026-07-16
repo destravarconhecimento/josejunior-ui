@@ -2,17 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { Box, HStack, Image, Spinner, Stack, Text, Textarea, chakra } from "@chakra-ui/react";
-import { Sparkles, X, Send, Paperclip, Loader2 } from "lucide-react";
+import { Sparkles, X, Send, Paperclip, Loader2, Maximize2 } from "lucide-react";
 import { ChatMarkdown } from "./ChatMarkdown";
+import { useAiChat } from "./ai/useAiChat";
 
-type Msg = { role: "user" | "assistant"; content: string };
+/** Link do Next com as props de estilo do Chakra (o botão de expandir). */
+const ChakraLink = chakra(Link);
 
 /**
  * Assistente FLUTUANTE do painel (FAB): botão arrastável que abre um chat com a
  * IA, e a IA OPERA o painel via tools no endpoint `chatEndpoint`. Componente ÚNICO
  * e centralizado — usado no `apps/site` (tenant) e no `apps/sistema`. O que muda
  * por app são as props (endpoint, upload, persistência de histórico).
+ *
+ * O miolo do chat (estado/envio/anexo/persistência) mora em `ai/useAiChat` —
+ * o mesmo do `AiAssistantConsole` (a tela cheia), pra que "expandir" continue a
+ * MESMA conversa e as duas superfícies não divirjam.
  */
 export function AiAssistantFab({
   title = "Assistente",
@@ -26,6 +33,10 @@ export function AiAssistantFab({
   hideOnPaths = [],
   /** Stateless: manda o histórico no POST (servidor não guarda conversa). */
   sendHistory = false,
+  /** Rota do console de tela cheia. Presente = mostra o botão de expandir. */
+  expandHref,
+  /** Chave do sessionStorage: guarda a conversa e a leva pro console ao expandir. */
+  storageKey,
   accent = "var(--admin-primary)",
 }: {
   title?: string;
@@ -36,18 +47,15 @@ export function AiAssistantFab({
   uploadFolder?: string;
   hideOnPaths?: string[];
   sendHistory?: boolean;
+  expandHref?: string;
+  storageKey?: string;
   accent?: string;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
-  const [attachment, setAttachment] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const chat = useAiChat({ chatEndpoint, uploadEndpoint, uploadFolder, sendHistory, storageKey, path: pathname });
+  const { messages, setMessages, input, setInput, loading, error, attachment, setAttachment, uploading, pickImage, send, canSend, scrollRef, scrollToEnd, restored } = chat;
   const fileRef = useRef<HTMLInputElement>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const drag = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null);
@@ -93,75 +101,25 @@ export function AiAssistantFab({
 
   const hidden = hideOnPaths.includes(pathname);
 
+  // Só busca o histórico do servidor se não houver conversa restaurada — no
+  // sistema o GET devolve vazio de propósito (stateless), e sobrescrever aqui
+  // apagaria a conversa que veio do sessionStorage.
   useEffect(() => {
-    if (!open || historyLoaded) return;
+    if (!open || historyLoaded || !restored) return;
     setHistoryLoaded(true);
+    if (messages.length) return;
     fetch(chatEndpoint)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { messages?: Msg[] } | null) => {
+      .then((d: { messages?: { role: "user" | "assistant"; content: string }[] } | null) => {
         if (d?.messages?.length) setMessages(d.messages.map((m) => ({ role: m.role, content: m.content })));
       })
       .catch(() => {});
-  }, [open, historyLoaded, chatEndpoint]);
+  }, [open, historyLoaded, restored, messages.length, chatEndpoint, setMessages]);
 
   useEffect(() => {
     if (!open) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight;
-    });
-  }, [open, messages, loading]);
-
-  const pickImage = async (file: File) => {
-    if (!uploadEndpoint) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Anexe apenas imagens.");
-      return;
-    }
-    setError(null);
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("folder", uploadFolder);
-      const res = await fetch(uploadEndpoint, { method: "POST", body: fd });
-      const data = (await res.json()) as { url?: string; error?: string };
-      if (!res.ok || !data.url) throw new Error(data.error || "Falha no upload.");
-      setAttachment(data.url);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const send = async () => {
-    const typed = input.trim();
-    if ((typed.length < 2 && !attachment) || loading) return;
-    setError(null);
-    const text = attachment ? `${typed}${typed ? "\n\n" : ""}![imagem anexada](${attachment})` : typed;
-    const nextMessages = [...messages, { role: "user" as const, content: text }];
-    setMessages(nextMessages);
-    setInput("");
-    setAttachment(null);
-    setLoading(true);
-    try {
-      const res = await fetch(chatEndpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text, context: { path: pathname }, ...(sendHistory ? { history: messages } : {}) }),
-      });
-      const data = (await res.json()) as { ok?: boolean; reason?: string; error?: string; reply?: string; messages?: Msg[] };
-      if (!res.ok || data.ok === false) throw new Error(data.error || data.reason || "Falha ao processar.");
-      if (Array.isArray(data.messages)) setMessages(data.messages.map((m) => ({ role: m.role, content: m.content })));
-      else if (data.reply) setMessages((prev) => [...prev, { role: "assistant", content: data.reply! }]);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    scrollToEnd();
+  }, [open, messages, loading, scrollToEnd]);
 
   if (hidden) return null;
 
@@ -209,11 +167,37 @@ export function AiAssistantFab({
           flexDirection="column"
         >
           <Box px={5} py={3.5} style={{ background: accent }} color="white" flexShrink={0}>
-            <HStack gap={2}>
-              <Sparkles size={18} />
-              <Text fontWeight="700">{title}</Text>
+            <HStack gap={2} justify="space-between" align="flex-start">
+              <Box>
+                <HStack gap={2}>
+                  <Sparkles size={18} />
+                  <Text fontWeight="700">{title}</Text>
+                </HStack>
+                <Text fontSize="xs" opacity={0.9} mt={0.5}>{subtitle}</Text>
+              </Box>
+              {expandHref && (
+                <ChakraLink
+                  href={expandHref}
+                  aria-label="Abrir em tela cheia"
+                  title="Abrir em tela cheia"
+                  flexShrink={0}
+                  w="30px"
+                  h="30px"
+                  mt={-1}
+                  mr={-1.5}
+                  borderRadius="8px"
+                  display="inline-flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  color="white"
+                  opacity={0.85}
+                  _hover={{ opacity: 1, bg: "rgba(255,255,255,0.18)" }}
+                  transition="opacity .15s, background .15s"
+                >
+                  <Maximize2 size={15} />
+                </ChakraLink>
+              )}
             </HStack>
-            <Text fontSize="xs" opacity={0.9} mt={0.5}>{subtitle}</Text>
           </Box>
 
           <Stack ref={scrollRef} flex={1} overflowY="auto" p={4} gap={3} bg="var(--admin-surface-2, #f7f8fa)">
@@ -324,7 +308,7 @@ export function AiAssistantFab({
               <chakra.button
                 type="button"
                 onClick={() => void send()}
-                disabled={loading || (input.trim().length < 2 && !attachment)}
+                disabled={loading || !canSend}
                 w="42px"
                 h="42px"
                 flexShrink={0}
@@ -333,7 +317,7 @@ export function AiAssistantFab({
                 alignItems="center"
                 justifyContent="center"
                 color="white"
-                style={{ background: accent, opacity: loading || (input.trim().length < 2 && !attachment) ? 0.5 : 1 }}
+                style={{ background: accent, opacity: loading || !canSend ? 0.5 : 1 }}
                 _hover={{ opacity: 0.92 }}
                 aria-label="Enviar"
               >

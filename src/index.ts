@@ -105,6 +105,9 @@ export { PanelTabs } from "./components/PanelTabs";
 export { PageTabs } from "./components/PageTabs";
 export { ChatMarkdown } from "./components/ChatMarkdown";
 export { AiAssistantFab } from "./components/AiAssistantFab";
+// Console do assistente (chat em tela cheia) — divide o miolo com o FAB.
+export { AiAssistantConsole, type AiConsoleSuggestion } from "./components/ai/AiAssistantConsole";
+export { useAiChat, type AiChatMsg } from "./components/ai/useAiChat";
 
 // Primitivos premium (KPIs, avatar, IA, timeline, ações rápidas)
 export { KpiCard, type KpiTone, type KpiTrendTone } from "./components/KpiCard";
