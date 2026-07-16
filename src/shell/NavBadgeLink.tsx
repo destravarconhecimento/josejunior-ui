@@ -15,6 +15,7 @@ export function NavBadgeLink({
   icon,
   label,
   count = 0,
+  countNoun = "não lidos",
   onDark = false,
 }: {
   href: string;
@@ -23,13 +24,15 @@ export function NavBadgeLink({
   /** Rótulo acessível — o botão é só ícone. */
   label: string;
   count?: number;
+  /** O que o número CONTA, pro leitor de tela (ex.: "atrasadas"). Nem todo badge é caixa de entrada. */
+  countNoun?: string;
   /** Sobre fundo colorido (topbar de marca) → ícone claro, sem anel na badge. */
   onDark?: boolean;
 }) {
   const shown = count > 99 ? "99+" : String(count);
   return (
     <Box asChild position="relative" display="inline-flex" flexShrink={0}>
-      <Link href={href} aria-label={count > 0 ? `${label} (${count} não lidos)` : label} title={label}>
+      <Link href={href} aria-label={count > 0 ? `${label} (${count} ${countNoun})` : label} title={label}>
         <Box
           className={onDark ? undefined : "admin-navbtn"}
           display="inline-flex"
