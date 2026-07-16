@@ -53,6 +53,12 @@ const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }
   inactive: { bg: "rgba(100,116,139,0.14)", color: "#475569", label: "Inativo" },
   inativo: { bg: "rgba(100,116,139,0.14)", color: "#475569", label: "Inativo" },
   canceled: { bg: "rgba(100,116,139,0.14)", color: "#475569", label: "Cancelado" },
+  cancelado: { bg: "rgba(100,116,139,0.14)", color: "#475569", label: "Cancelado" },
+  // Cobrança (ver apps/sistema/src/lib/billing.ts → normalizeChargeStatus).
+  // "pendente" acima já serve; estes fecham o vocabulário.
+  pago: { bg: "rgba(34,197,94,0.12)", color: "#15803d", label: "Pago" },
+  atrasado: { bg: "rgba(239,68,68,0.12)", color: "#b91c1c", label: "Atrasado" },
+  estornado: { bg: "rgba(168,85,247,0.12)", color: "#7c3aed", label: "Estornado" },
 };
 
 /** Badge de status com mapeamento padrão (ou `label` custom). */
