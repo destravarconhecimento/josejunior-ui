@@ -56,7 +56,18 @@ export function Screen({
   fill?: boolean;
 }) {
   return (
-    <Flex direction="column" flex={fill ? { md: "1" } : undefined} minH={fill ? { md: 0 } : undefined}>
+    <Flex
+      direction="column"
+      flex={fill ? { md: "1" } : undefined}
+      minH={fill ? { md: 0 } : undefined}
+      // `flex="1"` + `minH={0}` NÃO bastam: o root dos dois shells é `minH="100vh"`
+      // (não `h`), então o `<main>` cresce com o conteúdo e quem rola é a PÁGINA —
+      // exatamente o que o `fill` promete evitar. A altura tem de vir do contrato
+      // que os shells publicam. Não é número mágico: `--admin-content-h` é deles e
+      // já desconta topbar e `BottomNav`; o fallback só cobre quem renderize fora
+      // de um shell (ex.: storybook/teste).
+      h={fill ? { md: "var(--admin-content-h, calc(100dvh - 132px))" } : undefined}
+    >
       <PageHeader
         title={title}
         subtitle={subtitle}

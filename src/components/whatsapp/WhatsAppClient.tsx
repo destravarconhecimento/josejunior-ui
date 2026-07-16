@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Box, Flex, HStack, SimpleGrid, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Box, Flex, HStack, Portal, SimpleGrid, Spinner, Stack, Text } from "@chakra-ui/react";
 import {
   Archive,
   ArrowLeft,
@@ -11,7 +11,9 @@ import {
   CheckCheck,
   FileText,
   Link2,
+  Maximize2,
   MessageCircle,
+  Minimize2,
   Paperclip,
   Pin,
   Plus,
@@ -185,8 +187,16 @@ export type WhatsAppCallbacks = {
    * existe "abrir conversa vazia": a conversa nasce da primeira mensagem enviada.
    * Devolve o `chatId` pra tela abrir o fio logo a seguir. Sem esta callback o
    * botão "Nova conversa" nem aparece (ex.: tela só de leitura).
+   *
+   * `nome` é OPCIONAL de propósito: é só como o painel passa a chamar o contacto
+   * enquanto o WhatsApp não devolve o `pushName` dele (número novo ainda não tem
+   * nome nenhum). Vazio = fica o número, e o nome real entra quando chegar.
    */
-  onNovaConversa?: (numeroDigits: string, texto: string) => Promise<WhatsAppResult<{ chatId: string }>>;
+  onNovaConversa?: (
+    numeroDigits: string,
+    texto: string,
+    nome?: string,
+  ) => Promise<WhatsAppResult<{ chatId: string }>>;
 };
 
 export type WhatsAppClientProps = {
@@ -776,21 +786,24 @@ function NovaConversaModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onEnviar: (numeroDigits: string, texto: string) => Promise<WhatsAppResult<{ chatId: string }>>;
+  onEnviar: (numeroDigits: string, texto: string, nome?: string) => Promise<WhatsAppResult<{ chatId: string }>>;
   onCriada: (chatId: string) => void;
 }) {
   const [numero, setNumero] = useState("");
+  const [nome, setNome] = useState("");
   const [texto, setTexto] = useState("");
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   const digits = onlyDigits(numero);
   // 10 = fixo BR sem DDI; abaixo disso não é número, é engano de digitação.
+  // O nome NÃO entra aqui: é opcional (ver `onNovaConversa`).
   const valido = digits.length >= 10 && texto.trim().length > 0;
 
   useEffect(() => {
     if (open) {
       setNumero("");
+      setNome("");
       setTexto("");
       setErro(null);
       setBusy(false);
@@ -801,7 +814,7 @@ function NovaConversaModal({
     if (!valido || busy) return;
     setBusy(true);
     setErro(null);
-    const r = await onEnviar(digits, texto.trim());
+    const r = await onEnviar(digits, texto.trim(), nome.trim() || undefined);
     setBusy(false);
     if (r.ok && r.data) onCriada(r.data.chatId);
     else setErro(r.ok ? "O servidor não devolveu a conversa criada." : r.error);
@@ -839,6 +852,20 @@ function NovaConversaModal({
               Vai para {fmtPhone(digits)}
             </Text>
           ) : null}
+        </Stack>
+        <Stack gap={1}>
+          <HStack gap={2}>
+            <Text fontSize="sm" fontWeight="600" color="var(--admin-text)">
+              Nome
+            </Text>
+            <Text fontSize="xs" color="var(--admin-text-soft)">
+              opcional
+            </Text>
+          </HStack>
+          <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Como chamar este contato" />
+          <Text fontSize="xs" color="var(--admin-text-soft)">
+            Só pra você achar a conversa. Assim que o WhatsApp disser o nome dele, é esse que aparece.
+          </Text>
         </Stack>
         <Stack gap={1}>
           <Text fontSize="sm" fontWeight="600" color="var(--admin-text)">
@@ -1280,6 +1307,13 @@ function ChatWorkspace({
         p={4}
       >
         <Stack gap={4}>
+          {/* Começar conversa fica com a LISTA, não no cabeçalho: é ação da
+              coluna que ela muda, e o cabeçalho é da tela toda. */}
+          {onNovaConversa ? (
+            <Button tone="whatsapp" onClick={onNovaConversa} w="full">
+              <Plus size={16} style={{ marginRight: 6 }} /> Nova conversa
+            </Button>
+          ) : null}
           <HStack gap={2} px={1} py={1} borderRadius="8px" bg="var(--admin-surface-2)">
             <Search size={15} color="var(--admin-text-soft)" style={{ flexShrink: 0, marginLeft: 4 }} />
             <Input
@@ -1606,73 +1640,159 @@ export function WhatsAppClient({
   const [statsOpen, setStatsOpen] = useState(false);
   const [novaOpen, setNovaOpen] = useState(false);
   const [abrirId, setAbrirId] = useState<string | null>(null);
+  const [maximizado, setMaximizado] = useState(false);
+
+  // Maximizado: Esc sai, e a página de baixo não rola (senão fica um scroll
+  // fantasma por trás). O Esc cede a vez aos modais — quem está por cima é que
+  // manda no Esc, senão fecharia o modal E o maximizado de uma vez.
+  useEffect(() => {
+    if (!maximizado) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && !novaOpen && !statsOpen) setMaximizado(false);
+    }
+    const antes = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = antes;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [maximizado, novaOpen, statsOpen]);
+
+  // Ícone só, com `aria-label`+`title`: o cabeçalho é de opções da tela, e o que
+  // ele precisa de gritar é o estado da ligação e a ação de começar conversa
+  // (essa vive na coluna da lista). Config/Estatísticas são visita rara.
+  const acoes = (
+    <>
+      <Tag
+        bg={connected ? "rgba(34,197,94,0.14)" : "rgba(239,68,68,0.12)"}
+        color={connected ? "#15803d" : "#b91c1c"}
+      >
+        {connected ? `Ligado${phone ? ` · ${fmtPhone(phone)}` : ""}` : "Desligado"}
+      </Tag>
+      {view === "config" ? (
+        <Button tone="outline" size="sm" onClick={() => setView("conversas")}>
+          <ArrowLeft size={16} style={{ marginRight: 6 }} /> Voltar
+        </Button>
+      ) : (
+        <>
+          <Button tone="ghost" size="sm" onClick={callbacks.onActualizar} aria-label="Atualizar" title="Atualizar">
+            <RefreshCw size={16} />
+          </Button>
+          <Button
+            tone="outline"
+            size="sm"
+            onClick={() => setStatsOpen(true)}
+            aria-label="Estatísticas"
+            title="Estatísticas"
+          >
+            <BarChart3 size={16} />
+          </Button>
+          {configSlots.length > 0 ? (
+            <Button
+              tone="outline"
+              size="sm"
+              onClick={() => setView("config")}
+              aria-label="Configurações"
+              title="Configurações"
+            >
+              <Settings size={16} />
+            </Button>
+          ) : null}
+        </>
+      )}
+      {/* Sair do maximizado leva TEXTO: entrar é opcional e o ícone chega, sair
+          não pode depender de o utilizador adivinhar o ícone certo. */}
+      <Button
+        tone="outline"
+        size="sm"
+        onClick={() => setMaximizado((v) => !v)}
+        aria-label={maximizado ? "Sair do maximizado" : "Maximizar"}
+        title={maximizado ? "Sair do maximizado (Esc)" : "Maximizar"}
+      >
+        {maximizado ? (
+          <>
+            <Minimize2 size={16} style={{ marginRight: 6 }} /> Sair do maximizado
+          </>
+        ) : (
+          <Maximize2 size={16} />
+        )}
+      </Button>
+    </>
+  );
+
+  const corpo =
+    view === "config" ? (
+      <ConfigView slots={configSlots} />
+    ) : (
+      <ChatWorkspace
+        chats={chats}
+        loadingChats={loadingChats}
+        assistantName={assistantName}
+        callbacks={callbacks}
+        abrirId={abrirId}
+        onAbriu={() => setAbrirId(null)}
+        onNovaConversa={callbacks.onNovaConversa && connected ? () => setNovaOpen(true) : undefined}
+      />
+    );
 
   // A moldura `Screen` é DESTE componente, e a página NÃO o embrulha noutra — dois
   // `Screen` aninhados dão dois cabeçalhos e matam o `fill` (o de fora, sem fill,
   // não passa altura ao de dentro; o workspace encolhe a meio da página). Fica aqui
-  // porque as opções do cabeçalho (Estatísticas/Configurações/Nova conversa) são
-  // estado deste componente: se a moldura fosse da página, cada app teria de
-  // reimplementar os mesmos botões — e divergir. Um componente, um cabeçalho, dois
-  // consumidores (sistema e tenants com o módulo whatsapp).
+  // porque as opções do cabeçalho (Estatísticas/Configurações/Maximizar) são estado
+  // deste componente: se a moldura fosse da página, cada app teria de reimplementar
+  // os mesmos botões — e divergir. Um componente, um cabeçalho, dois consumidores
+  // (sistema e tenants com o módulo whatsapp).
   //
   // Altura: quem manda é o `fill` do `Screen`, que usa o `--admin-content-h` que os
   // dois shells publicam (já descontando a `BottomNav`). Nada de `100dvh`/`calc()`
   // chumbado aqui. Em `config` não — formulário quer crescer e a página rola.
   return (
     <>
-      <Screen
-        title={title}
-        subtitle={subtitle}
-        fill={view !== "config"}
-        actions={
-          <>
-            <Tag
-              bg={connected ? "rgba(34,197,94,0.14)" : "rgba(239,68,68,0.12)"}
-              color={connected ? "#15803d" : "#b91c1c"}
-            >
-              {connected ? `Ligado${phone ? ` · ${fmtPhone(phone)}` : ""}` : "Desligado"}
-            </Tag>
+      {maximizado ? (
+        // Foco total: cobre shell, cabeçalho da página e o FAB da IA sem que
+        // NENHUM deles saiba deste modo — é só pintar por cima. O `Portal` é o que
+        // torna isso fiável: à solta na árvore, qualquer ancestral com `transform`
+        // /`filter` viraria bloco-contentor do `fixed` e o overlay ficaria preso na
+        // área da página. Camadas: FAB 1400 < overlay 1450 < Dialog/popover 1500 —
+        // por isso os modais e o popover do vínculo continuam a abrir por cima.
+        // Nada de `role="dialog"` aqui: o `SearchSelect` porta o popover para
+        // dentro do diálogo mais próximo, e ele ficaria com a MESMA camada do
+        // overlay — o clique morria (é o bug que já pagámos noutra tela).
+        <Portal>
+          <Box
+            position="fixed"
+            inset={0}
+            zIndex={1450}
+            bg="var(--admin-bg)"
+            display="flex"
+            flexDirection="column"
+            gap={3}
+            p={{ base: 2, md: 3 }}
+          >
+            <HStack justify="space-between" gap={3} flexShrink={0} px={1}>
+              <HStack gap={2} minW={0}>
+                <MessageCircle size={18} color="var(--admin-text-soft)" />
+                <Text fontWeight="700" color="var(--admin-text)" truncate>
+                  {title}
+                </Text>
+              </HStack>
+              <HStack gap={2}>{acoes}</HStack>
+            </HStack>
             {view === "config" ? (
-              <Button tone="outline" onClick={() => setView("conversas")}>
-                <ArrowLeft size={16} style={{ marginRight: 6 }} /> Voltar
-              </Button>
+              <Box flex="1" minH={0} overflowY="auto">
+                {corpo}
+              </Box>
             ) : (
-              <>
-                <Button tone="ghost" size="sm" onClick={callbacks.onActualizar} aria-label="Atualizar">
-                  <RefreshCw size={16} />
-                </Button>
-                <Button tone="outline" size="sm" onClick={() => setStatsOpen(true)}>
-                  <BarChart3 size={15} style={{ marginRight: 6 }} /> Estatísticas
-                </Button>
-                {configSlots.length > 0 ? (
-                  <Button tone="outline" size="sm" onClick={() => setView("config")}>
-                    <Settings size={15} style={{ marginRight: 6 }} /> Configurações
-                  </Button>
-                ) : null}
-                {callbacks.onNovaConversa && connected ? (
-                  <Button tone="whatsapp" size="sm" onClick={() => setNovaOpen(true)}>
-                    <Plus size={16} style={{ marginRight: 6 }} /> Nova conversa
-                  </Button>
-                ) : null}
-              </>
+              corpo
             )}
-          </>
-        }
-      >
-        {view === "config" ? (
-          <ConfigView slots={configSlots} />
-        ) : (
-          <ChatWorkspace
-            chats={chats}
-            loadingChats={loadingChats}
-            assistantName={assistantName}
-            callbacks={callbacks}
-            abrirId={abrirId}
-            onAbriu={() => setAbrirId(null)}
-            onNovaConversa={callbacks.onNovaConversa ? () => setNovaOpen(true) : undefined}
-          />
-        )}
-      </Screen>
+          </Box>
+        </Portal>
+      ) : (
+        <Screen title={title} subtitle={subtitle} fill={view !== "config"} actions={acoes}>
+          {corpo}
+        </Screen>
+      )}
 
       {callbacks.onNovaConversa ? (
         <NovaConversaModal
