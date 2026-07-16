@@ -1,5 +1,12 @@
-import type { ReactNode } from "react";
-import { Box, Field, HStack, SimpleGrid, Spinner, Text } from "@chakra-ui/react";
+"use client";
+// Fica na PRIMEIRA linha: a diretiva tem que abrir o arquivo, e comentário antes
+// dela já custou build neste repo. O porquê: o campo de cor guarda o que está
+// sendo digitado (ver `FormColor`), e aqui vale a mesma regra do resto do ui —
+// componente com estado declara a fronteira. Nada no monorepo monta um Form* de
+// dentro de Server Component: todo uso já é client, porque todos passam `onChange`.
+
+import { useState, type ReactNode } from "react";
+import { Box, Field, HStack, SimpleGrid, Spinner, Text, chakra } from "@chakra-ui/react";
 // Controles ui-owned (anti-autofill + estilo --admin embutidos). NÃO usar o
 // Input/Textarea/NativeSelect CRU do Chakra aqui: eles não bloqueiam o autofill
 // do navegador/gerenciador de senha e enchiam campos que deviam ficar vazios.
@@ -45,6 +52,74 @@ export function FormInput({ label, help, error, required, ...input }: FieldWrap 
   return (
     <FormField label={label} help={help} error={error} required={required}>
       <Input bg="var(--admin-surface)" {...input} />
+    </FormField>
+  );
+}
+
+/**
+ * Cor: a amostra clicável do navegador + o código escrito, lado a lado. Um só,
+ * porque este par estava remontado à mão em cada tela que pede cor — e cada
+ * cópia trazia a sua borda, o seu tamanho e o seu jeito de errar.
+ *
+ * O rascunho vive AQUI, e é o motivo de o campo ser um primitivo e não duas
+ * tags soltas: o caminho até `#e98f03` passa por `#e9`, que não é cor nenhuma.
+ * Quem só guarda cor válida (o fundo, p.ex.) devolveria o valor velho a cada
+ * tecla e o campo andaria pra trás enquanto se digita. Então o meio do caminho
+ * fica no campo e só o que o dono aceitou volta pra ele — `onChange` entrega o
+ * texto cru e QUEM USA decide o que merece ser guardado.
+ */
+export function FormColor({
+  label,
+  help,
+  error,
+  required,
+  value,
+  onChange,
+  ...input
+}: FieldWrap & {
+  value: string;
+  onChange: (v: string) => void;
+} & Omit<InputProps, "value" | "onChange">) {
+  const [rascunho, setRascunho] = useState<string | null>(null);
+  // A amostra nativa só entende `#rrggbb`. Com o campo vazio ou meio digitado
+  // ela cairia no preto do navegador e ainda avisaria no console — mostramos o
+  // preto de propósito, que é o que ela faria de qualquer jeito.
+  const amostra = /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#000000";
+
+  return (
+    <FormField label={label} help={help} error={error} required={required}>
+      <HStack gap={2} w="full">
+        <chakra.input
+          type="color"
+          value={amostra}
+          onChange={(e) => {
+            setRascunho(null);
+            onChange(e.target.value);
+          }}
+          aria-label={typeof label === "string" ? `${label}: escolher no seletor` : "Escolher a cor"}
+          flexShrink={0}
+          w="44px"
+          h="40px"
+          p={0}
+          cursor="pointer"
+          borderRadius="6px"
+          borderWidth="1px"
+          borderColor="var(--admin-border)"
+          bg="transparent"
+        />
+        <Input
+          bg="var(--admin-surface)"
+          fontFamily="mono"
+          fontSize="sm"
+          value={rascunho ?? value}
+          onChange={(e) => {
+            setRascunho(e.target.value);
+            onChange(e.target.value);
+          }}
+          onBlur={() => setRascunho(null)}
+          {...input}
+        />
+      </HStack>
     </FormField>
   );
 }

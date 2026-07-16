@@ -94,7 +94,7 @@ export {
   type GoogleCredentialSaveResult,
   type GoogleRedirectUri,
 } from "./components/GoogleCredentialForm";
-export { FormField, FormGrid, FormActions, FormInput, FormSelect, FormTextarea } from "./components/form";
+export { FormField, FormGrid, FormActions, FormColor, FormInput, FormSelect, FormTextarea } from "./components/form";
 export { DataTable, TableCard, type Column } from "./components/DataTable";
 export { Pagination } from "./components/Pagination";
 export { Modal } from "./components/Modal";
