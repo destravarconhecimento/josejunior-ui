@@ -1,3 +1,24 @@
+"use client";
+
+// ⚠️ Este "use client" é ESTRUTURAL, não cosmético — não tire.
+//
+// `defaultConfig` arrasta TODAS as receitas do Chakra, e a receita do accordion
+// lê `anatomy.js`, que importa `@ark-ui/react/accordion` — um módulo marcado
+// "use client" pelo próprio ark. Quando um SERVER component importa o barrel do
+// `@josejunior/ui`, o index re-exporta este módulo, o grafo do servidor avalia
+// esta linha e o React entrega o ark como *client reference* (um proxy, não a
+// anatomy). Aí o `accordionAnatomy.extendWith("itemBody")` que o Chakra roda no
+// topo do `anatomy.js` estoura: "extendWith is not a function".
+//
+// Era o que derrubava a home (`TemplateV1` é server component e o registry o
+// importa SEMPRE, mesmo pra tenant v4) enquanto a /recarga vivia — o
+// `TemplateV4` é "use client" e o barrel dele já caía no grafo do cliente.
+//
+// A regra "createSystem tem que ser LAZY" (CLAUDE.md) só adiava a CHAMADA; o
+// IMPORT continuava avaliando o barrel no servidor. Marcando o módulo como
+// client, a fronteira para o grafo do servidor aqui e a regra passa a ser
+// garantida pelo bundler em vez de confiada a cada call site. Ninguém chama o
+// system no servidor: os `makeSystem` dos apps só rodam no render do Provider.
 import { createSystem, defaultConfig, defineConfig } from "@chakra-ui/react";
 
 /**
