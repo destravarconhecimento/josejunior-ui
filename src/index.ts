@@ -28,6 +28,11 @@ export { TopBarShell } from "./shell/TopBarShell";
 export { TopNav } from "./shell/TopNav";
 export { NavSearch } from "./shell/NavSearch";
 export { NavBadgeLink } from "./shell/NavBadgeLink";
+export {
+  NotificationBell,
+  type NotificationItem,
+  type NotificationTone,
+} from "./shell/NotificationBell";
 export { UserMenu } from "./shell/UserMenu";
 export { MobileNav } from "./shell/MobileNav";
 export { BottomNav } from "./shell/BottomNav";
@@ -35,6 +40,9 @@ export { ActiveLink, isActiveHref } from "./shell/ActiveLink";
 export type { NavItem, NavSection, Brand, AppUser } from "./shell/types";
 
 // Primitivos
+// `Screen` = moldura única da tela (header + corpo). É o que as telas devem usar;
+// `PageHeader`/`PageBody` seguem exportados pra composição fora do padrão (workspace).
+export { Screen } from "./components/Screen";
 export { PageHeader } from "./components/PageHeader";
 export { PageBody } from "./components/PageBody";
 export { Card } from "./components/Card";
@@ -71,6 +79,21 @@ export {
   type WhatsAppWorkspaceProps,
 } from "./components/whatsapp/WhatsAppWorkspace";
 export {
+  WhatsAppClient,
+  type WhatsAppClientProps,
+  type WhatsAppResult,
+  type WhatsAppSentBy,
+  type WhatsAppVinculo,
+  type WhatsAppVinculoLead,
+  type WhatsAppVinculoTenant,
+  type WhatsAppVinculoOption,
+  type WhatsAppChat,
+  type WhatsAppMessage,
+  type WhatsAppStats,
+  type WhatsAppConfigSlot,
+  type WhatsAppCallbacks,
+} from "./components/whatsapp/WhatsAppClient";
+export {
   GoogleCredentialForm,
   type GoogleCredentialSaveResult,
   type GoogleRedirectUri,
@@ -79,6 +102,7 @@ export { FormField, FormGrid, FormActions, FormInput, FormSelect, FormTextarea }
 export { DataTable, TableCard, type Column } from "./components/DataTable";
 export { Pagination } from "./components/Pagination";
 export { Modal } from "./components/Modal";
+export { ImageCropper } from "./components/ImageCropper";
 export { CrudManager } from "./components/CrudManager";
 export {
   EvolucoesManager,

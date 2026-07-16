@@ -24,8 +24,7 @@ import {
 } from "lucide-react";
 import { Button } from "../Button";
 import { Tag } from "../Badge";
-import { PageHeader } from "../PageHeader";
-import { PageBody } from "../PageBody";
+import { Screen } from "../Screen";
 import { EmptyState } from "../EmptyState";
 import { EntityAvatar } from "../EntityAvatar";
 import { ActionMenu, type ActionMenuItem } from "../ActionMenu";
@@ -332,7 +331,6 @@ function CategoryButton({
   return (
     <HStack
       as="button"
-      type="button"
       onClick={onClick}
       w="100%"
       justify="space-between"
@@ -442,7 +440,6 @@ function ChatRow({
         </Stack>
         <Box
           as="button"
-          type="button"
           aria-label={chat.favorito ? "Desfavoritar" : "Favoritar"}
           onClick={(e: React.MouseEvent) => {
             e.stopPropagation();
@@ -1287,7 +1284,6 @@ function ChatWorkspace({
               </Stack>
               <Box
                 as="button"
-                type="button"
                 aria-label={selected.favorito ? "Desfavoritar" : "Favoritar"}
                 onClick={() => toggleFavorito(selected)}
                 color={selected.favorito ? "#eab308" : "var(--admin-text-soft)"}
@@ -1462,10 +1458,18 @@ export function WhatsAppClient({
   const [view, setView] = useState<"conversas" | "config">("conversas");
   const [statsOpen, setStatsOpen] = useState(false);
 
+  // A moldura é o `Screen`, como em todas as outras telas logadas — não se monta
+  // `PageHeader`+`PageBody` à mão aqui. Isto já esteve a chumbar a própria altura
+  // (`calc(100dvh - 132px)`), a duplicar a conta que os shells publicam em
+  // `--admin-content-h` e a arriscar divergir dela no dia em que a `BottomNav`
+  // mudasse de tamanho. O `fill` do `Screen` faz isso por flex, e igual nos dois
+  // shells: a conversa rola por dentro, a página não rola. Em `config` não —
+  // formulário quer crescer e a página rola.
   return (
-    <Box display="flex" flexDirection="column" h={view === "config" ? undefined : { md: "var(--admin-content-h, calc(100dvh - 132px))" }}>
-      <PageHeader
+    <>
+      <Screen
         title={title}
+        fill={view !== "config"}
         actions={
           <>
             <Tag
@@ -1495,15 +1499,14 @@ export function WhatsAppClient({
             )}
           </>
         }
-      />
-      <PageBody fill={view !== "config"}>
+      >
         {view === "config" ? (
           <ConfigView slots={configSlots} />
         ) : (
           <ChatWorkspace chats={chats} loadingChats={loadingChats} assistantName={assistantName} callbacks={callbacks} />
         )}
-      </PageBody>
+      </Screen>
       <StatsModal open={statsOpen} onClose={() => setStatsOpen(false)} onCarregarStats={callbacks.onCarregarStats} />
-    </Box>
+    </>
   );
 }

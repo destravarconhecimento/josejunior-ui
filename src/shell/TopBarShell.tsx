@@ -129,6 +129,9 @@ export function TopBarShell({
             accountHref={accountHref}
             siteHref={siteHref}
             siteLabel={siteLabel}
+            // Só o avatar + seta: o nome já aparece dentro do dropdown, e aqui
+            // ele competia por espaço com os grupos do menu.
+            compact
           />
         </HStack>
       </Flex>

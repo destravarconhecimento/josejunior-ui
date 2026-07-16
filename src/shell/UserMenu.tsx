@@ -42,6 +42,7 @@ export function UserMenu({
   siteHref,
   siteLabel,
   onDark = false,
+  compact = false,
 }: {
   user: AppUser;
   logoutSlot?: ReactNode;
@@ -56,6 +57,9 @@ export function UserMenu({
   /** Está sobre fundo colorido (topbar de marca) → nome/seta claros. O
    *  `admin-navbtn` pinta de texto escuro, então sai de cena aqui. */
   onDark?: boolean;
+  /** Só avatar + seta, sem o nome. Para topbar cheia (o nome já está dentro do
+   *  dropdown) — devolve espaço horizontal pros grupos do menu. */
+  compact?: boolean;
 }) {
   return (
     <Menu.Root positioning={{ placement: "bottom-end" }}>
@@ -82,9 +86,11 @@ export function UserMenu({
             size="sm"
             showTooltip={false}
           />
-          <Text display={{ base: "none", md: "block" }} fontSize="sm" fontWeight="600" maxW="160px" truncate>
-            {user.name || user.email || "Conta"}
-          </Text>
+          {compact ? null : (
+            <Text display={{ base: "none", md: "block" }} fontSize="sm" fontWeight="600" maxW="160px" truncate>
+              {user.name || user.email || "Conta"}
+            </Text>
+          )}
           <ChevronDown size={14} />
         </HStack>
       </Menu.Trigger>
