@@ -75,10 +75,6 @@ export {
   type WaMediaKind,
 } from "./components/whatsapp/WhatsAppInbox";
 export {
-  WhatsAppWorkspace,
-  type WhatsAppWorkspaceProps,
-} from "./components/whatsapp/WhatsAppWorkspace";
-export {
   WhatsAppClient,
   type WhatsAppClientProps,
   type WhatsAppResult,
