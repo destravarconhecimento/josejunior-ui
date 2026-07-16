@@ -14,6 +14,7 @@ import {
   MessageCircle,
   Paperclip,
   Pin,
+  Plus,
   RefreshCw,
   Search,
   Send,
@@ -174,10 +175,19 @@ export type WhatsAppCallbacks = {
   /** Recarrega a lista de conversas (ex.: router.refresh no app). */
   onActualizar: () => void;
   onCarregarStats: () => Promise<WhatsAppResult<WhatsAppStats>>;
+  /**
+   * Inicia conversa com um número novo. Pede TEXTO também porque no WhatsApp não
+   * existe "abrir conversa vazia": a conversa nasce da primeira mensagem enviada.
+   * Devolve o `chatId` pra tela abrir o fio logo a seguir. Sem esta callback o
+   * botão "Nova conversa" nem aparece (ex.: tela só de leitura).
+   */
+  onNovaConversa?: (numeroDigits: string, texto: string) => Promise<WhatsAppResult<{ chatId: string }>>;
 };
 
 export type WhatsAppClientProps = {
   title?: string;
+  /** Linha de apoio do cabeçalho (a moldura `Screen` é DESTE componente). */
+  subtitle?: ReactNode;
   connected: boolean;
   phone?: string | null;
   chats: WhatsAppChat[];
@@ -749,16 +759,120 @@ function ConfigView({ slots }: { slots: WhatsAppConfigSlot[] }) {
 
 type Categoria = "conversas" | "grupos" | "favoritos" | "arquivados";
 
+/* ── Nova conversa ──────────────────────────────────────────────
+ * No WhatsApp não se "abre" uma conversa: ela nasce da primeira mensagem. Por
+ * isso o modal pede número E texto — pedir só o número criaria uma conversa
+ * fantasma na lista que o telemóvel não conhece. */
+function NovaConversaModal({
+  open,
+  onClose,
+  onEnviar,
+  onCriada,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onEnviar: (numeroDigits: string, texto: string) => Promise<WhatsAppResult<{ chatId: string }>>;
+  onCriada: (chatId: string) => void;
+}) {
+  const [numero, setNumero] = useState("");
+  const [texto, setTexto] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const digits = onlyDigits(numero);
+  // 10 = fixo BR sem DDI; abaixo disso não é número, é engano de digitação.
+  const valido = digits.length >= 10 && texto.trim().length > 0;
+
+  useEffect(() => {
+    if (open) {
+      setNumero("");
+      setTexto("");
+      setErro(null);
+      setBusy(false);
+    }
+  }, [open]);
+
+  async function enviar() {
+    if (!valido || busy) return;
+    setBusy(true);
+    setErro(null);
+    const r = await onEnviar(digits, texto.trim());
+    setBusy(false);
+    if (r.ok && r.data) onCriada(r.data.chatId);
+    else setErro(r.ok ? "O servidor não devolveu a conversa criada." : r.error);
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Nova conversa"
+      footer={
+        <>
+          <Button tone="outline" onClick={onClose} disabled={busy}>
+            Cancelar
+          </Button>
+          <Button tone="whatsapp" onClick={() => void enviar()} loading={busy} disabled={!valido}>
+            <Send size={15} style={{ marginRight: 6 }} /> Enviar
+          </Button>
+        </>
+      }
+    >
+      <Stack gap={4}>
+        <Stack gap={1}>
+          <Text fontSize="sm" fontWeight="600" color="var(--admin-text)">
+            Número (com DDI e DDD)
+          </Text>
+          <Input
+            value={numero}
+            onChange={(e) => setNumero(e.target.value)}
+            placeholder="55 11 91234-5678"
+            autoFocus
+          />
+          {digits ? (
+            <Text fontSize="xs" color="var(--admin-text-soft)">
+              Vai para {fmtPhone(digits)}
+            </Text>
+          ) : null}
+        </Stack>
+        <Stack gap={1}>
+          <Text fontSize="sm" fontWeight="600" color="var(--admin-text)">
+            Primeira mensagem
+          </Text>
+          <Textarea
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            placeholder="Escreva a mensagem que abre a conversa…"
+            rows={4}
+          />
+        </Stack>
+        {erro ? (
+          <Text fontSize="sm" color="red.600">
+            Erro: {erro}
+          </Text>
+        ) : null}
+      </Stack>
+    </Modal>
+  );
+}
+
 function ChatWorkspace({
   chats,
   loadingChats,
   assistantName,
   callbacks,
+  abrirId,
+  onAbriu,
+  onNovaConversa,
 }: {
   chats: WhatsAppChat[];
   loadingChats?: boolean;
   assistantName?: string;
   callbacks: WhatsAppCallbacks;
+  /** Pedido de abertura vindo de fora (ex.: conversa acabada de criar). */
+  abrirId?: string | null;
+  onAbriu?: () => void;
+  onNovaConversa?: () => void;
 }) {
   const [categoria, setCategoria] = useState<Categoria>("conversas");
   const [query, setQuery] = useState("");
@@ -877,6 +991,15 @@ function ChatWorkspace({
     },
     [chats, loadThread],
   );
+
+  // Conversa acabada de criar: abre o fio sem esperar a lista chegar do servidor
+  // (o `onActualizar` do pai é que a traz, e chega depois).
+  useEffect(() => {
+    if (!abrirId) return;
+    openChat(abrirId);
+    onAbriu?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrirId]);
 
   // polling: enquanto uma conversa está aberta, sincroniza sozinho
   useEffect(() => {
@@ -1244,12 +1367,30 @@ function ChatWorkspace({
         minH={0}
       >
         {!selected ? (
-          <Box flex="1" display="flex" alignItems="center" justifyContent="center">
-            <EmptyState
-              icon={MessageCircle}
-              title="Escolhe uma conversa"
-              description="Selecione uma conversa na lista ao lado para ver o histórico e responder."
-            />
+          <Box flex="1" display="flex" alignItems="center" justifyContent="center" p={6}>
+            {/* Lista vazia não manda "escolher da lista" — não há lista. Diz o que
+                é e dá a saída (começar uma). Só depois de carregar, senão o
+                primeiro render acusa "sem conversas" antes de as ter pedido. */}
+            {chats.length === 0 && !loadingChats ? (
+              <EmptyState
+                icon={MessageCircle}
+                title="Ainda não há conversa"
+                description="As conversas deste número aparecem aqui assim que alguém escrever — ou comece você."
+                action={
+                  onNovaConversa ? (
+                    <Button tone="whatsapp" onClick={onNovaConversa}>
+                      <Plus size={16} style={{ marginRight: 6 }} /> Nova conversa
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={MessageCircle}
+                title="Escolhe uma conversa"
+                description="Selecione uma conversa na lista ao lado para ver o histórico e responder."
+              />
+            )}
           </Box>
         ) : (
           <>
@@ -1447,6 +1588,7 @@ function ChatWorkspace({
 
 export function WhatsAppClient({
   title = "WhatsApp",
+  subtitle,
   connected,
   phone,
   chats,
@@ -1457,18 +1599,25 @@ export function WhatsAppClient({
 }: WhatsAppClientProps) {
   const [view, setView] = useState<"conversas" | "config">("conversas");
   const [statsOpen, setStatsOpen] = useState(false);
+  const [novaOpen, setNovaOpen] = useState(false);
+  const [abrirId, setAbrirId] = useState<string | null>(null);
 
-  // A moldura é o `Screen`, como em todas as outras telas logadas — não se monta
-  // `PageHeader`+`PageBody` à mão aqui. Isto já esteve a chumbar a própria altura
-  // (`calc(100dvh - 132px)`), a duplicar a conta que os shells publicam em
-  // `--admin-content-h` e a arriscar divergir dela no dia em que a `BottomNav`
-  // mudasse de tamanho. O `fill` do `Screen` faz isso por flex, e igual nos dois
-  // shells: a conversa rola por dentro, a página não rola. Em `config` não —
-  // formulário quer crescer e a página rola.
+  // A moldura `Screen` é DESTE componente, e a página NÃO o embrulha noutra — dois
+  // `Screen` aninhados dão dois cabeçalhos e matam o `fill` (o de fora, sem fill,
+  // não passa altura ao de dentro; o workspace encolhe a meio da página). Fica aqui
+  // porque as opções do cabeçalho (Estatísticas/Configurações/Nova conversa) são
+  // estado deste componente: se a moldura fosse da página, cada app teria de
+  // reimplementar os mesmos botões — e divergir. Um componente, um cabeçalho, dois
+  // consumidores (sistema e tenants com o módulo whatsapp).
+  //
+  // Altura: quem manda é o `fill` do `Screen`, que usa o `--admin-content-h` que os
+  // dois shells publicam (já descontando a `BottomNav`). Nada de `100dvh`/`calc()`
+  // chumbado aqui. Em `config` não — formulário quer crescer e a página rola.
   return (
     <>
       <Screen
         title={title}
+        subtitle={subtitle}
         fill={view !== "config"}
         actions={
           <>
@@ -1495,6 +1644,11 @@ export function WhatsAppClient({
                     <Settings size={15} style={{ marginRight: 6 }} /> Configurações
                   </Button>
                 ) : null}
+                {callbacks.onNovaConversa && connected ? (
+                  <Button tone="whatsapp" size="sm" onClick={() => setNovaOpen(true)}>
+                    <Plus size={16} style={{ marginRight: 6 }} /> Nova conversa
+                  </Button>
+                ) : null}
               </>
             )}
           </>
@@ -1503,9 +1657,31 @@ export function WhatsAppClient({
         {view === "config" ? (
           <ConfigView slots={configSlots} />
         ) : (
-          <ChatWorkspace chats={chats} loadingChats={loadingChats} assistantName={assistantName} callbacks={callbacks} />
+          <ChatWorkspace
+            chats={chats}
+            loadingChats={loadingChats}
+            assistantName={assistantName}
+            callbacks={callbacks}
+            abrirId={abrirId}
+            onAbriu={() => setAbrirId(null)}
+            onNovaConversa={callbacks.onNovaConversa ? () => setNovaOpen(true) : undefined}
+          />
         )}
       </Screen>
+
+      {callbacks.onNovaConversa ? (
+        <NovaConversaModal
+          open={novaOpen}
+          onClose={() => setNovaOpen(false)}
+          onEnviar={callbacks.onNovaConversa}
+          onCriada={(chatId) => {
+            setNovaOpen(false);
+            setView("conversas");
+            setAbrirId(chatId);
+            callbacks.onActualizar();
+          }}
+        />
+      ) : null}
       <StatsModal open={statsOpen} onClose={() => setStatsOpen(false)} onCarregarStats={callbacks.onCarregarStats} />
     </>
   );
