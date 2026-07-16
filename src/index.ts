@@ -27,6 +27,7 @@ export { AppShell } from "./shell/AppShell";
 export { TopBarShell } from "./shell/TopBarShell";
 export { TopNav } from "./shell/TopNav";
 export { NavSearch } from "./shell/NavSearch";
+export { NavBadgeLink } from "./shell/NavBadgeLink";
 export { UserMenu } from "./shell/UserMenu";
 export { MobileNav } from "./shell/MobileNav";
 export { BottomNav } from "./shell/BottomNav";

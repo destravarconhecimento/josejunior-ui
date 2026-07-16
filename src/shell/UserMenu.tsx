@@ -63,10 +63,10 @@ export function UserMenu({
         <HStack
           as="button"
           className={onDark ? undefined : "admin-navbtn"}
-          gap={2}
-          px={2}
-          py={1.5}
-          borderRadius="10px"
+          gap={1.5}
+          h="34px"
+          px={1.5}
+          borderRadius="9px"
           flexShrink={0}
           cursor={onDark ? "pointer" : undefined}
           color={onDark ? "white" : undefined}

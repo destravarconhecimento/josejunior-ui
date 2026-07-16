@@ -322,7 +322,15 @@ export function MailClient(props: {
           : "Provedor não configurado";
 
   return (
-    <Box>
+    // A caixa ocupa a tela inteira (scroll INTERNO nas colunas); as
+    // Configurações são um formulário longo e seguem no scroll da página.
+    // `--admin-content-h` vem do <main> do shell — o fallback cobre quem
+    // renderizar o MailClient fora de um shell nosso.
+    <Box
+      display="flex"
+      flexDirection="column"
+      h={view === "settings" ? undefined : { md: "var(--admin-content-h, calc(100dvh - 132px))" }}
+    >
       <PageHeader
         title={props.title ?? "Email"}
         actions={
@@ -349,7 +357,7 @@ export function MailClient(props: {
         }
       />
 
-      <PageBody>
+      <PageBody fill={view !== "settings"}>
         {view === "settings" ? (
           <SettingsView
             conn={props.conn}
@@ -2034,8 +2042,8 @@ function Mailbox({
       borderRadius="16px"
       overflow="hidden"
       bg="var(--admin-surface)"
-      minH="560px"
-      h={{ base: "auto", md: "calc(100dvh - 132px)" }}
+      minH={{ base: "560px", md: 0 }}
+      flex={{ md: "1" }}
       direction={{ base: "column", md: "row" }}
     >
       {/* Sidebar */}

@@ -22,18 +22,19 @@ export function PageHeader({
   description?: ReactNode;
 }) {
   return (
-    <Box mb={tabs ? 3 : 5}>
+    <Box mb={tabs ? 2 : 3} flexShrink={0}>
       <Stack
         direction={{ base: "column", md: "row" }}
         justify="space-between"
         align={{ base: "stretch", md: "center" }}
-        gap={{ base: 2.5, md: 3 }}
+        gap={{ base: 2, md: 3 }}
+        minH={{ md: "34px" }}
       >
         <Text
           as="h1"
           className="admin-h"
-          fontSize={{ base: "20px", md: "28px" }}
-          lineHeight="1.15"
+          fontSize={{ base: "18px", md: "20px" }}
+          lineHeight="1.2"
           fontWeight="700"
           color="var(--admin-primary)"
           minW={0}
@@ -46,12 +47,23 @@ export function PageHeader({
           <HStack
             gap={2}
             flexShrink={0}
+            align="center"
             flexWrap={{ base: "nowrap", md: "wrap" }}
             justify={{ md: "flex-end" }}
             overflowX={{ base: "auto", md: "visible" }}
             className="admin-scroll"
             pb={{ base: 1, md: 0 }}
-            css={{ "& > *": { flexShrink: 0 } }}
+            // Altura ÚNICA pra tudo que entra aqui: botão, tag, badge ou link.
+            // Sem isto cada primitivo traz a sua (Tag é mais baixa que Button) e
+            // a linha de ações sai desalinhada.
+            css={{
+              "& > *": {
+                flexShrink: 0,
+                minHeight: "34px",
+                display: "inline-flex",
+                alignItems: "center",
+              },
+            }}
           >
             {actions}
           </HStack>

@@ -20,7 +20,16 @@ export function TopNav({ sections }: { sections: NavSection[] }) {
           return (
             <Box asChild key={section.title}>
               <Link href={item.href}>
-                <HStack as="span" className="admin-navbtn" data-active={active ? "true" : "false"} gap={1} px={3} py={2} borderRadius="10px">
+                <HStack
+                  as="span"
+                  className="admin-navbtn"
+                  data-active={active ? "true" : "false"}
+                  gap={1.5}
+                  h="34px"
+                  px={2.5}
+                  borderRadius="9px"
+                >
+                  {section.icon ?? item.icon}
                   <Text fontSize="sm" fontWeight="600">{item.label}</Text>
                 </HStack>
               </Link>
@@ -34,11 +43,12 @@ export function TopNav({ sections }: { sections: NavSection[] }) {
                 as="button"
                 className="admin-navbtn"
                 data-active={active ? "true" : "false"}
-                gap={1}
-                px={3}
-                py={2}
-                borderRadius="10px"
+                gap={1.5}
+                h="34px"
+                px={2.5}
+                borderRadius="9px"
               >
+                {section.icon}
                 <Text fontSize="sm" fontWeight="600">
                   {section.title}
                 </Text>

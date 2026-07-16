@@ -57,19 +57,26 @@ export function TopBarShell({
   localeSlot?: ReactNode;
   children: ReactNode;
 }) {
+  // Só o ÍCONE da marca (o `logoUrl` já é a variante ícone — o horizontal com
+  // nome é o `wideLogoUrl`). O nome sai do header de propósito: ele se repete no
+  // título da aba e a topbar precisa do espaço horizontal pros grupos.
   const brandMark = brand.logoUrl ? (
-    <AdminBrandLogo logoUrl={brand.logoUrl} brandName={brand.name} height={32} maxWidth={150} />
+    <AdminBrandLogo logoUrl={brand.logoUrl} brandName={brand.name} height={28} maxWidth={40} />
   ) : (
-    <HStack gap={2.5} minW={0}>
-      <AdminCrest initials={initialsFrom(brand.name)} size={32} />
-      <Text className="admin-h" fontWeight="700" fontSize="sm" color="var(--admin-text)" lineClamp={1}>
-        {brand.name}
-      </Text>
-    </HStack>
+    <AdminCrest initials={initialsFrom(brand.name)} size={28} />
   );
 
   return (
-    <Flex direction="column" minH="100vh">
+    <Flex
+      direction="column"
+      minH="100vh"
+      css={{
+        // Altura REAL da topbar, publicada pro conteúdo poder se medir sem
+        // chumbar número mágico (ver `--admin-content-h` no <main>).
+        "--admin-topbar-h": "calc(56px + env(safe-area-inset-top))",
+        "@media (min-width: 62em)": { "--admin-topbar-h": "52px" },
+      }}
+    >
       <Flex
         as="header"
         className="admin-topbar"
@@ -77,10 +84,10 @@ export function TopBarShell({
         top={0}
         zIndex={50}
         align="center"
-        gap={3}
-        h={{ base: "calc(60px + env(safe-area-inset-top))", lg: "62px" }}
+        gap={2}
+        h="var(--admin-topbar-h)"
         pt={{ base: "env(safe-area-inset-top)", lg: 0 }}
-        px={{ base: 3, lg: 5 }}
+        px={{ base: 3, lg: 4 }}
         flexShrink={0}
       >
         {/* mobile: hambúrguer abre o drawer com o menu completo */}
@@ -132,8 +139,22 @@ export function TopBarShell({
         maxW="1500px"
         mx="auto"
         px={{ base: 4, md: 7 }}
-        py={{ base: 5, md: 7 }}
-        pb={{ base: "calc(78px + env(safe-area-inset-bottom))", lg: 7 }}
+        py={{ base: 4, md: 5 }}
+        pb={{ base: "calc(78px + env(safe-area-inset-bottom))", lg: 5 }}
+        flex="1"
+        minH={0}
+        display="flex"
+        flexDirection="column"
+        css={{
+          // Altura disponível pro conteúdo, já descontada a topbar e o padding
+          // do <main>. É o que o `PageBody fill` e o `MailClient` consomem para
+          // ocupar a tela inteira sem número mágico. Espelhado no `AppShell`.
+          "--admin-content-h":
+            "calc(100dvh - var(--admin-topbar-h) - 16px - 78px - env(safe-area-inset-bottom))",
+          "@media (min-width: 48em)": {
+            "--admin-content-h": "calc(100dvh - var(--admin-topbar-h) - 40px)",
+          },
+        }}
       >
         {children}
       </Box>

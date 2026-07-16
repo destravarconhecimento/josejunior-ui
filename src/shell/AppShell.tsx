@@ -395,7 +395,7 @@ export function AppShell({
           zIndex={50}
           align="center"
           gap={2}
-          h="calc(60px + env(safe-area-inset-top))"
+          h="calc(56px + env(safe-area-inset-top))"
           pt="env(safe-area-inset-top)"
           px={3}
           color={onBrandTopbar ? "white" : undefined}
@@ -454,8 +454,24 @@ export function AppShell({
           maxW="1500px"
           mx="auto"
           px={{ base: 4, md: 7 }}
-          py={{ base: 5, md: 7 }}
-          pb={{ base: "calc(78px + env(safe-area-inset-bottom))", lg: 7 }}
+          py={{ base: 4, md: 5 }}
+          pb={{ base: "calc(78px + env(safe-area-inset-bottom))", lg: 5 }}
+          flex="1"
+          minH={0}
+          display="flex"
+          flexDirection="column"
+          css={{
+            // Mesmo contrato do `TopBarShell`: altura disponível pro conteúdo.
+            // Aqui a topbar SÓ existe no mobile (no desktop é a sidebar), então
+            // a partir de lg não há header a descontar.
+            "--admin-content-h":
+              "calc(100dvh - 56px - env(safe-area-inset-top) - 16px - 78px - env(safe-area-inset-bottom))",
+            "@media (min-width: 48em)": {
+              "--admin-content-h":
+                "calc(100dvh - 56px - env(safe-area-inset-top) - 40px)",
+            },
+            "@media (min-width: 62em)": { "--admin-content-h": "calc(100dvh - 40px)" },
+          }}
         >
           {children}
         </Box>

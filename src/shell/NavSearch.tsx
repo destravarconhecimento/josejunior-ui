@@ -74,8 +74,8 @@ export function NavSearch({
       <HStack
         gap={2}
         px={3}
-        h="38px"
-        borderRadius="10px"
+        h="34px"
+        borderRadius="9px"
         bg={onDark ? "rgba(255,255,255,0.06)" : "var(--admin-surface-2)"}
         borderWidth="1px"
         borderColor={onDark ? "rgba(255,255,255,0.12)" : "var(--admin-border)"}

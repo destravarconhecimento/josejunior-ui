@@ -13,6 +13,10 @@ export type NavItem = {
 
 export type NavSection = {
   title: string;
+  /** Ícone JÁ renderizado do GRUPO (ex.: <Boxes size={16} />), exibido junto do
+   *  título no botão da topbar. Mesma regra do `NavItem.icon`: nunca o
+   *  componente cru — funções não cruzam a fronteira Server→Client. */
+  icon?: ReactNode;
   items: NavItem[];
 };
 
