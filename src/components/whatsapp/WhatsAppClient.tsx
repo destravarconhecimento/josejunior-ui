@@ -76,7 +76,12 @@ export type WhatsAppVinculoTenant = {
   kind: "tenant";
   id: string;
   nome: string;
-  slug: string;
+  /**
+   * Só o sistema tem slug (o tenant é uma linha em `tenants`). No painel de um
+   * tenant, "Cliente" é uma pessoa do CRM dele e não tem slug nenhum — por isso
+   * é opcional, e a linha "/slug" só sai quando existe mesmo.
+   */
+  slug?: string | null;
   email?: string | null;
   telefone?: string | null;
   status?: string | null;
@@ -493,7 +498,7 @@ function LinkedCard({
       <Text fontWeight="700" fontSize="sm" color="var(--admin-text)">
         {vinculo.nome}
       </Text>
-      {!isLead ? (
+      {!isLead && vinculo.slug ? (
         <Text fontSize="xs" color="var(--admin-text-soft)">
           /{vinculo.slug}
         </Text>
