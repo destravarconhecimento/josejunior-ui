@@ -64,17 +64,10 @@ export function AiAssistantConsole({
 
   return (
     <Box display="flex" flexDirection="column" h="calc(100vh - 140px)" minH="480px">
-      <HStack justify="space-between" align="center" pb={3} flexShrink={0}>
-        <HStack gap={2.5}>
-          <Box w="34px" h="34px" borderRadius="10px" display="inline-flex" alignItems="center" justifyContent="center" color="white" style={{ background: accent }}>
-            <Sparkles size={17} />
-          </Box>
-          <Box>
-            <Text fontWeight="700" fontSize="md" color="var(--admin-text)" lineHeight="1.2">{title}</Text>
-            <Text fontSize="xs" color="var(--admin-text-soft)">{subtitle}</Text>
-          </Box>
-        </HStack>
-        {messages.length > 0 && (
+      {/* Sem cabeçalho próprio: o título é do PageHeader da página (contrato do
+          DS). Aqui só sobra a ação que depende do estado do chat. */}
+      {messages.length > 0 && (
+        <HStack justify="flex-end" pb={3} flexShrink={0}>
           <chakra.button
             type="button"
             onClick={clear}
@@ -93,8 +86,8 @@ export function AiAssistantConsole({
           >
             <Plus size={15} /> Nova conversa
           </chakra.button>
-        )}
-      </HStack>
+        </HStack>
+      )}
 
       <Box
         flex={1}
