@@ -464,12 +464,20 @@ export function AppShell({
             // Mesmo contrato do `TopBarShell`: altura disponível pro conteúdo.
             // Aqui a topbar SÓ existe no mobile (no desktop é a sidebar), então
             // a partir de lg não há header a descontar.
+            //
+            // O DOCK (`BottomNav`, 78px) só some em `lg` — o `pb` do <main> segue
+            // em `calc(78px + safe-area)` até lá. Então em `md` (onde o `fill`
+            // liga) o dock AINDA ocupa o rodapé e a conta precisa descontá-lo;
+            // descontar só os 40px de `py` cedo demais empurrava o workspace
+            // ~58px pra fora e passava o scroll pra página (o miolo que rolava).
             "--admin-content-h":
               "calc(100dvh - 56px - env(safe-area-inset-top) - 16px - 78px - env(safe-area-inset-bottom))",
             "@media (min-width: 48em)": {
+              // Tablet: `py` sobe pra 20px, mas o dock CONTINUA lá.
               "--admin-content-h":
-                "calc(100dvh - 56px - env(safe-area-inset-top) - 40px)",
+                "calc(100dvh - 56px - env(safe-area-inset-top) - 20px - 78px - env(safe-area-inset-bottom))",
             },
+            // Desktop: sidebar no lugar da topbar e sem dock → só os 40px de `py`.
             "@media (min-width: 62em)": { "--admin-content-h": "calc(100dvh - 40px)" },
           }}
         >
