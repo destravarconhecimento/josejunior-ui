@@ -67,6 +67,15 @@ export function Screen({
       // já desconta topbar e `BottomNav`; o fallback só cobre quem renderize fora
       // de um shell (ex.: storybook/teste).
       h={fill ? { md: "var(--admin-content-h, calc(100dvh - 132px))" } : undefined}
+      // O `maxH` é o que REALMENTE segura, e o `h` sozinho não segurava: `flex="1"`
+      // é `flex: 1 1 0%` — o `flex-basis: 0%` ANULA o `height` no eixo principal, e
+      // como o root é `minH="100vh"` (piso, não teto), quando o conteúdo passa da
+      // tela o root cresce e o `flex-grow` estica o corpo até o TAMANHO DO CONTEÚDO
+      // (a página rolava, o scroll interno morria). Com conteúdo curto isto não
+      // aparece — só quando a lista enche (ex.: thread longa do WhatsApp). O `maxH`
+      // é relativo à VIEWPORT (`100dvh`), então trava a altura mesmo que todos os
+      // ancestrais estiquem — não depende de nenhum deles ter altura definida.
+      maxH={fill ? { md: "var(--admin-content-h, calc(100dvh - 132px))" } : undefined}
     >
       <PageHeader
         title={title}
