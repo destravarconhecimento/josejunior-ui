@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Box, Flex, HStack, Text } from "@chakra-ui/react";
 import { BottomNav } from "./BottomNav";
+import { GroupRail } from "./GroupRail";
 import { MobileNav } from "./MobileNav";
 import { NavSearch } from "./NavSearch";
 import { TopNav } from "./TopNav";
@@ -136,45 +137,52 @@ export function TopBarShell({
         </HStack>
       </Flex>
 
-      <Box
-        as="main"
-        w="full"
-        maxW="1500px"
-        mx="auto"
-        px={{ base: 4, md: 7 }}
-        py={{ base: 4, md: 5 }}
-        pb={{ base: "calc(78px + env(safe-area-inset-bottom))", lg: 5 }}
-        flex="1"
-        minH={0}
-        display="flex"
-        flexDirection="column"
-        css={{
-          // Altura disponível pro conteúdo, já descontada a topbar e o padding
-          // do <main>. É o que o `PageBody fill` e o `MailClient` consomem para
-          // ocupar a tela inteira sem número mágico. Espelhado no `AppShell`.
-          //
-          // O DOCK (`BottomNav`, 78px) só some em `lg` — o `pb` do <main> segue
-          // em `calc(78px + safe-area)` até lá. Então a conta "sem dock" (que
-          // desconta só os 40px de `py`) TEM de começar em `lg` também, não em
-          // `md`: o `fill` liga em `md`, e se aqui já descontássemos o dock cedo
-          // demais o workspace passava ~58px do fundo e a PÁGINA rolava — o
-          // oposto do que o `fill` promete (era exatamente este o bug do miolo
-          // que rolava fora do maximizado).
-          "--admin-content-h":
-            "calc(100dvh - var(--admin-topbar-h) - 16px - 78px - env(safe-area-inset-bottom))",
-          "@media (min-width: 48em)": {
-            // Tablet: `py` sobe pra 20px (py md:5), mas o dock CONTINUA lá.
+      {/* Abaixo da topbar: a sub-navegação lateral do grupo (desktop) à esquerda
+          e o conteúdo à direita. A rail some abaixo de `md` e some quando não há
+          grupo casando — aí o <main> volta a ocupar a linha inteira. */}
+      <Flex direction="row" flex="1" minH={0} w="full" align="stretch">
+        <GroupRail sections={sections} />
+        <Box
+          as="main"
+          w="full"
+          maxW="1500px"
+          mx="auto"
+          minW={0}
+          px={{ base: 4, md: 7 }}
+          py={{ base: 4, md: 5 }}
+          pb={{ base: "calc(78px + env(safe-area-inset-bottom))", lg: 5 }}
+          flex="1"
+          minH={0}
+          display="flex"
+          flexDirection="column"
+          css={{
+            // Altura disponível pro conteúdo, já descontada a topbar e o padding
+            // do <main>. É o que o `PageBody fill` e o `MailClient` consomem para
+            // ocupar a tela inteira sem número mágico. Espelhado no `AppShell`.
+            //
+            // O DOCK (`BottomNav`, 78px) só some em `lg` — o `pb` do <main> segue
+            // em `calc(78px + safe-area)` até lá. Então a conta "sem dock" (que
+            // desconta só os 40px de `py`) TEM de começar em `lg` também, não em
+            // `md`: o `fill` liga em `md`, e se aqui já descontássemos o dock cedo
+            // demais o workspace passava ~58px do fundo e a PÁGINA rolava — o
+            // oposto do que o `fill` promete (era exatamente este o bug do miolo
+            // que rolava fora do maximizado).
             "--admin-content-h":
-              "calc(100dvh - var(--admin-topbar-h) - 20px - 78px - env(safe-area-inset-bottom))",
-          },
-          "@media (min-width: 62em)": {
-            // Desktop: dock some, `pb` volta a 20px → `py` simétrico de 40px.
-            "--admin-content-h": "calc(100dvh - var(--admin-topbar-h) - 40px)",
-          },
-        }}
-      >
-        {children}
-      </Box>
+              "calc(100dvh - var(--admin-topbar-h) - 16px - 78px - env(safe-area-inset-bottom))",
+            "@media (min-width: 48em)": {
+              // Tablet: `py` sobe pra 20px (py md:5), mas o dock CONTINUA lá.
+              "--admin-content-h":
+                "calc(100dvh - var(--admin-topbar-h) - 20px - 78px - env(safe-area-inset-bottom))",
+            },
+            "@media (min-width: 62em)": {
+              // Desktop: dock some, `pb` volta a 20px → `py` simétrico de 40px.
+              "--admin-content-h": "calc(100dvh - var(--admin-topbar-h) - 40px)",
+            },
+          }}
+        >
+          {children}
+        </Box>
+      </Flex>
 
       <BottomNav brand={brand} sections={sections} logoutSlot={logoutSlot} />
     </Flex>

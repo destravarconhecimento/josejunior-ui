@@ -26,6 +26,7 @@ export { ADMIN_STRUCTURAL_CSS } from "./theme/structural-css";
 export { AppShell } from "./shell/AppShell";
 export { TopBarShell } from "./shell/TopBarShell";
 export { TopNav } from "./shell/TopNav";
+export { GroupRail } from "./shell/GroupRail";
 export { NavSearch } from "./shell/NavSearch";
 export { NavBadgeLink } from "./shell/NavBadgeLink";
 export {
