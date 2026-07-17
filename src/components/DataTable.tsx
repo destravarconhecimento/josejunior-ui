@@ -33,6 +33,17 @@ const PAGE_SIZE = 25;
  *  - desktop: ocupa a altura disponível da tela (scroll interno, header sticky);
  *  - `actions` adiciona a coluna "Ações" à direita (editar/remover/etc.);
  *  - mobile: vira lista de CARDS (label: valor), organizada e sem scroll lateral.
+ *
+ * DUAS formas de ocupar a altura no desktop:
+ *  - `fill` (PREFERIDO): o card vira uma coluna flex e a região de scroll é
+ *    `flex=1 minH=0` — ela come EXATAMENTE a altura que sobra depois do que
+ *    estiver acima (KPIs, abas, filtros). Sem número mágico: quem mede é o
+ *    flexbox. Exige um ancestral com altura fechada — é o que o `Screen fill`
+ *    dá (bounda o corpo ao `--admin-content-h` do shell). É o caminho "inteligente".
+ *  - `fillHeight` (LEGADO): auto-limita à viewport com um offset em px chutado
+ *    (`calc(100vh - Npx)`). Não sabe o que tem acima → sobra espaço em telas
+ *    altas. Mantido pra não mexer nas dezenas de telas que ainda o usam; telas
+ *    novas devem usar `Screen fill` + `DataTable fill`.
  */
 export function DataTable<T>({
   columns,
@@ -44,6 +55,7 @@ export function DataTable<T>({
   actions,
   pageSize = PAGE_SIZE,
   fillHeight = true,
+  fill = false,
   toolbar,
   paginate = true,
   onReorder,
@@ -60,8 +72,14 @@ export function DataTable<T>({
   actions?: (row: T) => ReactNode;
   pageSize?: number;
   /** Desktop: limita à altura da viewport com scroll interno. `number` = offset
-   *  em px a descontar (default 340; use maior em telas com abas). `false` solta. */
+   *  em px a descontar (default 340; use maior em telas com abas). `false` solta.
+   *  LEGADO — prefira `fill` num `Screen fill` (não chuta offset). Ignorado se `fill`. */
   fillHeight?: boolean | number;
+  /** Desktop: ocupa a altura livre via flexbox (scroll interno), medindo o que
+   *  sobra depois dos KPIs/abas/filtros — sem número mágico. Precisa de um
+   *  ancestral com altura fechada (use dentro de `Screen fill`). Desligado no
+   *  mobile. Tem precedência sobre `fillHeight`. */
+  fill?: boolean;
   /** Barra (busca/filtros) COLADA no topo do card, acima do cabeçalho. */
   toolbar?: ReactNode;
   /** false = sem paginação: mostra TODAS as linhas numa página só (com scroll). */
@@ -100,16 +118,32 @@ export function DataTable<T>({
   }
 
   const toolbarNode = toolbar ? (
-    <Box px={3} py={2.5} borderBottomWidth="1px" borderColor="var(--admin-divider)">
+    <Box px={3} py={2.5} borderBottomWidth="1px" borderColor="var(--admin-divider)" flexShrink={0}>
       {toolbar}
     </Box>
   ) : null;
 
   if (rows.length === 0) {
     return (
-      <Box className="admin-card" overflow="hidden" p={0}>
+      <Box
+        className="admin-card"
+        overflow="hidden"
+        p={0}
+        display={fill ? { md: "flex" } : undefined}
+        flexDirection={fill ? { md: "column" } : undefined}
+        flex={fill ? { md: "1" } : undefined}
+        minH={fill ? { md: 0 } : undefined}
+      >
         {toolbarNode}
-        <Box p={6}>{empty ?? <EmptyState title="Nada por aqui ainda." />}</Box>
+        <Box
+          p={6}
+          flex={fill ? { md: "1" } : undefined}
+          display={fill ? { md: "flex" } : undefined}
+          alignItems={fill ? { md: "center" } : undefined}
+          justifyContent={fill ? { md: "center" } : undefined}
+        >
+          {empty ?? <EmptyState title="Nada por aqui ainda." />}
+        </Box>
       </Box>
     );
   }
@@ -127,6 +161,7 @@ export function DataTable<T>({
       bg="var(--admin-surface)"
       flexWrap="wrap"
       gap={2}
+      flexShrink={0}
     >
       <Text fontSize="xs" color="var(--admin-text-soft)">
         {from}–{to} de {rows.length}
@@ -148,15 +183,28 @@ export function DataTable<T>({
   );
 
   return (
-    <Box className="admin-card" overflow="hidden" p={0}>
+    <Box
+      className="admin-card"
+      overflow="hidden"
+      p={0}
+      // `fill`: o card vira coluna flex pra a região de scroll poder crescer
+      // dentro dele (o ancestral fechado é o `Screen fill`). Desligado no mobile.
+      display={fill ? { md: "flex" } : undefined}
+      flexDirection={fill ? { md: "column" } : undefined}
+      flex={fill ? { md: "1" } : undefined}
+      minH={fill ? { md: 0 } : undefined}
+    >
       {toolbarNode}
       {/* Desktop: tabela com header sticky e altura da tela */}
       <Box
         display={{ base: "none", md: "block" }}
         overflowY="auto"
         overflowX="auto"
-        maxH={fillHeight ? `calc(100vh - ${typeof fillHeight === "number" ? fillHeight : 340}px)` : undefined}
-        minH={fillHeight ? "200px" : undefined}
+        // `fill` = flexbox mede a altura livre (sem número mágico); senão cai no
+        // legado `fillHeight` (offset chutado da viewport).
+        flex={fill ? { md: "1" } : undefined}
+        maxH={!fill && fillHeight ? `calc(100vh - ${typeof fillHeight === "number" ? fillHeight : 340}px)` : undefined}
+        minH={fill ? { md: 0 } : fillHeight ? "200px" : undefined}
       >
         <Table.Root size={dense ? "sm" : "md"} width="full">
           <Table.Header position="sticky" top={0} zIndex={1} bg="var(--admin-surface)" boxShadow="0 1px 0 var(--admin-divider)">
