@@ -35,6 +35,7 @@ export function TopBarShell({
   searchSlot,
   utilitiesSlot,
   localeSlot,
+  topbarVariant = "glass",
   children,
 }: {
   brand: Brand;
@@ -56,16 +57,43 @@ export function TopBarShell({
   utilitiesSlot?: ReactNode;
   /** Seletor de idioma (só quando o tenant é multilíngue). */
   localeSlot?: ReactNode;
+  /**
+   * Cor da topbar: `glass` (padrão — superfície translúcida, painel staff/sistema)
+   * ou `brand` (painel do TENANT: fundo na cor PRIMÁRIA da marca, navegação clara).
+   * A GroupRail e o conteúdo seguem no fundo claro do painel — só o header muda.
+   * Ver `.admin-topbar[data-variant]` no CSS estrutural.
+   */
+  topbarVariant?: "glass" | "brand";
   children: ReactNode;
 }) {
+  const onBrand = topbarVariant === "brand";
   // Só o ÍCONE da marca (o `logoUrl` já é a variante ícone — o horizontal com
   // nome é o `wideLogoUrl`). O nome sai do header de propósito: ele se repete no
   // título da aba e a topbar precisa do espaço horizontal pros grupos.
-  const brandMark = brand.logoUrl ? (
-    <AdminBrandLogo logoUrl={brand.logoUrl} brandName={brand.name} height={28} maxWidth={40} />
-  ) : (
-    <AdminCrest initials={initialsFrom(brand.name)} size={28} />
-  );
+  //
+  // Na topbar de marca (fundo na cor do tenant) o ícone precisa CONTRASTAR: usa a
+  // variante escura se houver, senão pinta o ícone de branco por filtro — mesma
+  // tática do sidebar do `AppShell`. Sem logo nenhum, cai no crest de iniciais.
+  const brandMark =
+    onBrand && (brand.darkLogoUrl || brand.logoUrl) ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={brand.darkLogoUrl || brand.logoUrl}
+        alt={brand.name}
+        style={{
+          height: 28,
+          width: "auto",
+          maxWidth: 40,
+          objectFit: "contain",
+          display: "block",
+          filter: brand.darkLogoUrl ? "none" : "brightness(0) invert(1)",
+        }}
+      />
+    ) : brand.logoUrl ? (
+      <AdminBrandLogo logoUrl={brand.logoUrl} brandName={brand.name} height={28} maxWidth={40} />
+    ) : (
+      <AdminCrest initials={initialsFrom(brand.name)} size={28} />
+    );
 
   return (
     <Flex
@@ -81,6 +109,7 @@ export function TopBarShell({
       <Flex
         as="header"
         className="admin-topbar"
+        data-variant={onBrand ? "brand" : undefined}
         position="sticky"
         top={0}
         zIndex={50}
@@ -90,6 +119,7 @@ export function TopBarShell({
         pt={{ base: "env(safe-area-inset-top)", lg: 0 }}
         px={{ base: 3, lg: 4 }}
         flexShrink={0}
+        color={onBrand ? "white" : undefined}
       >
         {/* mobile: hambúrguer abre o drawer com o menu completo */}
         <Box display={{ base: "block", lg: "none" }}>
@@ -107,7 +137,7 @@ export function TopBarShell({
 
         <HStack ml="auto" gap={2} align="center" flexShrink={0}>
           <Box display={{ base: "none", md: "block" }} w={{ md: "200px", xl: "260px" }}>
-            <NavSearch sections={sections} />
+            <NavSearch sections={sections} onDark={onBrand} />
           </Box>
           {searchSlot}
           {utilitiesSlot}
@@ -116,7 +146,7 @@ export function TopBarShell({
             <Text
               display={{ base: "none", xl: "block" }}
               fontSize="10px"
-              color="var(--admin-text-soft)"
+              color={onBrand ? "rgba(255,255,255,0.7)" : "var(--admin-text-soft)"}
               lineClamp={1}
               title={`Versão ${version}`}
             >
@@ -130,6 +160,7 @@ export function TopBarShell({
             accountHref={accountHref}
             siteHref={siteHref}
             siteLabel={siteLabel}
+            onDark={onBrand}
             // Só o avatar + seta: o nome já aparece dentro do dropdown, e aqui
             // ele competia por espaço com os grupos do menu.
             compact

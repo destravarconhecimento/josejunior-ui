@@ -44,6 +44,19 @@ export const ADMIN_STRUCTURAL_CSS = `
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+/* Navegação DENTRO da topbar de marca: os botões de grupo (TopNav) e o
+   hambúrguer (MobileNav) ficam claros sobre a cor do tenant. O dropdown e o
+   drawer são portados pra fora da topbar e seguem no tema claro — só os
+   GATILHOS mudam. A GroupRail vive ABAIXO da topbar (no fundo do painel), então
+   este seletor descendente não a alcança: ela continua no tema claro, de
+   propósito. */
+.admin-topbar[data-variant="brand"] .admin-navbtn { color: rgba(255, 255, 255, 0.82); }
+.admin-topbar[data-variant="brand"] .admin-navbtn:hover,
+.admin-topbar[data-variant="brand"] .admin-navbtn[data-open="true"],
+.admin-topbar[data-variant="brand"] .admin-navbtn[data-active="true"] {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
 .admin-navbtn {
   cursor: pointer;
   color: var(--admin-text-soft);
