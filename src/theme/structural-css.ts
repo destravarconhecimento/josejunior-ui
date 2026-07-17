@@ -35,12 +35,19 @@ export const ADMIN_STRUCTURAL_CSS = `
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
-/* Topbar de MARCA (portal do cliente): fundo na cor primária do tenant, conteúdo
-   claro (logo em branco, sino, avatar). Opt-in via topbarVariant="brand" — o
-   painel staff/sistema segue com a topbar "vidro" acima. */
+/* Topbar de MARCA (portal do cliente): MESMO tratamento do sidebar escuro do
+   AppShell (o José preferiu essa cor de fundo à primária chapada) — base
+   --admin-dark com brilhos radiais da primária/accent. Só que na HORIZONTAL: os
+   brilhos entram pelas PONTAS (primária à esquerda, junto do logo; accent à
+   direita, nos utilitários), porque a versão vertical do sidebar não casa numa
+   barra baixa e larga. Conteúdo claro (logo, sino, avatar) — igual ao sidebar.
+   Opt-in via topbarVariant="brand"; o painel staff/sistema segue "vidro" acima. */
 .admin-topbar[data-variant="brand"] {
-  background: var(--admin-primary);
-  border-bottom: 1px solid color-mix(in srgb, #000 16%, var(--admin-primary));
+  background:
+    radial-gradient(45% 320% at 0% 50%, color-mix(in srgb, var(--admin-primary) 36%, transparent), transparent 62%),
+    radial-gradient(42% 300% at 100% 50%, color-mix(in srgb, var(--admin-accent) 20%, transparent), transparent 62%),
+    linear-gradient(180deg, var(--admin-dark), color-mix(in srgb, var(--admin-dark) 82%, #000));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }

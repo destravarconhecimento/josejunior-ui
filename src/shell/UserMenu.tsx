@@ -41,6 +41,7 @@ export function UserMenu({
   accountHref,
   siteHref,
   siteLabel,
+  version,
   onDark = false,
   compact = false,
 }: {
@@ -54,6 +55,8 @@ export function UserMenu({
   siteHref?: string;
   /** Rótulo do link do site (default "Ir para o site"). */
   siteLabel?: string;
+  /** Versão do app, discreta no rodapé do dropdown (fora da topbar, que ficava poluída). */
+  version?: string;
   /** Está sobre fundo colorido (topbar de marca) → nome/seta claros. O
    *  `admin-navbtn` pinta de texto escuro, então sai de cena aqui. */
   onDark?: boolean;
@@ -139,6 +142,11 @@ export function UserMenu({
                 <Box borderTopWidth="1px" borderColor="var(--admin-divider)" pt={2}>
                   {logoutSlot}
                 </Box>
+              ) : null}
+              {version ? (
+                <Text fontSize="10px" color="var(--admin-text-soft)" textAlign="center" title={`Versão ${version}`}>
+                  v{version}
+                </Text>
               ) : null}
             </Stack>
           </Menu.Content>

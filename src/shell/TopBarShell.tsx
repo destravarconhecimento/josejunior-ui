@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Box, Flex, HStack, Text } from "@chakra-ui/react";
+import { Box, Flex, HStack } from "@chakra-ui/react";
 import { BottomNav } from "./BottomNav";
 import { GroupRail } from "./GroupRail";
 import { MobileNav } from "./MobileNav";
@@ -142,17 +142,6 @@ export function TopBarShell({
           {searchSlot}
           {utilitiesSlot}
           {localeSlot}
-          {version ? (
-            <Text
-              display={{ base: "none", xl: "block" }}
-              fontSize="10px"
-              color={onBrand ? "rgba(255,255,255,0.7)" : "var(--admin-text-soft)"}
-              lineClamp={1}
-              title={`Versão ${version}`}
-            >
-              v{version}
-            </Text>
-          ) : null}
           <UserMenu
             user={user}
             logoutSlot={logoutSlot}
@@ -160,6 +149,9 @@ export function TopBarShell({
             accountHref={accountHref}
             siteHref={siteHref}
             siteLabel={siteLabel}
+            // A versão saiu do header (poluía) e passou pro rodapé do dropdown do
+            // usuário — aparece só ao abrir "meu perfil" no cantinho.
+            version={version}
             onDark={onBrand}
             // Só o avatar + seta: o nome já aparece dentro do dropdown, e aqui
             // ele competia por espaço com os grupos do menu.
