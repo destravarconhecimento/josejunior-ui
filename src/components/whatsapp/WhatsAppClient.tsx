@@ -928,6 +928,13 @@ function ChatWorkspace({
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkErr, setLinkErr] = useState<string | null>(null);
 
+  // Vínculo + notas vivem num MODAL, não num painel fixo sobre a thread: fixo,
+  // eles comiam ~150px de altura entre o cabeçalho e as mensagens (e o campo de
+  // notas crescia), empurrando o composer pra fora e passando o scroll pra
+  // página — o oposto do que o `fill` do `Screen` promete. São dados de apoio
+  // que se consultam de vez em quando; a conversa é o que a tela é.
+  const [detalhesOpen, setDetalhesOpen] = useState(false);
+
   const [notas, setNotas] = useState("");
   const [notasBusy, setNotasBusy] = useState(false);
   const [notasMsg, setNotasMsg] = useState<string | null>(null);
@@ -1015,6 +1022,9 @@ function ChatWorkspace({
       setLinkOptions([]);
       setLinkFilter(null);
       setLinkErr(null);
+      // O modal é da conversa que estava aberta — trocar de fio fecha-o, senão
+      // ficava a mostrar o vínculo/notas do contacto anterior.
+      setDetalhesOpen(false);
       const c = chats.find((x) => x.chatId === chatId);
       setNotas(c?.notas ?? "");
       setNotasMsg(null);
@@ -1082,9 +1092,11 @@ function ChatWorkspace({
     return () => window.removeEventListener("keydown", onKey);
   }, [list, selectedId, openChat]);
 
-  // busca de vínculo (debounced) — pré-carrega com o nome do contato
+  // busca de vínculo (debounced) — pré-carrega com o nome do contato. Só com o
+  // modal aberto: antes corria a cada conversa aberta, batendo no servidor por
+  // um resultado que ninguém pediu para ver.
   useEffect(() => {
-    if (!selected || selected.vinculo) return;
+    if (!detalhesOpen || !selected || selected.vinculo) return;
     const term = linkQuery.trim();
     let alive = true;
     setLinkSearching(true);
@@ -1102,7 +1114,7 @@ function ChatWorkspace({
       clearTimeout(t);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linkQuery, selected?.chatId, selected?.vinculo]);
+  }, [detalhesOpen, linkQuery, selected?.chatId, selected?.vinculo]);
 
   useEffect(() => {
     if (selected && !selected.vinculo) {
@@ -1209,6 +1221,14 @@ function ChatWorkspace({
     if (r.ok) callbacks.onActualizar();
   }
 
+  /** `filtro` vem do menu de Ações ("Vincular a lead"/"…a cliente"). */
+  function abrirDetalhes(filtro: "lead" | "tenant" | null = null) {
+    setLinkFilter(filtro);
+    setLinkErr(null);
+    setNotasMsg(null);
+    setDetalhesOpen(true);
+  }
+
   function handlePickVinculo(value: string) {
     const opt = linkOptions.find((o) => o.value === value);
     if (!selected || !opt) return;
@@ -1226,6 +1246,9 @@ function ChatWorkspace({
       }
       setLinkQuery("");
       setLinkOptions([]);
+      // Vinculou: o modal cumpriu o que abriu para fazer. O card do vínculo
+      // fica no chip do cabeçalho, então não há o que ficar a ver aqui.
+      setDetalhesOpen(false);
       callbacks.onActualizar();
     })();
   }
@@ -1272,23 +1295,23 @@ function ChatWorkspace({
           onClick: () => toggleFixar(selected),
         },
         ...(selected.vinculo
-          ? []
+          ? [
+              {
+                label: "Ver vínculo e notas",
+                icon: <Link2 size={14} />,
+                onClick: () => abrirDetalhes(),
+              },
+            ]
           : [
               {
                 label: "Vincular a lead",
                 icon: <Link2 size={14} />,
-                onClick: () => {
-                  setLinkFilter("lead");
-                  linkInputRef.current?.focus();
-                },
+                onClick: () => abrirDetalhes("lead"),
               },
               {
                 label: "Vincular a cliente",
                 icon: <Link2 size={14} />,
-                onClick: () => {
-                  setLinkFilter("tenant");
-                  linkInputRef.current?.focus();
-                },
+                onClick: () => abrirDetalhes("tenant"),
               },
             ]),
       ]
@@ -1462,6 +1485,20 @@ function ChatWorkspace({
                   </Text>
                 )}
               </Stack>
+              {/* Vínculo: chip quando já ligado, convite quando não. Abre o
+                  modal — o painel inline saía sempre aberto e roubava a altura
+                  da thread. */}
+              <Button
+                tone={selected.vinculo ? "outline" : "ghost"}
+                size="sm"
+                onClick={() => abrirDetalhes()}
+                aria-label={selected.vinculo ? "Ver vínculo e notas" : "Vincular a lead ou cliente"}
+              >
+                <Link2 size={15} style={{ marginRight: 6, flexShrink: 0 }} />
+                <Text as="span" fontSize="xs" lineClamp={1} maxW="150px">
+                  {selected.vinculo ? selected.vinculo.nome : "Vincular"}
+                </Text>
+              </Button>
               <Box
                 as="button"
                 aria-label={selected.favorito ? "Desfavoritar" : "Favoritar"}
@@ -1475,64 +1512,6 @@ function ChatWorkspace({
               </Button>
               <ActionMenu label="Ações" items={menuItems} size="sm" />
             </HStack>
-
-            {/* painel de vínculo (lead/cliente) + notas */}
-            <Box px={4} py={3} borderBottomWidth="1px" borderColor="var(--admin-border)" bg="var(--admin-surface-2)">
-              <Stack gap={3}>
-                {selected.vinculo ? (
-                  <LinkedCard vinculo={selected.vinculo} onUnlink={() => void handleUnlink()} busy={linkBusy} />
-                ) : (
-                  <Stack gap={2}>
-                    <Input
-                      ref={linkInputRef}
-                      value={linkQuery}
-                      onChange={(e) => setLinkQuery(e.target.value)}
-                      placeholder="Buscar por nome, empresa, e-mail ou telefone…"
-                      size="sm"
-                    />
-                    <SearchSelect
-                      label="Vincular a lead ou cliente"
-                      value=""
-                      onChange={handlePickVinculo}
-                      options={linkSelectOptions}
-                      placeholder={linkSearching ? "Buscando…" : "Selecione um resultado…"}
-                      emptyLabel={linkSearching ? "Buscando…" : "Nenhum resultado — ajuste a busca acima."}
-                      clearable={false}
-                    />
-                    {linkErr ? (
-                      <Text fontSize="xs" color="red.600">
-                        {linkErr}
-                      </Text>
-                    ) : null}
-                  </Stack>
-                )}
-
-                {callbacks.onGuardarNotas ? (
-                  <Stack gap={1.5}>
-                    <Text fontSize="xs" fontWeight="700" color="var(--admin-text-soft)">
-                      Notas internas
-                    </Text>
-                    <Textarea
-                      rows={2}
-                      value={notas}
-                      onChange={(e) => setNotas(e.target.value)}
-                      placeholder="Só a equipe vê…"
-                      size="sm"
-                    />
-                    <HStack justify="flex-end" gap={2}>
-                      {notasMsg ? (
-                        <Text fontSize="xs" color="#15803d">
-                          {notasMsg}
-                        </Text>
-                      ) : null}
-                      <Button size="xs" tone="outline" onClick={saveNotas} loading={notasBusy}>
-                        Salvar nota
-                      </Button>
-                    </HStack>
-                  </Stack>
-                ) : null}
-              </Stack>
-            </Box>
 
             {/* mensagens sobre o fundo do WhatsApp */}
             <Box ref={scrollRef} flex="1" minH={0} overflowY="auto" p={4} bg={WA_CREAM} backgroundImage={`url("${WA_DOODLE}")`}>
@@ -1615,6 +1594,76 @@ function ChatWorkspace({
           </>
         )}
       </Box>
+
+      {/* Vínculo + notas: a gaveta de apoio da conversa. */}
+      <Modal
+        open={detalhesOpen && !!selected}
+        onClose={() => setDetalhesOpen(false)}
+        title="Vínculo e notas"
+        footer={
+          <Button tone="outline" onClick={() => setDetalhesOpen(false)}>
+            Fechar
+          </Button>
+        }
+      >
+        <Stack gap={5}>
+          <Stack gap={2}>
+            {selected?.vinculo ? (
+              <LinkedCard vinculo={selected.vinculo} onUnlink={() => void handleUnlink()} busy={linkBusy} />
+            ) : (
+              <>
+                <Input
+                  ref={linkInputRef}
+                  value={linkQuery}
+                  onChange={(e) => setLinkQuery(e.target.value)}
+                  placeholder="Buscar por nome, empresa, e-mail ou telefone…"
+                  size="sm"
+                  autoFocus
+                />
+                <SearchSelect
+                  label="Vincular a lead ou cliente"
+                  value=""
+                  onChange={handlePickVinculo}
+                  options={linkSelectOptions}
+                  placeholder={linkSearching ? "Buscando…" : "Selecione um resultado…"}
+                  emptyLabel={linkSearching ? "Buscando…" : "Nenhum resultado — ajuste a busca acima."}
+                  clearable={false}
+                />
+              </>
+            )}
+            {linkErr ? (
+              <Text fontSize="xs" color="red.600">
+                {linkErr}
+              </Text>
+            ) : null}
+          </Stack>
+
+          {callbacks.onGuardarNotas ? (
+            <Stack gap={1.5}>
+              <Text fontSize="xs" fontWeight="700" color="var(--admin-text-soft)">
+                Notas internas
+              </Text>
+              <Textarea
+                rows={4}
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                placeholder="Só a equipe vê…"
+                size="sm"
+              />
+              <HStack justify="flex-end" gap={2}>
+                {notasMsg ? (
+                  <Text fontSize="xs" color="#15803d">
+                    {notasMsg}
+                  </Text>
+                ) : null}
+                <Button size="xs" tone="outline" onClick={saveNotas} loading={notasBusy}>
+                  Salvar nota
+                </Button>
+              </HStack>
+            </Stack>
+          ) : null}
+        </Stack>
+      </Modal>
 
       {confirmDialog}
     </Flex>
