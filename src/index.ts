@@ -91,6 +91,11 @@ export {
   type WhatsAppCallbacks,
 } from "./components/whatsapp/WhatsAppClient";
 export {
+  WhatsAppFab,
+  type WhatsAppFabProps,
+  type WhatsAppFabCallbacks,
+} from "./components/whatsapp/WhatsAppFab";
+export {
   GoogleCredentialForm,
   type GoogleCredentialSaveResult,
   type GoogleRedirectUri,

@@ -217,8 +217,8 @@ export type WhatsAppClientProps = {
 
 /* ── Constantes visuais (identidade real do WhatsApp) ───────── */
 
-const WA_CREAM = "#efeae2";
-const WA_DOODLE =
+export const WA_CREAM = "#efeae2";
+export const WA_DOODLE =
   "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='84'%20height='84'%3E%3Cg%20fill='none'%20stroke='%23000'%20stroke-opacity='0.035'%20stroke-width='1.4'%3E%3Ccircle%20cx='18'%20cy='20'%20r='7'/%3E%3Cpath%20d='M46%2012q7%207%200%2014'/%3E%3Cpath%20d='M60%2054l7%207'/%3E%3Ccircle%20cx='30'%20cy='62'%20r='3.5'/%3E%3Cpath%20d='M8%2052h10'/%3E%3C/g%3E%3C/svg%3E";
 const WA_SENT = "#d9fdd3";
 const WA_RECV = "#ffffff";
@@ -253,7 +253,7 @@ function fmtPhone(peer: string): string {
   return `+${d}`;
 }
 
-function displayName(chat: WhatsAppChat): string {
+export function displayName(chat: WhatsAppChat): string {
   return chat.savedName?.trim() || chat.contactName?.trim() || (chat.isGroup ? "Grupo" : fmtPhone(chat.peer));
 }
 
@@ -294,7 +294,7 @@ function dayLabel(iso: string): string {
   });
 }
 
-function groupByDay<T extends { at: string }>(items: T[]): { label: string; items: T[] }[] {
+export function groupByDay<T extends { at: string }>(items: T[]): { label: string; items: T[] }[] {
   const groups: { label: string; items: T[] }[] = [];
   for (const m of items) {
     const label = dayLabel(m.at);
@@ -334,7 +334,7 @@ function resolveMediaKind(m: Pick<WhatsAppMessage, "mediaType" | "type">): strin
   return (m.mediaType || m.type || "").toLowerCase();
 }
 
-type UiMessage = WhatsAppMessage & { pendingLocal?: boolean };
+export type UiMessage = WhatsAppMessage & { pendingLocal?: boolean };
 
 /* ============================================================
  * Subcomponentes
@@ -390,7 +390,7 @@ function CategoryButton({
   );
 }
 
-function ChatRow({
+export function ChatRow({
   chat,
   active,
   busy,
@@ -578,7 +578,7 @@ function renderMedia(m: UiMessage): ReactNode {
   );
 }
 
-function MessageBubble({
+export function MessageBubble({
   m,
   isGroup,
   assistantName,
