@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type DragEvent, type ReactNode } from "react";
-import { Box, HStack, Stack, Table, Text } from "@chakra-ui/react";
+import { Box, Checkbox, HStack, Stack, Table, Text } from "@chakra-ui/react";
 import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { EmptyState } from "./EmptyState";
 import { Button } from "./Button";
@@ -14,6 +14,18 @@ export type Column<T> = {
   width?: string;
   /** No mobile (visão em cards) esconde células pouco importantes. */
   hideOnMobile?: boolean;
+};
+
+/**
+ * Seleção em massa (opt-in): coluna de checkbox à esquerda + "selecionar todos".
+ * `selectedKeys` são as chaves marcadas (mesmo formato de `getRowKey`); o header
+ * marca/desmarca TODAS as linhas FILTRADAS (todas as páginas), não só a visível.
+ */
+export type Selection = {
+  selectedKeys: Set<string | number>;
+  onToggle: (key: string | number, checked: boolean) => void;
+  /** `keys` = todas as linhas filtradas (todas as páginas); `checked` = novo estado. */
+  onToggleAll: (keys: Array<string | number>, checked: boolean) => void;
 };
 
 /** Container de tabela (card + scroll horizontal) p/ tabelas custom. */
@@ -60,6 +72,7 @@ export function DataTable<T>({
   paginate = true,
   onReorder,
   dense = false,
+  selection,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -88,6 +101,8 @@ export function DataTable<T>({
   onReorder?: (orderedKeys: Array<string | number>) => void;
   /** Linhas compactas (cabe mais na tela) — telas de alta densidade. */
   dense?: boolean;
+  /** Seleção em massa (checkbox por linha + selecionar todos). Opt-in. */
+  selection?: Selection;
 }) {
   const [page, setPage] = useState(0);
   const [dragKey, setDragKey] = useState<string | number | null>(null);
@@ -101,6 +116,26 @@ export function DataTable<T>({
   );
   const from = rows.length === 0 ? 0 : current * effPageSize + 1;
   const to = Math.min(rows.length, (current + 1) * effPageSize);
+
+  // Seleção em massa: "selecionar todos" abrange TODAS as linhas filtradas (todas
+  // as páginas), não só a visível — por isso mapeia `rows` inteiro, não `visible`.
+  const allKeys: Array<string | number> = selection ? rows.map((r, i) => getRowKey(r, i)) : [];
+  const selCount = selection ? allKeys.filter((k) => selection.selectedKeys.has(k)).length : 0;
+  const allChecked = selCount > 0 && selCount === allKeys.length;
+  const someChecked = selCount > 0 && !allChecked;
+
+  const rowCheckbox = (rowKey: string | number) =>
+    selection ? (
+      <Checkbox.Root
+        size="sm"
+        checked={selection.selectedKeys.has(rowKey)}
+        onCheckedChange={(e) => selection.onToggle(rowKey, e.checked === true)}
+        aria-label="Selecionar linha"
+      >
+        <Checkbox.HiddenInput />
+        <Checkbox.Control />
+      </Checkbox.Root>
+    ) : null;
 
   function handleDrop(targetKey: string | number) {
     const dk = dragKey;
@@ -209,6 +244,19 @@ export function DataTable<T>({
         <Table.Root size={dense ? "sm" : "md"} width="full">
           <Table.Header position="sticky" top={0} zIndex={1} bg="var(--admin-surface)" boxShadow="0 1px 0 var(--admin-divider)">
             <Table.Row>
+              {selection ? (
+                <Table.ColumnHeader width="40px">
+                  <Checkbox.Root
+                    size="sm"
+                    checked={allChecked ? true : someChecked ? "indeterminate" : false}
+                    onCheckedChange={(e) => selection.onToggleAll(allKeys, e.checked === true)}
+                    aria-label="Selecionar todos"
+                  >
+                    <Checkbox.HiddenInput />
+                    <Checkbox.Control />
+                  </Checkbox.Root>
+                </Table.ColumnHeader>
+              ) : null}
               {onReorder ? <Table.ColumnHeader width="34px" /> : null}
               {columns.map((c) => (
                 <Table.ColumnHeader
@@ -252,7 +300,8 @@ export function DataTable<T>({
           <Table.Body>
             {visible.map((row, i) => {
               const rowKey = getRowKey(row, i);
-              const sel = selectedKey != null && rowKey === selectedKey;
+              const checked = selection?.selectedKeys.has(rowKey) ?? false;
+              const sel = (selectedKey != null && rowKey === selectedKey) || checked;
               const isOver = onReorder != null && dragKey != null && overKey === rowKey && dragKey !== rowKey;
               return (
               <Table.Row
@@ -270,6 +319,11 @@ export function DataTable<T>({
                     }
                   : {})}
               >
+                {selection ? (
+                  <Table.Cell width="40px" onClick={(e) => e.stopPropagation()}>
+                    {rowCheckbox(rowKey)}
+                  </Table.Cell>
+                ) : null}
                 {onReorder ? (
                   <Table.Cell
                     width="34px"
@@ -311,21 +365,32 @@ export function DataTable<T>({
 
       {/* Mobile: cards empilhados (sem scroll lateral) */}
       <Stack display={{ base: "flex", md: "none" }} gap={0}>
-        {visible.map((row, i) => (
+        {visible.map((row, i) => {
+          const rowKey = getRowKey(row, i);
+          const checked = selection?.selectedKeys.has(rowKey) ?? false;
+          const hi = (selectedKey != null && rowKey === selectedKey) || checked;
+          return (
           <Box
-            key={getRowKey(row, i)}
+            key={rowKey}
             px={4}
             py={3}
             borderBottomWidth="1px"
             borderColor="var(--admin-divider)"
             onClick={onRowClick ? () => onRowClick(row) : undefined}
             cursor={onRowClick ? "pointer" : undefined}
-            bg={selectedKey != null && getRowKey(row, i) === selectedKey ? "rgba(202,138,4,0.10)" : undefined}
+            bg={hi ? "rgba(202,138,4,0.10)" : undefined}
             _active={onRowClick ? { bg: "var(--admin-nav-hover)" } : undefined}
           >
             <Stack gap={1.5}>
-              {/* primeira coluna = título do card */}
-              <Box>{cell(columns[0], row)}</Box>
+              {/* primeira coluna = título do card (com checkbox de seleção à esquerda) */}
+              {selection ? (
+                <HStack gap={2} align="flex-start">
+                  <Box onClick={(e) => e.stopPropagation()} pt={0.5}>{rowCheckbox(rowKey)}</Box>
+                  <Box flex="1" minW={0}>{cell(columns[0], row)}</Box>
+                </HStack>
+              ) : (
+                <Box>{cell(columns[0], row)}</Box>
+              )}
               {columns.slice(1).filter((c) => !c.hideOnMobile).map((c) => (
                 <HStack key={c.key} gap={2} fontSize="sm" align="baseline">
                   <Text fontSize="xs" color="var(--admin-text-soft)" minW="90px" flexShrink={0}>
@@ -341,7 +406,8 @@ export function DataTable<T>({
               ) : null}
             </Stack>
           </Box>
-        ))}
+          );
+        })}
       </Stack>
 
       {footer}
