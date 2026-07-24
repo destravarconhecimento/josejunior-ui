@@ -37,6 +37,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { AccountSelector } from "../AccountSelector";
 import { ActionMenu } from "../ActionMenu";
 import { Tag } from "../Badge";
 import { Button } from "../Button";
@@ -408,7 +409,6 @@ export function MailClient(props: {
     return map;
   }, [props.messages]);
   const totalUnread = Object.values(unreadByAccount).reduce((a, b) => a + b, 0);
-  const monoAccount = inboxAccounts.length === 1 ? inboxAccounts[0] : null;
   // Gmail conecta por CONTA (não pelo `conn.provider`, que é o editor do Resend).
   const gmailConnected = props.accounts.some((a) => a.provider === "gmail");
   const anyConnected = Boolean(props.conn.provider) || gmailConnected;
@@ -435,35 +435,20 @@ export function MailClient(props: {
         title={props.title ?? "Email"}
         titleAfter={
           view === "inbox" && hasAccounts ? (
-            inboxAccounts.length > 1 ? (
-              <Box w={{ base: "158px", md: "236px" }}>
-                <FormSelect
-                  value={accountId}
-                  onChange={(e) => setAccountId(e.currentTarget.value)}
-                  options={[
-                    {
-                      value: ALL_ACCOUNTS,
-                      label: `📥 Todas as contas${totalUnread ? ` (${totalUnread})` : ""}`,
-                    },
-                    ...inboxAccounts.map((a) => ({
-                      value: a.id,
-                      label: `${a.id === primaryId ? "★ " : ""}${a.address}${unreadByAccount[a.id] ? ` (${unreadByAccount[a.id]})` : ""}`,
-                    })),
-                  ]}
-                />
-              </Box>
-            ) : monoAccount ? (
-              <Text
-                fontSize="sm"
-                fontWeight="600"
-                color="var(--admin-text-soft)"
-                truncate
-                maxW={{ base: "180px", md: "300px" }}
-                title={monoAccount.address}
-              >
-                {monoAccount.address}
-              </Text>
-            ) : null
+            <AccountSelector
+              value={accountId}
+              onChange={setAccountId}
+              allValue={ALL_ACCOUNTS}
+              allLabel="Todas as contas"
+              allCount={totalUnread}
+              options={inboxAccounts.map((a) => ({
+                id: a.id,
+                label: a.address,
+                avatarName: a.address,
+                count: unreadByAccount[a.id] ?? 0,
+                starred: a.id === primaryId,
+              }))}
+            />
           ) : null
         }
         actions={

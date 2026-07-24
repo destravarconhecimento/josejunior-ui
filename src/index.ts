@@ -127,6 +127,7 @@ export { rowMatchesQuery } from "./search";
 export { InlineSelect, type InlineSelectOption } from "./components/InlineSelect";
 export { SearchSelect, type SearchSelectOption } from "./components/SearchSelect";
 export { MonthPicker } from "./components/MonthPicker";
+export { AccountSelector, type AccountSelectorOption } from "./components/AccountSelector";
 export { ActionMenu, type ActionMenuItem } from "./components/ActionMenu";
 export { LocaleSelector, type LocaleOption } from "./components/LocaleSelector";
 export { FlagIcon } from "./components/FlagIcon";
