@@ -21,6 +21,8 @@ import {
   Folder as FolderIcon,
   Globe,
   Inbox,
+  Link2,
+  List,
   Mail,
   Paperclip,
   PenLine,
@@ -45,7 +47,7 @@ import { DataTable } from "../DataTable";
 import { EmailHtmlView } from "../EmailHtmlView";
 import { markdownToEmailHtml } from "./markdown";
 import { EmptyState } from "../EmptyState";
-import { FormField, FormInput, FormSelect, FormTextarea } from "../form";
+import { FormField, FormInput, FormSelect } from "../form";
 import { GoogleCredentialForm } from "../GoogleCredentialForm";
 import { Modal } from "../Modal";
 import { PageBody } from "../PageBody";
@@ -3128,7 +3130,10 @@ function Composer({
 }) {
   const [err, setErr] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [mode, setMode] = useState<"write" | "preview">("write");
+  const [showCc, setShowCc] = useState(() => Boolean(compose.cc && compose.cc.trim()));
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const bodyRef = useRef<HTMLTextAreaElement | null>(null);
   const from = accounts.find((a) => a.id === compose.fromAccountId) ?? accounts[0] ?? null;
 
   function patch(p: Partial<ComposeState>) {
@@ -3152,6 +3157,37 @@ function Composer({
     patch({ attachments: compose.attachments.filter((_, j) => j !== i) });
   }
 
+  // Barra de formatação: envolve a seleção (negrito/itálico/código/link) ou
+  // prefixa a linha (lista). Reposiciona o cursor depois que o React repinta.
+  function wrapSel(before: string, after: string, placeholder: string) {
+    const el = bodyRef.current;
+    const val = compose.html;
+    const s = el?.selectionStart ?? val.length;
+    const e = el?.selectionEnd ?? val.length;
+    const sel = val.slice(s, e) || placeholder;
+    patch({ html: val.slice(0, s) + before + sel + after + val.slice(e) });
+    requestAnimationFrame(() => {
+      const node = bodyRef.current;
+      if (!node) return;
+      node.focus();
+      node.setSelectionRange(s + before.length, s + before.length + sel.length);
+    });
+  }
+  function prefixLine(prefix: string) {
+    const el = bodyRef.current;
+    const val = compose.html;
+    const s = el?.selectionStart ?? val.length;
+    const lineStart = val.lastIndexOf("\n", s - 1) + 1;
+    patch({ html: val.slice(0, lineStart) + prefix + val.slice(lineStart) });
+    requestAnimationFrame(() => {
+      const node = bodyRef.current;
+      if (!node) return;
+      node.focus();
+      const p = s + prefix.length;
+      node.setSelectionRange(p, p);
+    });
+  }
+
   function send() {
     setErr(null);
     if (!from) { setErr("Selecione a conta remetente."); return; }
@@ -3161,7 +3197,7 @@ function Composer({
         to: compose.to,
         cc: compose.cc,
         subject: compose.subject,
-        html: compose.html ? compose.html.replace(/\n/g, "<br/>") : "",
+        html: markdownToEmailHtml(compose.html),
         inReplyTo: compose.inReplyTo,
         threadId: compose.threadId,
         attachments: compose.attachments,
@@ -3182,39 +3218,144 @@ function Composer({
         </IconButton>
       </HStack>
 
-      <Stack gap={3} p={5} flex="1" overflowY="auto">
+      {/* Cabeçalhos compactos (estilo Gmail): rótulo curto + campo sem moldura,
+          Cc escondido até pedir — a sobra toda vai pro corpo da mensagem. */}
+      <Stack gap={0} px={5} pt={2} flexShrink={0}>
         {accounts.length > 1 ? (
-          <FormSelect
-            value={compose.fromAccountId}
-            onChange={(e) => patch({ fromAccountId: e.currentTarget.value })}
-            options={accounts.map((a) => ({ value: a.id, label: `De: ${a.name ? `${a.name} <${a.address}>` : a.address}` }))}
+          <ComposeRow label="De">
+            <chakra.select
+              value={compose.fromAccountId}
+              onChange={(e) => patch({ fromAccountId: e.currentTarget.value })}
+              w="100%"
+              h="34px"
+              border="none"
+              bg="transparent"
+              fontSize="sm"
+              cursor="pointer"
+              _focusVisible={{ outline: "none" }}
+            >
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name ? `${a.name} <${a.address}>` : a.address}
+                </option>
+              ))}
+            </chakra.select>
+          </ComposeRow>
+        ) : (
+          <ComposeRow label="De">
+            <Text fontSize="sm" truncate>
+              {from ? (from.name ? `${from.name} <${from.address}>` : from.address) : "—"}
+            </Text>
+          </ComposeRow>
+        )}
+        <ComposeRow
+          label="Para"
+          action={
+            !showCc ? (
+              <Box
+                as="button"
+                onClick={() => setShowCc(true)}
+                fontSize="xs"
+                fontWeight="600"
+                color="var(--admin-text-soft)"
+                _hover={{ color: "var(--admin-primary)" }}
+              >
+                Cc
+              </Box>
+            ) : null
+          }
+        >
+          <ComposeInput
+            placeholder="Para (separe múltiplos por vírgula)"
+            value={compose.to}
+            onChange={(v) => patch({ to: v })}
+            autoFocus={!compose.inReplyTo}
+          />
+        </ComposeRow>
+        {showCc ? (
+          <ComposeRow label="Cc">
+            <ComposeInput placeholder="Cópia para…" value={compose.cc} onChange={(v) => patch({ cc: v })} />
+          </ComposeRow>
+        ) : null}
+        <ComposeRow label="Assunto">
+          <ComposeInput placeholder="Assunto" value={compose.subject} onChange={(v) => patch({ subject: v })} />
+        </ComposeRow>
+      </Stack>
+
+      {/* Barra de formatação + alternador Escrever / Pré-visualizar */}
+      <HStack gap={1} px={5} py={1.5} flexShrink={0} borderBottomWidth="1px" borderColor="var(--admin-border)">
+        <FmtBtn label="Negrito" disabled={mode === "preview"} onClick={() => wrapSel("**", "**", "negrito")}>
+          <Text as="span" fontWeight="800" fontSize="sm">B</Text>
+        </FmtBtn>
+        <FmtBtn label="Itálico" disabled={mode === "preview"} onClick={() => wrapSel("*", "*", "itálico")}>
+          <Text as="span" fontStyle="italic" fontSize="sm">I</Text>
+        </FmtBtn>
+        <FmtBtn label="Código" disabled={mode === "preview"} onClick={() => wrapSel("`", "`", "código")}>
+          <Text as="span" fontFamily="mono" fontSize="12px">{"</>"}</Text>
+        </FmtBtn>
+        <FmtBtn label="Lista" disabled={mode === "preview"} onClick={() => prefixLine("- ")}>
+          <List size={14} />
+        </FmtBtn>
+        <FmtBtn label="Link" disabled={mode === "preview"} onClick={() => wrapSel("[", "](https://)", "texto")}>
+          <Link2 size={14} />
+        </FmtBtn>
+        <Box flex="1" />
+        <Box display="inline-flex" borderRadius="8px" borderWidth="1px" borderColor="var(--admin-border)" overflow="hidden">
+          <TabBtn active={mode === "write"} onClick={() => setMode("write")}>Escrever</TabBtn>
+          <TabBtn active={mode === "preview"} onClick={() => setMode("preview")}>Pré-visualizar</TabBtn>
+        </Box>
+      </HStack>
+
+      {/* Corpo — OCUPA todo o espaço restante (mensagem grande, cabeçalho pequeno) */}
+      <Box flex="1" minH={0} px={5} py={3} overflow="hidden">
+        {mode === "write" ? (
+          <chakra.textarea
+            ref={bodyRef}
+            value={compose.html}
+            onChange={(e) => patch({ html: e.target.value })}
+            placeholder="Escreva sua mensagem…  (aceita markdown: **negrito**, *itálico*, - listas, [texto](link))"
+            w="100%"
+            h="100%"
+            resize="none"
+            border="none"
+            bg="transparent"
+            p={0}
+            fontSize="sm"
+            lineHeight="1.6"
+            fontFamily="inherit"
+            _focusVisible={{ outline: "none" }}
+            _placeholder={{ color: "var(--admin-text-soft)" }}
           />
         ) : (
-          <Text fontSize="xs" color="var(--admin-text-soft)">
-            De: <strong>{from ? (from.name ? `${from.name} <${from.address}>` : from.address) : "—"}</strong>
-          </Text>
+          <Box h="100%" borderWidth="1px" borderColor="var(--admin-border)" borderRadius="10px" overflow="hidden" bg="white">
+            {compose.html.trim() ? (
+              <EmailHtmlView html={markdownToEmailHtml(compose.html)} minHeight={220} />
+            ) : (
+              <Box p={4} fontSize="sm" color="var(--admin-text-soft)">Nada para pré-visualizar ainda.</Box>
+            )}
+          </Box>
         )}
-        <FormInput placeholder="Para (separe múltiplos por vírgula)" value={compose.to} onChange={(e) => patch({ to: e.target.value })} />
-        <FormInput placeholder="Cc (opcional)" value={compose.cc} onChange={(e) => patch({ cc: e.target.value })} />
-        <FormInput placeholder="Assunto" value={compose.subject} onChange={(e) => patch({ subject: e.target.value })} />
-        <FormTextarea placeholder="Escreva sua mensagem..." value={compose.html} onChange={(e) => patch({ html: e.target.value })} rows={12} resize="vertical" />
+      </Box>
 
-        {compose.attachments.length ? (
-          <HStack gap={2} flexWrap="wrap">
-            {compose.attachments.map((a, i) => (
-              <HStack key={i} gap={1.5} px={3} py={1.5} borderRadius="8px" borderWidth="1px" borderColor="var(--admin-border)" bg="var(--admin-surface-2)">
-                <Paperclip size={13} />
-                <Text fontSize="xs" maxW="180px" truncate>{a.filename}</Text>
-                <Box as="button" onClick={() => removeAttachment(i)} color="var(--admin-text-soft)" _hover={{ color: "red.500" }} aria-label="Remover">
-                  <X size={13} />
-                </Box>
-              </HStack>
-            ))}
-          </HStack>
-        ) : null}
-
-        {err ? <Text color="red.600" fontSize="sm">{err}</Text> : null}
-      </Stack>
+      {/* Anexos + erro */}
+      {compose.attachments.length || err ? (
+        <Stack gap={2} px={5} pb={2} flexShrink={0}>
+          {compose.attachments.length ? (
+            <HStack gap={2} flexWrap="wrap">
+              {compose.attachments.map((a, i) => (
+                <HStack key={i} gap={1.5} px={3} py={1.5} borderRadius="8px" borderWidth="1px" borderColor="var(--admin-border)" bg="var(--admin-surface-2)">
+                  <Paperclip size={13} />
+                  <Text fontSize="xs" maxW="180px" truncate>{a.filename}</Text>
+                  <Box as="button" onClick={() => removeAttachment(i)} color="var(--admin-text-soft)" _hover={{ color: "red.500" }} aria-label="Remover">
+                    <X size={13} />
+                  </Box>
+                </HStack>
+              ))}
+            </HStack>
+          ) : null}
+          {err ? <Text color="red.600" fontSize="sm">{err}</Text> : null}
+        </Stack>
+      ) : null}
 
       <HStack justify="space-between" px={5} py={4} borderTopWidth="1px" borderColor="var(--admin-border)" gap={3}>
         <HStack gap={2}>
@@ -3235,5 +3376,111 @@ function Composer({
         </HStack>
       </HStack>
     </Stack>
+  );
+}
+
+/* Linha de cabeçalho do compositor: rótulo curto à esquerda, campo sem moldura
+   à direita, filete embaixo — o visual enxuto do Gmail. */
+function ComposeRow({
+  label,
+  action,
+  children,
+}: {
+  label: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <HStack gap={2} align="center" minH="38px" borderBottomWidth="1px" borderColor="var(--admin-border)">
+      <Text w="62px" flexShrink={0} fontSize="xs" fontWeight="700" color="var(--admin-text-soft)">
+        {label}
+      </Text>
+      <Box flex="1" minW={0}>
+        {children}
+      </Box>
+      {action ? (
+        <Box flexShrink={0} pl={2}>
+          {action}
+        </Box>
+      ) : null}
+    </HStack>
+  );
+}
+
+/* Campo de uma linha sem borda (Para/Cc/Assunto). */
+function ComposeInput({
+  value,
+  onChange,
+  placeholder,
+  autoFocus,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  autoFocus?: boolean;
+}) {
+  return (
+    <chakra.input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      autoComplete="off"
+      autoFocus={autoFocus}
+      w="100%"
+      h="36px"
+      border="none"
+      bg="transparent"
+      px={0}
+      fontSize="sm"
+      _focusVisible={{ outline: "none" }}
+      _placeholder={{ color: "var(--admin-text-soft)" }}
+    />
+  );
+}
+
+/* Botão da barra de formatação markdown. */
+function FmtBtn({
+  label,
+  onClick,
+  disabled,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <IconButton aria-label={label} title={label} size="xs" variant="ghost" onClick={onClick} disabled={disabled}>
+      {children}
+    </IconButton>
+  );
+}
+
+/* Aba Escrever / Pré-visualizar. */
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Box
+      as="button"
+      onClick={onClick}
+      px={3}
+      py={1.5}
+      fontSize="12px"
+      fontWeight="700"
+      bg={active ? "var(--admin-primary)" : "transparent"}
+      color={active ? "white" : "var(--admin-text-soft)"}
+      _hover={active ? {} : { bg: "var(--admin-surface-2)" }}
+      transition="background 0.12s"
+    >
+      {children}
+    </Box>
   );
 }
