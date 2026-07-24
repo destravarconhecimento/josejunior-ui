@@ -131,6 +131,34 @@ export { AccountSelector, type AccountSelectorOption } from "./components/Accoun
 export { ActionMenu, type ActionMenuItem } from "./components/ActionMenu";
 export { LocaleSelector, type LocaleOption } from "./components/LocaleSelector";
 export { FlagIcon } from "./components/FlagIcon";
+// Editor "Meu site" (josejunior.dev) — componente PURO (molde MailClient): todas
+// as seções + o módulo de rastreamento vivem aqui; o app injeta actions e o slot
+// de upload. Ver components/site-editor/.
+export {
+  SiteIdentityEditor,
+  type SiteIdentityEditorProps,
+  type SiteIdentityCallbacks,
+} from "./components/site-editor/SiteIdentityEditor";
+export {
+  type SiteIdentityContent,
+  type SiteMarketing,
+  type SiteSaveResult,
+  type SiteImageUploadSlot,
+  type SiteProjectStatus,
+  type SiteSocialKind,
+  type SiteIconItem,
+  type SiteStepItem,
+  type SiteProjectItem,
+  type SiteTimelineItem,
+  type SiteTestimonialItem,
+  type SiteHighlightItem,
+  type SiteContactInfoItem,
+  type SiteSkillItem,
+  type SiteSocialItem,
+  type SiteStatItem,
+  type SiteThemeContent,
+} from "./components/site-editor/types";
+export { SITE_ICON_OPTIONS, SITE_ICON_VALUES, type SiteIconOption } from "./components/site-editor/icon-options";
 // Ícone de MARCA do WhatsApp (o lucide só tem `MessageCircle` genérico). Vem do
 // pacote `react-icons` (Font Awesome 6) — nada de SVG à mão. Fonte única: os
 // FABs e os botões flutuantes importam ESTE, não o react-icons direto.
