@@ -46,16 +46,19 @@ const PAGE_SIZE = 25;
  *  - `actions` adiciona a coluna "Ações" à direita (editar/remover/etc.);
  *  - mobile: vira lista de CARDS (label: valor), organizada e sem scroll lateral.
  *
- * DUAS formas de ocupar a altura no desktop:
- *  - `fill` (PREFERIDO): o card vira uma coluna flex e a região de scroll é
- *    `flex=1 minH=0` — ela come EXATAMENTE a altura que sobra depois do que
- *    estiver acima (KPIs, abas, filtros). Sem número mágico: quem mede é o
- *    flexbox. Exige um ancestral com altura fechada — é o que o `Screen fill`
- *    dá (bounda o corpo ao `--admin-content-h` do shell). É o caminho "inteligente".
- *  - `fillHeight` (LEGADO): auto-limita à viewport com um offset em px chutado
- *    (`calc(100vh - Npx)`). Não sabe o que tem acima → sobra espaço em telas
- *    altas. Mantido pra não mexer nas dezenas de telas que ainda o usam; telas
- *    novas devem usar `Screen fill` + `DataTable fill`.
+ * ALTURA — a tabela ENCHE por PADRÃO (sem prop nenhuma):
+ *  - Dentro de um `Screen fill` (ancestral de altura fechada) ela come EXATAMENTE
+ *    a altura que sobra depois do que estiver acima (KPIs, abas, filtros). Sem
+ *    número mágico: quem mede é o flexbox. É o caminho normal de toda tela cheia.
+ *  - Fora de um ancestral fechado (Card/Modal/`Screen` sem `fill`) o `flex:1` é
+ *    inerte e ela cai em ALTURA NATURAL sozinha — mini/embutida não precisa de prop.
+ *  - `fillHeight={false}`: força natural mesmo dentro de um `Screen fill` — pro
+ *    caso raro de uma tabela secundária que NÃO deve crescer (ex.: várias tabelas
+ *    empilhadas na mesma tela).
+ *  - `fillHeight={number}` (LEGADO, EVITE): auto-limita à viewport com um offset
+ *    chutado (`calc(100vh - Npx)`) — a fonte da inconsistência que isto substitui.
+ *    Mantido só enquanto telas antigas não migram; o guardrail proíbe número novo.
+ *  - `fill` (redundante hoje): marcador explícito do mesmo comportamento padrão.
  */
 export function DataTable<T>({
   columns,
@@ -66,6 +69,8 @@ export function DataTable<T>({
   selectedKey,
   actions,
   pageSize = PAGE_SIZE,
+  // Default = ENCHE (mede a altura livre via flexbox). `false` = mini/natural;
+  // `number` = offset legado (evite). Ver o bloco ALTURA no doc acima.
   fillHeight = true,
   fill = false,
   toolbar,
@@ -84,14 +89,13 @@ export function DataTable<T>({
   /** Célula de ações por linha — renderizada na coluna "Ações" (à direita). */
   actions?: (row: T) => ReactNode;
   pageSize?: number;
-  /** Desktop: limita à altura da viewport com scroll interno. `number` = offset
-   *  em px a descontar (default 340; use maior em telas com abas). `false` solta.
-   *  LEGADO — prefira `fill` num `Screen fill` (não chuta offset). Ignorado se `fill`. */
+  /** Altura no desktop. Default (`true`) = ENCHE a altura livre via flexbox (o
+   *  padrão de toda tela cheia num `Screen fill`). `false` = mini/natural (força
+   *  não-crescer, ex.: tabelas empilhadas). `number` = offset legado em px a
+   *  descontar da viewport (`calc(100vh - Npx)`) — EVITE, o guardrail proíbe. */
   fillHeight?: boolean | number;
-  /** Desktop: ocupa a altura livre via flexbox (scroll interno), medindo o que
-   *  sobra depois dos KPIs/abas/filtros — sem número mágico. Precisa de um
-   *  ancestral com altura fechada (use dentro de `Screen fill`). Desligado no
-   *  mobile. Tem precedência sobre `fillHeight`. */
+  /** Redundante: marcador explícito do comportamento PADRÃO (encher). Mantido por
+   *  retrocompat/legibilidade — uma tabela já enche sem nenhuma prop. */
   fill?: boolean;
   /** Barra (busca/filtros) COLADA no topo do card, acima do cabeçalho. */
   toolbar?: ReactNode;
@@ -116,6 +120,15 @@ export function DataTable<T>({
   );
   const from = rows.length === 0 ? 0 : current * effPageSize + 1;
   const to = Math.min(rows.length, (current + 1) * effPageSize);
+
+  // ALTURA — a tabela ENCHE por padrão: o flexbox mede o espaço que sobra
+  // depois de KPIs/abas/filtros (sem número mágico). Só NÃO enche quando é mini
+  // (`fillHeight={false}`) ou usa o offset legado (`fillHeight={number}`, mantido
+  // enquanto telas antigas não migram). E "encher" é INERTE fora de um ancestral
+  // de altura fechada (Card/Modal/`Screen` sem `fill`): lá o `flex:1` não faz nada
+  // e a tabela cai em altura natural sozinha — mini não precisa de prop.
+  const magicOffset = typeof fillHeight === "number" ? fillHeight : null;
+  const grows = fill || (fillHeight !== false && magicOffset === null);
 
   // Seleção em massa: "selecionar todos" abrange TODAS as linhas filtradas (todas
   // as páginas), não só a visível — por isso mapeia `rows` inteiro, não `visible`.
@@ -222,12 +235,12 @@ export function DataTable<T>({
       className="admin-card"
       overflow="hidden"
       p={0}
-      // `fill`: o card vira coluna flex pra a região de scroll poder crescer
+      // `grows`: o card vira coluna flex pra a região de scroll poder crescer
       // dentro dele (o ancestral fechado é o `Screen fill`). Desligado no mobile.
-      display={fill ? { md: "flex" } : undefined}
-      flexDirection={fill ? { md: "column" } : undefined}
-      flex={fill ? { md: "1" } : undefined}
-      minH={fill ? { md: 0 } : undefined}
+      display={grows ? { md: "flex" } : undefined}
+      flexDirection={grows ? { md: "column" } : undefined}
+      flex={grows ? { md: "1" } : undefined}
+      minH={grows ? { md: 0 } : undefined}
     >
       {toolbarNode}
       {/* Desktop: tabela com header sticky e altura da tela */}
@@ -235,11 +248,11 @@ export function DataTable<T>({
         display={{ base: "none", md: "block" }}
         overflowY="auto"
         overflowX="auto"
-        // `fill` = flexbox mede a altura livre (sem número mágico); senão cai no
-        // legado `fillHeight` (offset chutado da viewport).
-        flex={fill ? { md: "1" } : undefined}
-        maxH={!fill && fillHeight ? `calc(100vh - ${typeof fillHeight === "number" ? fillHeight : 340}px)` : undefined}
-        minH={fill ? { md: 0 } : fillHeight ? "200px" : undefined}
+        // `grows` = flexbox mede a altura livre (sem número mágico); senão só o
+        // offset LEGADO (`fillHeight={number}`) ainda chuta uma altura da viewport.
+        flex={grows ? { md: "1" } : undefined}
+        maxH={magicOffset !== null ? `calc(100vh - ${magicOffset}px)` : undefined}
+        minH={grows ? { md: 0 } : magicOffset !== null ? "200px" : undefined}
       >
         <Table.Root size={dense ? "sm" : "md"} width="full">
           <Table.Header position="sticky" top={0} zIndex={1} bg="var(--admin-surface)" boxShadow="0 1px 0 var(--admin-divider)">
