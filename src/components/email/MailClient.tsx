@@ -2667,64 +2667,119 @@ function Mailbox({
           )
         ) : (
           folderMessages.map((m) => {
-            const who = activeFolder === "sent"
-              ? m.toAddresses.join(", ")
-              : displayName(m.fromAddress, m.fromName);
+            const isSent = activeFolder === "sent";
+            const who = isSent ? m.toAddresses.join(", ") : displayName(m.fromAddress, m.fromName);
+            // O José quer VER o e-mail, não só o nome: quando há um nome próprio,
+            // mostra o endereço cru ao lado (senão `who` já é o próprio e-mail).
+            const showAddr =
+              !isSent && !!m.fromName?.trim() && m.fromName.trim().toLowerCase() !== m.fromAddress.toLowerCase();
             const unread = m.direction === "inbound" && !m.read;
-            // Etiqueta da pasta — só na Caixa de entrada "misturada" não faz sentido
-            // (lá é tudo não-classificado); mostra em "Todas as contas" e afins.
+            // Etiqueta da pasta inteligente (some quando já se está DENTRO da pasta).
             const cat = m.category && knownSlugs.has(m.category)
               ? folders.find((f) => f.slug === m.category)
               : null;
+            // Conta que RECEBEU — só faz sentido em "Todas as contas" (>1 conta),
+            // senão é sempre a mesma e vira ruído.
+            const inboxAcct = isAll && !isSent && accounts.length > 1
+              ? accounts.find((a) => a.id === m.accountId) ?? null
+              : null;
+            const snip = snippet(m);
             return (
               <Box
                 key={m.id}
                 onClick={() => openMessage(m)}
                 cursor="pointer"
-                pl={6}
+                pl={7}
                 pr={4}
-                py={3.5}
+                py={3}
                 borderBottomWidth="1px"
                 borderColor="var(--admin-border)"
                 bg={selectedId === m.id ? "var(--admin-surface-2)" : "transparent"}
                 _hover={{ bg: "var(--admin-surface-2)" }}
                 position="relative"
-                overflow="hidden"
               >
                 {unread ? (
-                  <Box position="absolute" left="8px" top="50%" transform="translateY(-50%)" w="7px" h="7px" borderRadius="full" bg="var(--admin-primary)" />
+                  <Box position="absolute" left="10px" top="16px" w="8px" h="8px" borderRadius="full" bg="var(--admin-primary)" />
                 ) : null}
-                <Stack gap={1} minW={0}>
-                  <HStack justify="space-between" gap={2} minW={0}>
-                    <Text fontSize="sm" fontWeight={unread ? "800" : "600"} truncate flex="1" minW={0} lineHeight="1.3">
-                      {who}
-                    </Text>
-                    <Text fontSize="xs" color="var(--admin-text-soft)" flexShrink={0} lineHeight="1.3">
+                <Stack gap={0.5} minW={0}>
+                  {/* Remetente (nome + e-mail) e data */}
+                  <HStack justify="space-between" gap={3} minW={0} align="baseline">
+                    <HStack gap={2} minW={0} flex="1" align="baseline">
+                      <Text
+                        fontSize="sm"
+                        fontWeight={unread ? "800" : "600"}
+                        color="var(--admin-text)"
+                        truncate
+                        minW={0}
+                        flexShrink={showAddr ? 0 : 1}
+                        maxW={showAddr ? "60%" : "100%"}
+                      >
+                        {who}
+                      </Text>
+                      {showAddr ? (
+                        <Text fontSize="xs" color="var(--admin-text-soft)" truncate minW={0}>
+                          {m.fromAddress}
+                        </Text>
+                      ) : null}
+                    </HStack>
+                    <Text
+                      fontSize="xs"
+                      fontWeight={unread ? "700" : "500"}
+                      color={unread ? "var(--admin-primary)" : "var(--admin-text-soft)"}
+                      flexShrink={0}
+                      whiteSpace="nowrap"
+                    >
                       {fmtDate(m.date)}
                     </Text>
                   </HStack>
-                  <Text fontSize="sm" fontWeight={unread ? "700" : "500"} truncate minW={0} lineHeight="1.35">
+                  {/* Assunto */}
+                  <Text fontSize="sm" fontWeight={unread ? "700" : "500"} color="var(--admin-text)" truncate minW={0} lineHeight="1.35">
                     {m.subject || "(sem assunto)"}
                   </Text>
-                  <HStack gap={2} minW={0}>
-                    {cat && !currentFolder ? (
-                      <Box
-                        flexShrink={0}
-                        px={1.5}
-                        py="1px"
-                        borderRadius="5px"
-                        fontSize="2xs"
-                        fontWeight="700"
-                        bg={`${cat.color ?? "#64748b"}1a`}
-                        color={cat.color ?? "#64748b"}
-                      >
-                        {cat.name}
-                      </Box>
-                    ) : null}
-                    <Text fontSize="xs" color="var(--admin-text-soft)" truncate flex="1" minW={0} lineHeight="1.4">
-                      {snippet(m)}
+                  {/* Resumo do corpo */}
+                  {snip ? (
+                    <Text fontSize="xs" color="var(--admin-text-soft)" truncate minW={0} lineHeight="1.45">
+                      {snip}
                     </Text>
-                  </HStack>
+                  ) : null}
+                  {/* Meta: pasta + conta que recebeu (só aparece quando há algo) */}
+                  {(cat && !currentFolder) || inboxAcct ? (
+                    <HStack gap={1.5} minW={0} pt="2px">
+                      {cat && !currentFolder ? (
+                        <Box
+                          flexShrink={0}
+                          px={1.5}
+                          py="1px"
+                          borderRadius="5px"
+                          fontSize="2xs"
+                          fontWeight="700"
+                          bg={`${cat.color ?? "#64748b"}1a`}
+                          color={cat.color ?? "#64748b"}
+                        >
+                          {cat.name}
+                        </Box>
+                      ) : null}
+                      {inboxAcct ? (
+                        <HStack
+                          gap={1}
+                          minW={0}
+                          px={1.5}
+                          py="1px"
+                          borderRadius="5px"
+                          bg="var(--admin-surface)"
+                          borderWidth="1px"
+                          borderColor="var(--admin-border)"
+                          color="var(--admin-text-soft)"
+                          title={`Recebido em ${inboxAcct.address}`}
+                        >
+                          <Inbox size={10} style={{ flexShrink: 0 }} />
+                          <Text fontSize="2xs" fontWeight="600" truncate minW={0}>
+                            {inboxAcct.address}
+                          </Text>
+                        </HStack>
+                      ) : null}
+                    </HStack>
+                  ) : null}
                 </Stack>
               </Box>
             );
