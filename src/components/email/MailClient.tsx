@@ -135,7 +135,7 @@ export type MailMessage = {
   accountId: string;
   direction: "inbound" | "sent";
   /** Caixa lógica. Ausente → deriva de `direction` (compat. sistema). */
-  mailbox?: "inbox" | "sent" | "spam";
+  mailbox?: "inbox" | "sent" | "spam" | "trash";
   fromAddress: string;
   fromName: string | null;
   toAddresses: string[];
@@ -260,6 +260,9 @@ export type MailCallbacks = {
   /** Move UMA mensagem para a pasta `slug` (null = tira da pasta / volta pra caixa).
    *  Mover manualmente também ENSINA uma regra ao classificador. */
   onMoveToFolder?: (messageId: string, slug: string | null) => Promise<MailResult>;
+  /** Move UMA mensagem para uma caixa fixa: Recebidos (inbox), Spam ou Lixeira (trash).
+   *  Ausente → some as ações "Marcar como spam"/"Mover para Lixeira" na leitura. */
+  onSetMailbox?: (messageId: string, mailbox: "inbox" | "spam" | "trash") => Promise<MailResult>;
   // IA da caixa (ausentes → o botão "IA" some)
   /** Salva a config da IA da caixa (organizar / respostas). */
   onSaveAiSettings?: (settings: MailAiSettings) => Promise<MailResult>;
@@ -279,7 +282,7 @@ export type MailCallbacks = {
   onRefresh: () => void;
 };
 
-type Folder = "inbox" | "sent" | "spam";
+type Folder = "inbox" | "sent" | "spam" | "trash";
 
 /** Caixa lógica de uma mensagem — cai na direção p/ linhas antigas/sistema. */
 function mailboxOf(m: MailMessage): Folder {
@@ -287,9 +290,10 @@ function mailboxOf(m: MailMessage): Folder {
 }
 
 const FOLDER_LABEL: Record<Folder, string> = {
-  inbox: "Caixa de entrada",
+  inbox: "Recebidos",
   sent: "Enviados",
   spam: "Spam",
+  trash: "Lixeira",
 };
 
 type ComposeState = {
@@ -2244,25 +2248,25 @@ function Mailbox({
     () => (isAll ? messages : messages.filter((m) => m.accountId === accountId)),
     [messages, accountId, isAll],
   );
-  // Spam só existe no Gmail. Mostra a pasta quando a visão atual tem conta Google
-  // (ou já há mensagens de spam ingeridas). Sem isso, some — e nunca fica "presa".
+  // Spam e Lixeira são caixas fixas (sempre visíveis). hasGmail só ajusta a dica de
+  // sincronização (o Gmail traz o Spam da conta; no Resend o Spam é manual).
   const currentAccounts = isAll ? accounts : accounts.filter((a) => a.id === accountId);
   const hasGmail = currentAccounts.some((a) => a.provider === "gmail");
-  const showSpam = hasGmail || accountMessages.some((m) => mailboxOf(m) === "spam");
 
   // Slugs de pasta conhecidos — separa "classificado" de "solto na caixa".
   const knownSlugs = useMemo(() => new Set(folders.map((f) => f.slug)), [folders]);
   const isClassified = (m: MailMessage) => !!(m.category && knownSlugs.has(m.category));
 
-  // Caixa fixa "em foco" (categoria = sempre dentro de inbox). Spam some se não houver.
-  const requestedFolder: Folder = catSlug
+  // Caixa fixa "em foco" (categoria = sempre dentro de Recebidos).
+  const activeFolder: Folder = catSlug
     ? "inbox"
     : sel === "sent"
       ? "sent"
       : sel === "spam"
         ? "spam"
-        : "inbox";
-  const activeFolder: Folder = requestedFolder === "spam" && !showSpam ? "inbox" : requestedFolder;
+        : sel === "trash"
+          ? "trash"
+          : "inbox";
   const currentFolder = catSlug ? (folders.find((f) => f.slug === catSlug) ?? null) : null;
   // Se a pasta selecionada sumiu (removida), cai na caixa de entrada.
   const catMissing = catSlug !== null && !currentFolder;
@@ -2354,6 +2358,18 @@ function Mailbox({
     if (!callbacks.onMoveToFolder) return;
     start(async () => {
       const r = await callbacks.onMoveToFolder!(m.id, slug);
+      if (r.ok) {
+        setSelectedId(null);
+        callbacks.onRefresh();
+      }
+    });
+  }
+
+  // Move p/ caixa fixa: Recebidos / Spam / Lixeira (marcar como spam, restaurar, etc.).
+  function setMailbox(m: MailMessage, mailbox: "inbox" | "spam" | "trash") {
+    if (!callbacks.onSetMailbox) return;
+    start(async () => {
+      const r = await callbacks.onSetMailbox!(m.id, mailbox);
       if (r.ok) {
         setSelectedId(null);
         callbacks.onRefresh();
@@ -2476,7 +2492,7 @@ function Mailbox({
             active={sel === "inbox"}
             onClick={() => { setSel("inbox"); setSelectedId(null); }}
             icon={<Inbox size={16} />}
-            label="Caixa de entrada"
+            label="Recebidos"
             count={unreadCount}
           />
           <FolderButton
@@ -2485,15 +2501,19 @@ function Mailbox({
             icon={<Send size={16} />}
             label="Enviados"
           />
-          {showSpam ? (
-            <FolderButton
-              active={sel === "spam"}
-              onClick={() => { setSel("spam"); setSelectedId(null); }}
-              icon={<ShieldAlert size={16} />}
-              label="Spam"
-              count={spamUnread}
-            />
-          ) : null}
+          <FolderButton
+            active={sel === "spam"}
+            onClick={() => { setSel("spam"); setSelectedId(null); }}
+            icon={<ShieldAlert size={16} />}
+            label="Spam"
+            count={spamUnread}
+          />
+          <FolderButton
+            active={sel === "trash"}
+            onClick={() => { setSel("trash"); setSelectedId(null); }}
+            icon={<Trash2 size={16} />}
+            label="Lixeira"
+          />
         </Stack>
 
         {/* Pastas inteligentes (categorias por assunto). Só aparecem quando a
@@ -2624,16 +2644,18 @@ function Mailbox({
                   ? "Nenhuma mensagem recebida ainda."
                   : activeFolder === "spam"
                     ? "Nenhuma mensagem marcada como spam."
-                    : "Nenhuma mensagem enviada ainda."}
+                    : activeFolder === "trash"
+                      ? "A Lixeira está vazia."
+                      : "Nenhuma mensagem enviada ainda."}
               </Text>
-              {activeFolder !== "sent" ? (
+              {activeFolder === "inbox" || activeFolder === "spam" ? (
                 <>
                   <Button size="xs" tone="outline" borderRadius="8px" onClick={doSync} loading={pending}>
                     <RefreshCw size={13} /> Buscar novos
                   </Button>
                   <Text fontSize="2xs" color="var(--admin-text-soft)" lineHeight="1.6">
                     {hasGmail
-                      ? "Sincroniza a Caixa de entrada e o Spam da conta Google conectada."
+                      ? "Sincroniza os Recebidos e o Spam da conta Google conectada."
                       : "Para receber, ative o recebimento (inbound) do domínio nas Configurações."}
                   </Text>
                 </>
@@ -2656,9 +2678,9 @@ function Mailbox({
                 key={m.id}
                 onClick={() => openMessage(m)}
                 cursor="pointer"
-                pl={5}
+                pl={6}
                 pr={4}
-                py={3}
+                py={3.5}
                 borderBottomWidth="1px"
                 borderColor="var(--admin-border)"
                 bg={selectedId === m.id ? "var(--admin-surface-2)" : "transparent"}
@@ -2667,38 +2689,40 @@ function Mailbox({
                 overflow="hidden"
               >
                 {unread ? (
-                  <Box position="absolute" left="6px" top="50%" transform="translateY(-50%)" w="6px" h="6px" borderRadius="full" bg="var(--admin-primary)" />
+                  <Box position="absolute" left="8px" top="50%" transform="translateY(-50%)" w="7px" h="7px" borderRadius="full" bg="var(--admin-primary)" />
                 ) : null}
-                <HStack justify="space-between" gap={2}>
-                  <Text fontSize="sm" fontWeight={unread ? "800" : "600"} truncate flex="1" minW={0}>
-                    {who}
+                <Stack gap={1} minW={0}>
+                  <HStack justify="space-between" gap={2} minW={0}>
+                    <Text fontSize="sm" fontWeight={unread ? "800" : "600"} truncate flex="1" minW={0} lineHeight="1.3">
+                      {who}
+                    </Text>
+                    <Text fontSize="xs" color="var(--admin-text-soft)" flexShrink={0} lineHeight="1.3">
+                      {fmtDate(m.date)}
+                    </Text>
+                  </HStack>
+                  <Text fontSize="sm" fontWeight={unread ? "700" : "500"} truncate minW={0} lineHeight="1.35">
+                    {m.subject || "(sem assunto)"}
                   </Text>
-                  <Text fontSize="xs" color="var(--admin-text-soft)" flexShrink={0}>
-                    {fmtDate(m.date)}
-                  </Text>
-                </HStack>
-                <Text fontSize="sm" fontWeight={unread ? "700" : "500"} truncate>
-                  {m.subject || "(sem assunto)"}
-                </Text>
-                <HStack gap={2} minW={0}>
-                  {cat && !currentFolder ? (
-                    <Box
-                      flexShrink={0}
-                      px={1.5}
-                      py="1px"
-                      borderRadius="5px"
-                      fontSize="2xs"
-                      fontWeight="700"
-                      bg={`${cat.color ?? "#64748b"}1a`}
-                      color={cat.color ?? "#64748b"}
-                    >
-                      {cat.name}
-                    </Box>
-                  ) : null}
-                  <Text fontSize="xs" color="var(--admin-text-soft)" truncate flex="1" minW={0}>
-                    {snippet(m)}
-                  </Text>
-                </HStack>
+                  <HStack gap={2} minW={0}>
+                    {cat && !currentFolder ? (
+                      <Box
+                        flexShrink={0}
+                        px={1.5}
+                        py="1px"
+                        borderRadius="5px"
+                        fontSize="2xs"
+                        fontWeight="700"
+                        bg={`${cat.color ?? "#64748b"}1a`}
+                        color={cat.color ?? "#64748b"}
+                      >
+                        {cat.name}
+                      </Box>
+                    ) : null}
+                    <Text fontSize="xs" color="var(--admin-text-soft)" truncate flex="1" minW={0} lineHeight="1.4">
+                      {snippet(m)}
+                    </Text>
+                  </HStack>
+                </Stack>
               </Box>
             );
           })
@@ -2722,9 +2746,11 @@ function Mailbox({
           <MessageView
             message={selected}
             folders={folders}
+            mailbox={mailboxOf(selected)}
             onBack={() => setSelectedId(null)}
             onReply={() => startReply(selected)}
             onMove={callbacks.onMoveToFolder ? (slug) => moveTo(selected, slug) : undefined}
+            onSetMailbox={callbacks.onSetMailbox ? (mb) => setMailbox(selected, mb) : undefined}
           />
         ) : (
           <InboxOverview
@@ -2939,22 +2965,56 @@ function FolderButton({
 function MessageView({
   message,
   folders,
+  mailbox,
   onBack,
   onReply,
   onMove,
+  onSetMailbox,
 }: {
   message: MailMessage;
   folders: MailFolder[];
+  mailbox?: Folder;
   onBack: () => void;
   onReply: () => void;
   onMove?: (slug: string | null) => void;
+  onSetMailbox?: (mailbox: "inbox" | "spam" | "trash") => void;
 }) {
   const attachments = message.attachments ?? [];
-  // Mover só faz sentido em recebidos (os enviados não entram em pasta).
-  const canMove = !!onMove && message.direction === "inbound" && folders.length > 0;
+  const mb: Folder = mailbox ?? mailboxOf(message);
+  const inInbox = mb === "inbox";
+  // Mover pra PASTA só faz sentido nos Recebidos (não em Spam/Lixeira/Enviados).
+  const canMove = !!onMove && message.direction === "inbound" && folders.length > 0 && inInbox;
   const curCat = message.category && folders.some((f) => f.slug === message.category)
     ? message.category
     : null;
+  // Ações de caixa fixa (marcar spam / mandar p/ lixeira / restaurar) — dependem de onde está.
+  const canMailbox = !!onSetMailbox && message.direction === "inbound";
+  const mailboxItems = !canMailbox
+    ? []
+    : mb === "trash"
+      ? [{ label: "Restaurar para Recebidos", icon: <Inbox size={14} />, onClick: () => onSetMailbox!("inbox") }]
+      : mb === "spam"
+        ? [
+            { label: "Não é spam", icon: <Inbox size={14} />, onClick: () => onSetMailbox!("inbox") },
+            { label: "Mover para Lixeira", icon: <Trash2 size={14} />, danger: true, onClick: () => onSetMailbox!("trash") },
+          ]
+        : [
+            { label: "Marcar como spam", icon: <ShieldAlert size={14} />, onClick: () => onSetMailbox!("spam") },
+            { label: "Mover para Lixeira", icon: <Trash2 size={14} />, danger: true, onClick: () => onSetMailbox!("trash") },
+          ];
+  const folderItems = !canMove
+    ? []
+    : [
+        ...folders.map((f) => ({
+          label: f.slug === curCat ? `${f.name} ✓` : f.name,
+          icon: <FolderIcon size={14} color={f.color ?? undefined} />,
+          onClick: () => onMove!(f.slug === curCat ? null : f.slug),
+        })),
+        ...(curCat
+          ? [{ label: "Tirar da pasta", icon: <Inbox size={14} />, onClick: () => onMove!(null) }]
+          : []),
+      ];
+  const menuItems = [...folderItems, ...mailboxItems];
   return (
     <Stack gap={0} h="100%">
       <HStack justify="space-between" px={5} py={4} borderBottomWidth="1px" borderColor="var(--admin-border)" gap={3}>
@@ -2967,22 +3027,13 @@ function MessageView({
           </Text>
         </HStack>
         <HStack gap={2} flexShrink={0}>
-          {canMove ? (
+          {menuItems.length ? (
             <ActionMenu
-              label="Mover para"
+              label="Mover"
               size="sm"
               tone="ghost"
               icon={<FolderIcon size={14} />}
-              items={[
-                ...folders.map((f) => ({
-                  label: f.slug === curCat ? `${f.name} ✓` : f.name,
-                  icon: <FolderIcon size={14} color={f.color ?? undefined} />,
-                  onClick: () => onMove!(f.slug === curCat ? null : f.slug),
-                })),
-                ...(curCat
-                  ? [{ label: "Tirar da pasta", icon: <Inbox size={14} />, onClick: () => onMove!(null) }]
-                  : []),
-              ]}
+              items={menuItems}
             />
           ) : null}
           <Button size="sm" tone="outline" onClick={onReply}>
