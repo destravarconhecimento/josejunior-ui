@@ -21,6 +21,7 @@ import { Box, HStack, Stack, Text } from "@chakra-ui/react";
  */
 export function PageHeader({
   title,
+  titleAfter,
   subtitle,
   description,
   count,
@@ -29,6 +30,9 @@ export function PageHeader({
   tabs,
 }: {
   title: string;
+  /** Controle colado ao título, na MESMA linha (ex.: seletor de contas do e-mail).
+   *  Fica depois do contador; some se não passar. */
+  titleAfter?: ReactNode;
   /** Linha de apoio sob o título (ex.: "12 clientes cadastrados"). */
   subtitle?: ReactNode;
   /** @deprecated use `subtitle` — mantido porque adaptadores antigos passam isto. */
@@ -79,6 +83,11 @@ export function PageHeader({
             >
               {count}
             </Text>
+          ) : null}
+          {titleAfter ? (
+            <Box flexShrink={0} minW={0}>
+              {titleAfter}
+            </Box>
           ) : null}
         </HStack>
 

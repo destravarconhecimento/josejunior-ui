@@ -37,7 +37,6 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { Accordion, type AccordionItemDef } from "../Accordion";
 import { ActionMenu } from "../ActionMenu";
 import { Tag } from "../Badge";
 import { Button } from "../Button";
@@ -52,6 +51,7 @@ import { GoogleCredentialForm } from "../GoogleCredentialForm";
 import { Modal } from "../Modal";
 import { PageBody } from "../PageBody";
 import { PageHeader } from "../PageHeader";
+import { Tabs, type TabDef } from "../Tabs";
 import { useConfirm } from "../useConfirm";
 
 /* ============================================================
@@ -299,6 +299,10 @@ const FOLDER_LABEL: Record<Folder, string> = {
   trash: "Lixeira",
 };
 
+/** Valor do seletor "todas as contas" (o `accountId` mora no MailClient p/ ficar
+ *  no topo, ao lado do título; o Mailbox recebe por prop). */
+const ALL_ACCOUNTS = "__all__";
+
 type ComposeState = {
   fromAccountId: string;
   to: string;
@@ -373,8 +377,9 @@ export function MailClient(props: {
   /** Contas Resend (multi-conta). Quando presente, as Configurações mostram o
    *  gerenciador de contas em vez do "1 provedor". Ausente = mono-conta (tenants). */
   connections?: MailConnectionRow[];
-  /** Ações extras no cabeçalho (ex.: botão "Templates" no sistema). */
-  headerActions?: React.ReactNode;
+  /** Link/ação p/ os modelos de e-mail (ex.: "Templates" no sistema). Vira uma
+   *  ABA "Templates" dentro das Configurações — não fica mais no topo. */
+  templatesAction?: React.ReactNode;
   /** Pastas inteligentes (categorias). Ausente/vazio = só as caixas fixas. */
   folders?: MailFolder[];
   /** Config da IA da caixa. Ausente = botão "IA" some (superfície sem IA). */
@@ -386,6 +391,24 @@ export function MailClient(props: {
   const cb = props.callbacks;
   // Botão "IA" só aparece quando a superfície oferece IA (config + admin).
   const aiEnabled = Boolean(props.aiSettings && cb.onSaveAiSettings && props.isAdmin);
+
+  // ── Conta ativa (mora AQUI p/ o seletor ir no topo, ao lado do título) ──
+  const inboxAccounts = props.inboxAccounts;
+  const primaryId =
+    props.defaultAccountId && inboxAccounts.some((a) => a.id === props.defaultAccountId)
+      ? props.defaultAccountId
+      : null;
+  const [accountId, setAccountId] = useState<string>(
+    primaryId ?? (inboxAccounts.length > 1 ? ALL_ACCOUNTS : inboxAccounts[0]?.id ?? ""),
+  );
+  const unreadByAccount = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const m of props.messages)
+      if (mailboxOf(m) === "inbox" && !m.read) map[m.accountId] = (map[m.accountId] ?? 0) + 1;
+    return map;
+  }, [props.messages]);
+  const totalUnread = Object.values(unreadByAccount).reduce((a, b) => a + b, 0);
+  const monoAccount = inboxAccounts.length === 1 ? inboxAccounts[0] : null;
   // Gmail conecta por CONTA (não pelo `conn.provider`, que é o editor do Resend).
   const gmailConnected = props.accounts.some((a) => a.provider === "gmail");
   const anyConnected = Boolean(props.conn.provider) || gmailConnected;
@@ -410,6 +433,39 @@ export function MailClient(props: {
     >
       <PageHeader
         title={props.title ?? "Email"}
+        titleAfter={
+          view === "inbox" && hasAccounts ? (
+            inboxAccounts.length > 1 ? (
+              <Box w={{ base: "158px", md: "236px" }}>
+                <FormSelect
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.currentTarget.value)}
+                  options={[
+                    {
+                      value: ALL_ACCOUNTS,
+                      label: `📥 Todas as contas${totalUnread ? ` (${totalUnread})` : ""}`,
+                    },
+                    ...inboxAccounts.map((a) => ({
+                      value: a.id,
+                      label: `${a.id === primaryId ? "★ " : ""}${a.address}${unreadByAccount[a.id] ? ` (${unreadByAccount[a.id]})` : ""}`,
+                    })),
+                  ]}
+                />
+              </Box>
+            ) : monoAccount ? (
+              <Text
+                fontSize="sm"
+                fontWeight="600"
+                color="var(--admin-text-soft)"
+                truncate
+                maxW={{ base: "180px", md: "300px" }}
+                title={monoAccount.address}
+              >
+                {monoAccount.address}
+              </Text>
+            ) : null
+          ) : null
+        }
         actions={
           <>
             <Tag
@@ -418,7 +474,6 @@ export function MailClient(props: {
             >
               {providerLabel}
             </Tag>
-            {props.headerActions}
             {aiEnabled && view === "inbox" ? (
               <Button tone="outline" onClick={() => setAiOpen(true)}>
                 <Sparkles size={16} /> IA
@@ -464,11 +519,13 @@ export function MailClient(props: {
             gmailResult={props.gmailResult}
             gmailRedirectUri={props.gmailRedirectUri}
             gmailCredentialHref={props.gmailCredentialHref}
+            templatesAction={props.templatesAction}
             callbacks={cb}
           />
         ) : (
           <Mailbox
             accounts={props.inboxAccounts}
+            accountId={accountId}
             messages={props.messages}
             defaultAccountId={props.defaultAccountId}
             folders={props.folders ?? []}
@@ -696,6 +753,8 @@ function SettingsView(props: {
   gmailResult?: string;
   gmailRedirectUri?: string;
   gmailCredentialHref?: string;
+  /** Ação p/ os modelos de e-mail — vira a aba "Templates". */
+  templatesAction?: React.ReactNode;
   callbacks: MailCallbacks;
 }) {
   const domainOptions: MailDomainOption[] = props.domains.map((d) => ({
@@ -711,11 +770,13 @@ function SettingsView(props: {
     : props.conn.provider === "resend" && props.conn.hasResendApiKey;
   const verified = props.domains.filter((d) => d.verified).length;
 
-  const items: AccordionItemDef[] = [
+  // Cada seção das Configurações vira uma ABA horizontal (antes era um accordion).
+  type Section = { value: string; label: string; meta?: React.ReactNode; content: React.ReactNode };
+  const sections: Section[] = [
     multi
       ? {
           value: "provider",
-          title: "1. Contas Resend",
+          label: "Contas Resend",
           meta: (
             <Tag
               bg={anyConnKey ? "rgba(34,197,94,0.12)" : "rgba(234,179,8,0.14)"}
@@ -734,7 +795,7 @@ function SettingsView(props: {
         }
       : {
           value: "provider",
-          title: "1. Provedor & API key",
+          label: "Provedor",
           meta: connected ? (
             <Tag bg="rgba(34,197,94,0.12)" color="#15803d">conectado</Tag>
           ) : (
@@ -756,9 +817,9 @@ function SettingsView(props: {
   ];
   const showDomains = multi ? true : props.conn.provider === "resend";
   if (showDomains) {
-    items.push({
+    sections.push({
       value: "domains",
-      title: "2. Domínios & DNS",
+      label: "Domínios",
       meta: (
         <Tag
           bg={verified > 0 ? "rgba(34,197,94,0.12)" : props.domains.length ? "rgba(234,179,8,0.14)" : "rgba(100,116,139,0.14)"}
@@ -775,9 +836,9 @@ function SettingsView(props: {
         />
       ),
     });
-    items.push({
+    sections.push({
       value: "accounts",
-      title: "3. Contas de e-mail",
+      label: "Contas de e-mail",
       meta: (
         <Tag
           bg={props.accounts.length ? "rgba(59,130,246,0.12)" : "rgba(100,116,139,0.14)"}
@@ -796,6 +857,26 @@ function SettingsView(props: {
       ),
     });
   }
+  // Templates entra como aba (antes era um botão no topo). Só quando o app passa a ação.
+  if (props.templatesAction) {
+    sections.push({
+      value: "templates",
+      label: "Templates",
+      content: (
+        <Stack gap={3} align="flex-start">
+          <Text fontSize="sm" color="var(--admin-text-soft)" lineHeight="1.6">
+            Modelos reutilizáveis para responder e disparar mais rápido.
+          </Text>
+          {props.templatesAction}
+        </Stack>
+      ),
+    });
+  }
+
+  // Volta do Google (?gmail=...) ou sem provedor → abre em "Provedor"; conectado → "Domínios".
+  const [tab, setTab] = useState<string>(!props.gmailResult && connected ? "domains" : "provider");
+  const active = sections.find((s) => s.value === tab) ?? sections[0];
+  const tabItems: TabDef[] = sections.map((s) => ({ value: s.value, label: s.label }));
 
   return (
     <Stack gap={5}>
@@ -807,13 +888,20 @@ function SettingsView(props: {
           onRefresh={props.callbacks.onRefresh}
         />
       ) : null}
-      <Accordion
-        items={items}
-        multiple
-        // Voltando do Google (?gmail=...) ou sem provedor → abre no passo 1 (provedor/
-        // credencial). Só pula pra "Domínios" quando já está conectado E não é retorno OAuth.
-        defaultValue={!props.gmailResult && connected ? ["domains"] : ["provider"]}
-      />
+      <Box>
+        <Tabs value={active?.value ?? "provider"} onChange={setTab} items={tabItems} />
+        {active ? (
+          <Stack gap={4} mt={4}>
+            <HStack justify="space-between" align="center" gap={2}>
+              <Text fontWeight="700" fontSize="md" color="var(--admin-text)">
+                {active.label}
+              </Text>
+              {active.meta}
+            </HStack>
+            {active.content}
+          </Stack>
+        ) : null}
+      </Box>
     </Stack>
   );
 }
@@ -2196,6 +2284,7 @@ function Mailbox({
   accounts,
   messages,
   defaultAccountId,
+  accountId,
   folders,
   aiSettings,
   isAdmin,
@@ -2205,6 +2294,8 @@ function Mailbox({
   accounts: MailInboxAccount[];
   messages: MailMessage[];
   defaultAccountId?: string;
+  /** Conta ativa. O seletor mora no MailClient (ao lado do título); aqui é só leitura. */
+  accountId: string;
   folders: MailFolder[];
   aiSettings?: MailAiSettings;
   isAdmin: boolean;
@@ -2212,18 +2303,19 @@ function Mailbox({
   onGoSettings?: () => void;
 }) {
   const [pending, start] = useTransition();
-  const ALL = "__all__";
+  const ALL = ALL_ACCOUNTS;
   // Conta principal acessível (se houver) — é onde a caixa abre e o "De:" padrão.
   const primaryId =
     defaultAccountId && accounts.some((a) => a.id === defaultAccountId) ? defaultAccountId : null;
-  const [accountId, setAccountId] = useState<string>(
-    primaryId ?? (accounts.length > 1 ? ALL : (accounts[0]?.id ?? "")),
-  );
   // Navegação: "inbox" | "sent" | "spam" | "c:<slug>" (pasta inteligente).
   const [sel, setSel] = useState<string>("inbox");
   const catSlug = sel.startsWith("c:") ? sel.slice(2) : null;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [compose, setCompose] = useState<null | ComposeState>(null);
+  // Trocar de conta no topo → fecha a mensagem aberta (pode não existir na nova conta).
+  useEffect(() => {
+    setSelectedId(null);
+  }, [accountId]);
   // Modal de criar/renomear pasta (só admin com onCreateFolder).
   const [folderModal, setFolderModal] = useState<
     null | { mode: "create" } | { mode: "rename"; slug: string; name: string }
@@ -2244,7 +2336,6 @@ function Mailbox({
     });
   }
 
-  const account = accounts.find((a) => a.id === accountId) ?? null;
   const isAll = accountId === ALL;
 
   const accountMessages = useMemo(
@@ -2279,8 +2370,9 @@ function Mailbox({
     if (catSlug && !catMissing) {
       list = accountMessages.filter((m) => mailboxOf(m) === "inbox" && m.category === catSlug);
     } else if (activeFolder === "inbox") {
-      // Caixa de entrada = recebidos que NÃO estão numa pasta inteligente conhecida.
-      list = accountMessages.filter((m) => mailboxOf(m) === "inbox" && !isClassified(m));
+      // Caixa de entrada = TODOS os recebidos (modelo Gmail: as pastas inteligentes são
+      // vistas por cima, não gavetas — um e-mail classificado aparece aqui E na pasta dele).
+      list = accountMessages.filter((m) => mailboxOf(m) === "inbox");
     } else {
       list = accountMessages.filter((m) => mailboxOf(m) === activeFolder);
     }
@@ -2288,15 +2380,9 @@ function Mailbox({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountMessages, activeFolder, catSlug, catMissing, knownSlugs]);
 
-  /** Não-lidas por conta (para o seletor) + total — só a Caixa de entrada (exclui spam). */
-  const unreadByAccount = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const m of messages) if (mailboxOf(m) === "inbox" && !m.read) map[m.accountId] = (map[m.accountId] ?? 0) + 1;
-    return map;
-  }, [messages]);
-  // Não-lidas da Caixa de entrada = recebidas não-lidas AINDA soltas (sem pasta).
+  // Não-lidas da Caixa de entrada = TODAS as recebidas não-lidas (inclui as já classificadas).
   const unreadCount = accountMessages.filter(
-    (m) => mailboxOf(m) === "inbox" && !m.read && !isClassified(m),
+    (m) => mailboxOf(m) === "inbox" && !m.read,
   ).length;
   const spamUnread = accountMessages.filter((m) => mailboxOf(m) === "spam" && !m.read).length;
   // Contagem por pasta inteligente (não-lidas p/ o badge; total p/ o resumo).
@@ -2464,32 +2550,6 @@ function Mailbox({
           <PenLine size={16} /> Escrever
         </Button>
 
-        {accounts.length > 1 ? (
-          <FormSelect
-            value={accountId}
-            onChange={(e) => {
-              setAccountId(e.currentTarget.value);
-              setSelectedId(null);
-            }}
-            options={[
-              { value: ALL, label: `📥 Todas as contas${Object.values(unreadByAccount).reduce((a, b) => a + b, 0) ? ` (${Object.values(unreadByAccount).reduce((a, b) => a + b, 0)})` : ""}` },
-              ...accounts.map((a) => ({
-                value: a.id,
-                label: `${a.id === primaryId ? "★ " : ""}${a.address}${unreadByAccount[a.id] ? ` (${unreadByAccount[a.id]})` : ""}`,
-              })),
-            ]}
-          />
-        ) : (
-          <Box px={3} py={2.5} borderRadius="10px" bg="var(--admin-surface)" borderWidth="1px" borderColor="var(--admin-border)">
-            <Text fontSize="sm" fontWeight="700" lineHeight="1.2" truncate>
-              {(account ?? accounts[0]).name ?? (account ?? accounts[0]).address.split("@")[0]}
-            </Text>
-            <Text fontSize="xs" color="var(--admin-text-soft)" truncate title={(account ?? accounts[0]).address}>
-              {(account ?? accounts[0]).address}
-            </Text>
-          </Box>
-        )}
-
         <Stack gap={1}>
           <FolderButton
             active={sel === "inbox"}
@@ -2565,14 +2625,13 @@ function Mailbox({
         ) : null}
       </Stack>
 
-      {/* Lista de mensagens */}
+      {/* Lista de mensagens — coluna única (master-detail): ocupa todo o espaço ao lado da
+          sidebar e some quando um e-mail está aberto (mesmo comportamento em mobile e desktop). */}
       <Stack
-        w={{ base: "100%", md: "340px" }}
-        flexShrink={0}
-        borderRightWidth={{ md: "1px" }}
-        borderColor="var(--admin-border)"
+        flex="1"
+        minW={0}
         gap={0}
-        display={{ base: selected || compose ? "none" : "flex", md: "flex" }}
+        display={selected || compose ? "none" : "flex"}
         maxH={{ base: "560px", md: "100%" }}
         overflowY="auto"
       >
@@ -2787,8 +2846,9 @@ function Mailbox({
         )}
       </Stack>
 
-      {/* Leitura / composição */}
-      <Box flex="1" minW={0} display={{ base: selected || compose ? "block" : "none", md: "block" }}>
+      {/* Leitura / composição — coluna única: só aparece quando há e-mail aberto ou compondo
+          (com o botão "Voltar" no topo do MessageView pra voltar à lista). */}
+      <Box flex="1" minW={0} display={selected || compose ? "block" : "none"}>
         {compose ? (
           <Composer
             accounts={accounts}
@@ -2810,19 +2870,7 @@ function Mailbox({
             onMove={callbacks.onMoveToFolder ? (slug) => moveTo(selected, slug) : undefined}
             onSetMailbox={callbacks.onSetMailbox ? (mb) => setMailbox(selected, mb) : undefined}
           />
-        ) : (
-          <InboxOverview
-            unreadCount={unreadCount}
-            totalInbox={accountMessages.filter((m) => mailboxOf(m) === "inbox").length}
-            folders={folders}
-            catCounts={catCounts}
-            syncMsg={syncMsg}
-            organize={aiSettings?.organize}
-            onOpenFolder={(slug) => { setSel(`c:${slug}`); setSelectedId(null); }}
-            onSync={doSync}
-            pending={pending}
-          />
-        )}
+        ) : null}
       </Box>
     </Flex>
 
@@ -2838,99 +2886,6 @@ function Mailbox({
         />
       ) : null}
     </>
-  );
-}
-
-/** Resumo da caixa (painel de leitura vazio) — visão geral em vez do texto seco. */
-function InboxOverview({
-  unreadCount,
-  totalInbox,
-  folders,
-  catCounts,
-  syncMsg,
-  organize,
-  onOpenFolder,
-  onSync,
-  pending,
-}: {
-  unreadCount: number;
-  totalInbox: number;
-  folders: MailFolder[];
-  catCounts: { unread: Record<string, number>; total: Record<string, number> };
-  syncMsg: string | null;
-  organize?: boolean;
-  onOpenFolder: (slug: string) => void;
-  onSync: () => void;
-  pending: boolean;
-}) {
-  return (
-    <Flex h="100%" minH="400px" align="center" justify="center" p={{ base: 6, md: 10 }}>
-      <Stack gap={6} maxW="440px" w="100%" align="stretch">
-        <Stack gap={1} align="center" textAlign="center">
-          <Icon as={Inbox} boxSize={8} color="var(--admin-primary)" />
-          <Text fontWeight="800" fontSize="lg">Sua caixa de entrada</Text>
-          <Text fontSize="sm" color="var(--admin-text-soft)">
-            {unreadCount > 0
-              ? `${unreadCount} não lida${unreadCount > 1 ? "s" : ""} · ${totalInbox} recebida${totalInbox === 1 ? "" : "s"}`
-              : `Tudo em dia · ${totalInbox} recebida${totalInbox === 1 ? "" : "s"}`}
-          </Text>
-        </Stack>
-
-        {folders.length ? (
-          <Stack gap={2}>
-            <Text fontSize="2xs" fontWeight="800" letterSpacing="0.06em" textTransform="uppercase" color="var(--admin-text-soft)">
-              Pastas
-            </Text>
-            <Box display="grid" gridTemplateColumns={{ base: "1fr", sm: "1fr 1fr" }} gap={2}>
-              {folders.map((f) => {
-                const total = catCounts.total[f.slug] ?? 0;
-                const unread = catCounts.unread[f.slug] ?? 0;
-                return (
-                  <HStack
-                    key={f.slug}
-                    as="button"
-                    onClick={() => onOpenFolder(f.slug)}
-                    gap={2}
-                    px={3}
-                    py={2.5}
-                    borderRadius="12px"
-                    borderWidth="1px"
-                    borderColor="var(--admin-border)"
-                    bg="var(--admin-surface)"
-                    _hover={{ borderColor: "var(--admin-primary)" }}
-                    cursor="pointer"
-                    justify="space-between"
-                    textAlign="left"
-                  >
-                    <HStack gap={2} minW={0}>
-                      <FolderIcon size={15} color={f.color ?? undefined} />
-                      <Text fontSize="sm" fontWeight="600" truncate>{f.name}</Text>
-                    </HStack>
-                    <Text fontSize="xs" color={unread ? "var(--admin-primary)" : "var(--admin-text-soft)"} fontWeight={unread ? "800" : "500"} flexShrink={0}>
-                      {unread ? unread : total || ""}
-                    </Text>
-                  </HStack>
-                );
-              })}
-            </Box>
-          </Stack>
-        ) : null}
-
-        <Stack gap={2} align="center">
-          <Button size="sm" tone="outline" borderRadius="10px" onClick={onSync} loading={pending}>
-            <RefreshCw size={14} /> Buscar novos
-          </Button>
-          <Text fontSize="2xs" color="var(--admin-text-soft)" textAlign="center" lineHeight="1.6">
-            {syncMsg ? `${syncMsg} · ` : ""}
-            {organize === false
-              ? "Organização por IA desligada — ligue no botão “IA” do topo."
-              : folders.length
-                ? "Selecione um e-mail à esquerda para ler. A IA organiza os recebidos nas pastas."
-                : "Selecione um e-mail à esquerda para ler."}
-          </Text>
-        </Stack>
-      </Stack>
-    </Flex>
   );
 }
 
@@ -3077,7 +3032,8 @@ function MessageView({
     <Stack gap={0} h="100%">
       <HStack justify="space-between" px={5} py={4} borderBottomWidth="1px" borderColor="var(--admin-border)" gap={3}>
         <HStack gap={2} minW={0}>
-          <IconButton aria-label="Voltar" size="xs" variant="ghost" display={{ md: "none" }} onClick={onBack}>
+          {/* Coluna única (mobile e desktop): o "Voltar" volta pra lista em qualquer tela. */}
+          <IconButton aria-label="Voltar" title="Voltar" size="xs" variant="ghost" onClick={onBack}>
             <ArrowLeft size={16} />
           </IconButton>
           <Text fontWeight="800" fontSize="md" truncate>
