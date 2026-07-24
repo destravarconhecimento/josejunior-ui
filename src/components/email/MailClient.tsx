@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   Box,
   chakra,
@@ -18,29 +18,35 @@ import {
   AtSign,
   Check,
   Copy,
+  Folder as FolderIcon,
   Globe,
   Inbox,
   Mail,
   Paperclip,
   PenLine,
+  Plus,
   RefreshCw,
   Reply,
   Send,
   Settings,
   ShieldAlert,
+  Sparkles,
   Star,
   Trash2,
   X,
 } from "lucide-react";
 import { Accordion, type AccordionItemDef } from "../Accordion";
+import { ActionMenu } from "../ActionMenu";
 import { Tag } from "../Badge";
 import { Button } from "../Button";
 import { Card } from "../Card";
+import { Switch } from "../controls";
 import { DataTable } from "../DataTable";
 import { EmailHtmlView } from "../EmailHtmlView";
 import { EmptyState } from "../EmptyState";
 import { FormField, FormInput, FormSelect, FormTextarea } from "../form";
 import { GoogleCredentialForm } from "../GoogleCredentialForm";
+import { Modal } from "../Modal";
 import { PageBody } from "../PageBody";
 import { PageHeader } from "../PageHeader";
 import { useConfirm } from "../useConfirm";
@@ -143,6 +149,48 @@ export type MailMessage = {
   inReplyTo: string | null;
   date: string; // ISO
   attachments?: MailAttachment[];
+  /** Slug da pasta inteligente atribuída (IA/regras). Ausente = não classificado. */
+  category?: string | null;
+  /** Rascunho de resposta gerado pela IA (pré-preenche o "Responder"). */
+  aiDraft?: string | null;
+  /** Quando a IA respondeu esta mensagem automaticamente (ISO). */
+  aiRepliedAt?: string | null;
+};
+
+/** Pasta inteligente (categoria). `slug` é a chave estável usada por IA/regras/filtro
+ *  E como identificador nos callbacks; `name` é editável. `system` = uma das 5 padrão
+ *  (renomeável, não removível). */
+export type MailFolder = {
+  slug: string;
+  name: string;
+  color?: string | null;
+  system?: boolean;
+};
+
+/** Config da IA da caixa (por conta). `off` = IA parada. */
+export type MailAiSettings = {
+  /** Distribui os recebidos nas pastas automaticamente. */
+  organize: boolean;
+  /** off = nada; draft = só rascunha; safe_auto = envia sozinha em casos seguros. */
+  autoReply: "off" | "draft" | "safe_auto";
+};
+
+/** As 5 pastas inteligentes PADRÃO (slug canônico + rótulo pt-BR + cor). FONTE
+ *  ÚNICA: os apps semeiam a partir daqui e o classificador usa estes slugs como
+ *  enum-alvo — nunca redefina os slugs em outro lugar. `nome` é editável depois. */
+export const DEFAULT_MAIL_CATEGORIES: { slug: string; label: string; color: string; hint: string }[] = [
+  { slug: "clientes", label: "Clientes", color: "#2563eb", hint: "Clientes atuais e leads: dúvidas, pedidos, suporte, respostas a propostas." },
+  { slug: "financeiro", label: "Financeiro", color: "#16a34a", hint: "Cobranças, boletos, pagamentos, notas fiscais, Asaas, Mercado Pago, bancos." },
+  { slug: "fornecedores", label: "Fornecedores", color: "#9333ea", hint: "Prestadores, ferramentas, hospedagem, contratos B2B, faturas de serviços." },
+  { slug: "marketing", label: "Marketing", color: "#ea580c", hint: "Newsletters, promoções, redes sociais, descadastros e comunicados em massa." },
+  { slug: "sistema", label: "Sistema", color: "#64748b", hint: "Alertas técnicos, DMARC, no-reply, notificações automáticas e monitoramento." },
+];
+
+/** Rótulo humano dos modos de auto-resposta (usado no modal e nas configs). */
+const AUTO_REPLY_LABEL: Record<MailAiSettings["autoReply"], string> = {
+  off: "Desligado",
+  draft: "Só rascunhar",
+  safe_auto: "Enviar automático (casos seguros)",
 };
 
 export type MailCallbacks = {
@@ -202,6 +250,21 @@ export type MailCallbacks = {
   onUploadAttachment?: (file: File) => Promise<{ ok: true; url: string; filename: string } | { ok: false; error: string }>;
   onSync: () => Promise<MailResult<{ synced: number }>>;
   onMarkRead: (id: string, read: boolean) => Promise<MailResult>;
+  // pastas inteligentes (ausentes → some a affordance correspondente)
+  /** Cria uma pasta nova (nome livre; o app gera o slug). Ausente = "+ Nova pasta" some. */
+  onCreateFolder?: (name: string) => Promise<MailResult>;
+  /** Renomeia uma pasta (o slug NÃO muda). */
+  onRenameFolder?: (slug: string, name: string) => Promise<MailResult>;
+  /** Remove uma pasta custom (as `system` não podem). */
+  onRemoveFolder?: (slug: string) => Promise<MailResult>;
+  /** Move UMA mensagem para a pasta `slug` (null = tira da pasta / volta pra caixa).
+   *  Mover manualmente também ENSINA uma regra ao classificador. */
+  onMoveToFolder?: (messageId: string, slug: string | null) => Promise<MailResult>;
+  // IA da caixa (ausentes → o botão "IA" some)
+  /** Salva a config da IA da caixa (organizar / respostas). */
+  onSaveAiSettings?: (settings: MailAiSettings) => Promise<MailResult>;
+  /** Classifica em lote os e-mails já existentes ("Organizar caixa agora"). */
+  onBackfillOrganize?: () => Promise<MailResult<{ organized: number }>>;
   /** Inicia o OAuth do Gmail (redireciona pro Google). Ausente = "em breve". */
   onConnectGmail?: () => void;
   /** Salva a credencial OAuth do Google (Client ID/Secret) — compartilhada Gmail+Drive.
@@ -305,10 +368,17 @@ export function MailClient(props: {
   connections?: MailConnectionRow[];
   /** Ações extras no cabeçalho (ex.: botão "Templates" no sistema). */
   headerActions?: React.ReactNode;
+  /** Pastas inteligentes (categorias). Ausente/vazio = só as caixas fixas. */
+  folders?: MailFolder[];
+  /** Config da IA da caixa. Ausente = botão "IA" some (superfície sem IA). */
+  aiSettings?: MailAiSettings;
 }) {
   const [view, setView] = useState<"inbox" | "settings">(props.initialView);
+  const [aiOpen, setAiOpen] = useState(false);
   const hasAccounts = props.inboxAccounts.length > 0;
   const cb = props.callbacks;
+  // Botão "IA" só aparece quando a superfície oferece IA (config + admin).
+  const aiEnabled = Boolean(props.aiSettings && cb.onSaveAiSettings && props.isAdmin);
   // Gmail conecta por CONTA (não pelo `conn.provider`, que é o editor do Resend).
   const gmailConnected = props.accounts.some((a) => a.provider === "gmail");
   const anyConnected = Boolean(props.conn.provider) || gmailConnected;
@@ -342,6 +412,11 @@ export function MailClient(props: {
               {providerLabel}
             </Tag>
             {props.headerActions}
+            {aiEnabled && view === "inbox" ? (
+              <Button tone="outline" onClick={() => setAiOpen(true)}>
+                <Sparkles size={16} /> IA
+              </Button>
+            ) : null}
             {props.isAdmin ? (
               view === "settings" ? (
                 <Button tone="outline" onClick={() => setView("inbox")} disabled={!hasAccounts}>
@@ -356,6 +431,17 @@ export function MailClient(props: {
           </>
         }
       />
+
+      {aiEnabled && props.aiSettings ? (
+        <AiSettingsModal
+          open={aiOpen}
+          onClose={() => setAiOpen(false)}
+          settings={props.aiSettings}
+          onSave={cb.onSaveAiSettings!}
+          onBackfill={cb.onBackfillOrganize}
+          onRefresh={cb.onRefresh}
+        />
+      ) : null}
 
       <PageBody fill={view !== "settings"}>
         {view === "settings" ? (
@@ -378,12 +464,212 @@ export function MailClient(props: {
             accounts={props.inboxAccounts}
             messages={props.messages}
             defaultAccountId={props.defaultAccountId}
+            folders={props.folders ?? []}
+            aiSettings={props.aiSettings}
+            isAdmin={props.isAdmin}
             callbacks={cb}
             onGoSettings={props.isAdmin ? () => setView("settings") : undefined}
           />
         )}
       </PageBody>
     </Box>
+  );
+}
+
+// ============================================================
+// Modal "IA da caixa" — organizar em pastas + modo de resposta
+// ============================================================
+
+/** Card com os controles da IA da caixa (organizar + respostas). Reusado no
+ *  modal "IA" (topo) e — se algum dia quisermos — dentro das Configurações. */
+function AiSettingsControls({
+  organize,
+  setOrganize,
+  autoReply,
+  setAutoReply,
+  onBackfill,
+  pending,
+  running,
+}: {
+  organize: boolean;
+  setOrganize: (v: boolean) => void;
+  autoReply: MailAiSettings["autoReply"];
+  setAutoReply: (v: MailAiSettings["autoReply"]) => void;
+  onBackfill?: () => void;
+  pending: boolean;
+  running: boolean;
+}) {
+  return (
+    <Stack gap={5}>
+      {/* Organizar em pastas */}
+      <Stack gap={2}>
+        <HStack justify="space-between" align="flex-start" gap={4}>
+          <Stack gap={0.5} flex="1" minW={0}>
+            <Text fontWeight="700" fontSize="sm">Organizar e-mails em pastas</Text>
+            <Text fontSize="xs" color="var(--admin-text-soft)" lineHeight="1.5">
+              A IA lê o assunto de cada recebido e o guarda na pasta certa (Clientes,
+              Financeiro, Fornecedores, Marketing, Sistema). Vai aprendendo os remetentes
+              e, com o tempo, passa a acertar sozinha — quase sem chamar a IA.
+            </Text>
+          </Stack>
+          <Switch.Root
+            checked={organize}
+            onCheckedChange={(e) => setOrganize(e.checked)}
+            flexShrink={0}
+          >
+            <Switch.HiddenInput />
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+          </Switch.Root>
+        </HStack>
+        {onBackfill ? (
+          <Button
+            size="sm"
+            tone="outline"
+            borderRadius="10px"
+            alignSelf="flex-start"
+            onClick={onBackfill}
+            loading={running}
+            disabled={pending && !running}
+          >
+            <Sparkles size={14} /> Organizar caixa agora
+          </Button>
+        ) : null}
+      </Stack>
+
+      <Box h="1px" bg="var(--admin-border)" />
+
+      {/* Respostas automáticas */}
+      <Stack gap={2}>
+        <Stack gap={0.5}>
+          <Text fontWeight="700" fontSize="sm">Respostas automáticas</Text>
+          <Text fontSize="xs" color="var(--admin-text-soft)" lineHeight="1.5">
+            A IA pode redigir uma resposta pra você. Em <b>Só rascunhar</b>, o texto já vem
+            pronto ao clicar em Responder — você revisa e envia. Em <b>Enviar automático</b>,
+            ela responde sozinha apenas casos simples e seguros (nunca cobranças, contratos,
+            jurídico, cancelamentos ou listas/no-reply).
+          </Text>
+        </Stack>
+        <FormSelect
+          value={autoReply}
+          onChange={(e) => setAutoReply(e.currentTarget.value as MailAiSettings["autoReply"])}
+          options={[
+            { value: "off", label: AUTO_REPLY_LABEL.off },
+            { value: "draft", label: AUTO_REPLY_LABEL.draft },
+            { value: "safe_auto", label: AUTO_REPLY_LABEL.safe_auto },
+          ]}
+        />
+        {autoReply === "safe_auto" ? (
+          <HStack
+            gap={2}
+            align="flex-start"
+            px={3}
+            py={2.5}
+            borderRadius="10px"
+            bg="rgba(234,179,8,0.10)"
+            borderWidth="1px"
+            borderColor="rgba(234,179,8,0.35)"
+          >
+            <Icon as={AlertTriangle} boxSize={4} color="#a16207" mt="1px" flexShrink={0} />
+            <Text fontSize="xs" color="#854d0e" lineHeight="1.5">
+              Envio automático ligado. A IA só dispara em casos seguros, uma única vez por
+              conversa; qualquer caso sensível vira rascunho pra sua revisão.
+            </Text>
+          </HStack>
+        ) : null}
+      </Stack>
+    </Stack>
+  );
+}
+
+function AiSettingsModal({
+  open,
+  onClose,
+  settings,
+  onSave,
+  onBackfill,
+  onRefresh,
+}: {
+  open: boolean;
+  onClose: () => void;
+  settings: MailAiSettings;
+  onSave: (settings: MailAiSettings) => Promise<MailResult>;
+  onBackfill?: () => Promise<MailResult<{ organized: number }>>;
+  onRefresh: () => void;
+}) {
+  const [organize, setOrganize] = useState(settings.organize);
+  const [autoReply, setAutoReply] = useState<MailAiSettings["autoReply"]>(settings.autoReply);
+  const [pending, start] = useTransition();
+  const [running, setRunning] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Reabriu → re-sincroniza com o que veio do servidor (pode ter mudado no refresh).
+  useEffect(() => {
+    if (open) {
+      setOrganize(settings.organize);
+      setAutoReply(settings.autoReply);
+      setMsg(null);
+      setErr(null);
+    }
+  }, [open, settings.organize, settings.autoReply]);
+
+  function save() {
+    start(async () => {
+      setErr(null);
+      setMsg(null);
+      const r = await onSave({ organize, autoReply });
+      if (r.ok) {
+        setMsg("Configuração salva.");
+        onRefresh();
+      } else {
+        setErr(r.error);
+      }
+    });
+  }
+
+  function backfill() {
+    if (!onBackfill) return;
+    setRunning(true);
+    start(async () => {
+      setErr(null);
+      setMsg(null);
+      const r = await onBackfill();
+      setRunning(false);
+      if (r.ok) {
+        setMsg(`Caixa organizada: ${r.data?.organized ?? 0} e-mail(s) classificado(s).`);
+        onRefresh();
+      } else {
+        setErr(r.error);
+      }
+    });
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="IA da caixa de e-mail"
+      footer={
+        <>
+          {msg ? <Text fontSize="xs" color="#15803d" mr="auto">{msg}</Text> : null}
+          {err ? <Text fontSize="xs" color="#dc2626" mr="auto">{err}</Text> : null}
+          <Button tone="ghost" onClick={onClose} disabled={pending}>Fechar</Button>
+          <Button tone="primary" onClick={save} loading={pending && !running}>Salvar</Button>
+        </>
+      }
+    >
+      <AiSettingsControls
+        organize={organize}
+        setOrganize={setOrganize}
+        autoReply={autoReply}
+        setAutoReply={setAutoReply}
+        onBackfill={onBackfill ? backfill : undefined}
+        pending={pending}
+        running={running}
+      />
+    </Modal>
   );
 }
 
@@ -1903,12 +2189,18 @@ function Mailbox({
   accounts,
   messages,
   defaultAccountId,
+  folders,
+  aiSettings,
+  isAdmin,
   callbacks,
   onGoSettings,
 }: {
   accounts: MailInboxAccount[];
   messages: MailMessage[];
   defaultAccountId?: string;
+  folders: MailFolder[];
+  aiSettings?: MailAiSettings;
+  isAdmin: boolean;
   callbacks: MailCallbacks;
   onGoSettings?: () => void;
 }) {
@@ -1920,9 +2212,15 @@ function Mailbox({
   const [accountId, setAccountId] = useState<string>(
     primaryId ?? (accounts.length > 1 ? ALL : (accounts[0]?.id ?? "")),
   );
-  const [folder, setFolder] = useState<Folder>("inbox");
+  // Navegação: "inbox" | "sent" | "spam" | "c:<slug>" (pasta inteligente).
+  const [sel, setSel] = useState<string>("inbox");
+  const catSlug = sel.startsWith("c:") ? sel.slice(2) : null;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [compose, setCompose] = useState<null | ComposeState>(null);
+  // Modal de criar/renomear pasta (só admin com onCreateFolder).
+  const [folderModal, setFolderModal] = useState<
+    null | { mode: "create" } | { mode: "rename"; slug: string; name: string }
+  >(null);
 
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
@@ -1951,23 +2249,62 @@ function Mailbox({
   const currentAccounts = isAll ? accounts : accounts.filter((a) => a.id === accountId);
   const hasGmail = currentAccounts.some((a) => a.provider === "gmail");
   const showSpam = hasGmail || accountMessages.some((m) => mailboxOf(m) === "spam");
-  const activeFolder: Folder = folder === "spam" && !showSpam ? "inbox" : folder;
 
-  const folderMessages = useMemo(
-    () =>
-      accountMessages
-        .filter((m) => mailboxOf(m) === activeFolder)
-        .sort((a, b) => +new Date(b.date) - +new Date(a.date)),
-    [accountMessages, activeFolder],
-  );
+  // Slugs de pasta conhecidos — separa "classificado" de "solto na caixa".
+  const knownSlugs = useMemo(() => new Set(folders.map((f) => f.slug)), [folders]);
+  const isClassified = (m: MailMessage) => !!(m.category && knownSlugs.has(m.category));
+
+  // Caixa fixa "em foco" (categoria = sempre dentro de inbox). Spam some se não houver.
+  const requestedFolder: Folder = catSlug
+    ? "inbox"
+    : sel === "sent"
+      ? "sent"
+      : sel === "spam"
+        ? "spam"
+        : "inbox";
+  const activeFolder: Folder = requestedFolder === "spam" && !showSpam ? "inbox" : requestedFolder;
+  const currentFolder = catSlug ? (folders.find((f) => f.slug === catSlug) ?? null) : null;
+  // Se a pasta selecionada sumiu (removida), cai na caixa de entrada.
+  const catMissing = catSlug !== null && !currentFolder;
+
+  const folderMessages = useMemo(() => {
+    let list: MailMessage[];
+    if (catSlug && !catMissing) {
+      list = accountMessages.filter((m) => mailboxOf(m) === "inbox" && m.category === catSlug);
+    } else if (activeFolder === "inbox") {
+      // Caixa de entrada = recebidos que NÃO estão numa pasta inteligente conhecida.
+      list = accountMessages.filter((m) => mailboxOf(m) === "inbox" && !isClassified(m));
+    } else {
+      list = accountMessages.filter((m) => mailboxOf(m) === activeFolder);
+    }
+    return list.sort((a, b) => +new Date(b.date) - +new Date(a.date));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountMessages, activeFolder, catSlug, catMissing, knownSlugs]);
+
   /** Não-lidas por conta (para o seletor) + total — só a Caixa de entrada (exclui spam). */
   const unreadByAccount = useMemo(() => {
     const map: Record<string, number> = {};
     for (const m of messages) if (mailboxOf(m) === "inbox" && !m.read) map[m.accountId] = (map[m.accountId] ?? 0) + 1;
     return map;
   }, [messages]);
-  const unreadCount = accountMessages.filter((m) => mailboxOf(m) === "inbox" && !m.read).length;
+  // Não-lidas da Caixa de entrada = recebidas não-lidas AINDA soltas (sem pasta).
+  const unreadCount = accountMessages.filter(
+    (m) => mailboxOf(m) === "inbox" && !m.read && !isClassified(m),
+  ).length;
   const spamUnread = accountMessages.filter((m) => mailboxOf(m) === "spam" && !m.read).length;
+  // Contagem por pasta inteligente (não-lidas p/ o badge; total p/ o resumo).
+  const catCounts = useMemo(() => {
+    const unread: Record<string, number> = {};
+    const total: Record<string, number> = {};
+    for (const m of accountMessages) {
+      if (mailboxOf(m) !== "inbox" || !isClassified(m)) continue;
+      const s = m.category as string;
+      total[s] = (total[s] ?? 0) + 1;
+      if (!m.read) unread[s] = (unread[s] ?? 0) + 1;
+    }
+    return { unread, total };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountMessages, knownSlugs]);
   const selected = folderMessages.find((m) => m.id === selectedId) ?? null;
 
   function openMessage(m: MailMessage) {
@@ -1994,16 +2331,63 @@ function Mailbox({
   function startReply(m: MailMessage) {
     const replyTo = m.direction === "inbound" ? m.fromAddress : m.toAddresses[0] ?? "";
     const subj = m.subject ?? "";
+    // Rascunho da IA (se houver) pré-preenche o corpo — texto puro vira HTML simples.
+    const draft = (m.aiDraft ?? "").trim();
+    const html = draft
+      ? draft.split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, "<br/>")}</p>`).join("")
+      : "";
     setCompose({
       // responde PELA conta que recebeu (ou a principal/atual, se enviado)
       fromAccountId: m.accountId || composeDefaultId,
       to: replyTo,
       cc: "",
       subject: subj.toLowerCase().startsWith("re:") ? subj : `Re: ${subj}`,
-      html: "",
+      html,
       inReplyTo: m.resendId ?? m.inReplyTo ?? null,
       threadId: m.threadId ?? m.resendId ?? null,
       attachments: [],
+    });
+  }
+
+  // ── Pastas inteligentes: mover mensagem, criar/renomear/remover pasta ──
+  function moveTo(m: MailMessage, slug: string | null) {
+    if (!callbacks.onMoveToFolder) return;
+    start(async () => {
+      const r = await callbacks.onMoveToFolder!(m.id, slug);
+      if (r.ok) {
+        setSelectedId(null);
+        callbacks.onRefresh();
+      }
+    });
+  }
+
+  const [folderErr, setFolderErr] = useState<string | null>(null);
+  function submitFolder(name: string) {
+    const clean = name.trim();
+    if (!clean) return;
+    const modal = folderModal;
+    if (!modal) return;
+    start(async () => {
+      setFolderErr(null);
+      const r =
+        modal.mode === "create"
+          ? await callbacks.onCreateFolder?.(clean)
+          : await callbacks.onRenameFolder?.(modal.slug, clean);
+      if (r?.ok) {
+        setFolderModal(null);
+        callbacks.onRefresh();
+      } else {
+        setFolderErr(r?.error ?? "Não foi possível salvar a pasta.");
+      }
+    });
+  }
+  function removeFolder(slug: string) {
+    start(async () => {
+      const r = await callbacks.onRemoveFolder?.(slug);
+      if (r?.ok) {
+        if (catSlug === slug) setSel("inbox");
+        callbacks.onRefresh();
+      }
     });
   }
 
@@ -2036,6 +2420,7 @@ function Mailbox({
   }
 
   return (
+    <>
     <Flex
       borderWidth="1px"
       borderColor="var(--admin-border)"
@@ -2088,28 +2473,73 @@ function Mailbox({
 
         <Stack gap={1}>
           <FolderButton
-            active={activeFolder === "inbox"}
-            onClick={() => { setFolder("inbox"); setSelectedId(null); }}
+            active={sel === "inbox"}
+            onClick={() => { setSel("inbox"); setSelectedId(null); }}
             icon={<Inbox size={16} />}
             label="Caixa de entrada"
             count={unreadCount}
           />
           <FolderButton
-            active={activeFolder === "sent"}
-            onClick={() => { setFolder("sent"); setSelectedId(null); }}
+            active={sel === "sent"}
+            onClick={() => { setSel("sent"); setSelectedId(null); }}
             icon={<Send size={16} />}
             label="Enviados"
           />
           {showSpam ? (
             <FolderButton
-              active={activeFolder === "spam"}
-              onClick={() => { setFolder("spam"); setSelectedId(null); }}
+              active={sel === "spam"}
+              onClick={() => { setSel("spam"); setSelectedId(null); }}
               icon={<ShieldAlert size={16} />}
               label="Spam"
               count={spamUnread}
             />
           ) : null}
         </Stack>
+
+        {/* Pastas inteligentes (categorias por assunto). Só aparecem quando a
+            superfície passa `folders` — a IA/regras distribuem os recebidos aqui. */}
+        {folders.length ? (
+          <Stack gap={1}>
+            <Text
+              px={3}
+              fontSize="2xs"
+              fontWeight="800"
+              letterSpacing="0.06em"
+              textTransform="uppercase"
+              color="var(--admin-text-soft)"
+            >
+              Pastas
+            </Text>
+            {folders.map((f) => (
+              <FolderButton
+                key={f.slug}
+                active={catSlug === f.slug}
+                onClick={() => { setSel(`c:${f.slug}`); setSelectedId(null); }}
+                icon={<FolderIcon size={16} color={f.color ?? undefined} />}
+                label={f.name}
+                count={catCounts.unread[f.slug] ?? 0}
+              />
+            ))}
+            {callbacks.onCreateFolder ? (
+              <HStack
+                as="button"
+                onClick={() => { setFolderErr(null); setFolderModal({ mode: "create" }); }}
+                w="100%"
+                px={3}
+                py={2}
+                borderRadius="10px"
+                color="var(--admin-text-soft)"
+                fontWeight="500"
+                _hover={{ bg: "var(--admin-surface)", color: "var(--admin-primary)" }}
+                cursor="pointer"
+                gap={2}
+              >
+                <Plus size={16} />
+                <Text fontSize="sm">Nova pasta</Text>
+              </HStack>
+            ) : null}
+          </Stack>
+        ) : null}
       </Stack>
 
       {/* Lista de mensagens */}
@@ -2123,13 +2553,45 @@ function Mailbox({
         maxH={{ base: "560px", md: "100%" }}
         overflowY="auto"
       >
-        <HStack justify="space-between" px={4} py={3} borderBottomWidth="1px" borderColor="var(--admin-border)">
-          <Text fontWeight="700" fontSize="sm">
-            {FOLDER_LABEL[activeFolder]}
-          </Text>
-          <HStack gap={2}>
+        <HStack justify="space-between" px={4} py={3} borderBottomWidth="1px" borderColor="var(--admin-border)" gap={2}>
+          <HStack gap={2} minW={0}>
+            <Text fontWeight="700" fontSize="sm" truncate>
+              {currentFolder ? currentFolder.name : FOLDER_LABEL[activeFolder]}
+            </Text>
+            {currentFolder && (catCounts.total[currentFolder.slug] ?? 0) > 0 ? (
+              <Text fontSize="2xs" color="var(--admin-text-soft)" flexShrink={0}>
+                {catCounts.total[currentFolder.slug]}
+              </Text>
+            ) : null}
+          </HStack>
+          <HStack gap={1} flexShrink={0}>
             {syncMsg ? (
               <Text fontSize="2xs" color="var(--admin-text-soft)">{syncMsg}</Text>
+            ) : null}
+            {currentFolder && (callbacks.onRenameFolder || callbacks.onRemoveFolder) ? (
+              <ActionMenu
+                label=""
+                size="xs"
+                tone="ghost"
+                icon={<Settings size={14} />}
+                items={[
+                  ...(callbacks.onRenameFolder
+                    ? [{
+                        label: "Renomear pasta",
+                        icon: <PenLine size={14} />,
+                        onClick: () => { setFolderErr(null); setFolderModal({ mode: "rename", slug: currentFolder.slug, name: currentFolder.name }); },
+                      }]
+                    : []),
+                  ...(callbacks.onRemoveFolder && !currentFolder.system
+                    ? [{
+                        label: "Excluir pasta",
+                        icon: <Trash2 size={14} />,
+                        danger: true,
+                        onClick: () => removeFolder(currentFolder.slug),
+                      }]
+                    : []),
+                ]}
+              />
             ) : null}
             <IconButton
               aria-label="Buscar novos e-mails"
@@ -2145,51 +2607,70 @@ function Mailbox({
         </HStack>
 
         {folderMessages.length === 0 ? (
-          <Stack p={6} gap={3} align="flex-start">
-            <Text fontSize="sm" color="var(--admin-text-soft)">
-              {activeFolder === "inbox"
-                ? "Nenhuma mensagem recebida ainda."
-                : activeFolder === "spam"
-                  ? "Nenhuma mensagem marcada como spam."
-                  : "Nenhuma mensagem enviada ainda."}
-            </Text>
-            {activeFolder !== "sent" ? (
-              <>
-                <Button size="xs" tone="outline" borderRadius="8px" onClick={doSync} loading={pending}>
-                  <RefreshCw size={13} /> Buscar novos
-                </Button>
-                <Text fontSize="2xs" color="var(--admin-text-soft)" lineHeight="1.6">
-                  {hasGmail
-                    ? "Sincroniza a Caixa de entrada e o Spam da conta Google conectada."
-                    : "Para receber, ative o recebimento (inbound) do domínio nas Configurações."}
-                </Text>
-              </>
-            ) : null}
-          </Stack>
+          currentFolder ? (
+            <Stack p={6} gap={2} align="flex-start">
+              <Text fontSize="sm" color="var(--admin-text-soft)">
+                Nenhum e-mail nesta pasta ainda.
+              </Text>
+              <Text fontSize="2xs" color="var(--admin-text-soft)" lineHeight="1.6">
+                A IA move pra cá os recebidos deste tema conforme chegam. Você também
+                pode mover manualmente pelo botão “Mover para” ao abrir um e-mail.
+              </Text>
+            </Stack>
+          ) : (
+            <Stack p={6} gap={3} align="flex-start">
+              <Text fontSize="sm" color="var(--admin-text-soft)">
+                {activeFolder === "inbox"
+                  ? "Nenhuma mensagem recebida ainda."
+                  : activeFolder === "spam"
+                    ? "Nenhuma mensagem marcada como spam."
+                    : "Nenhuma mensagem enviada ainda."}
+              </Text>
+              {activeFolder !== "sent" ? (
+                <>
+                  <Button size="xs" tone="outline" borderRadius="8px" onClick={doSync} loading={pending}>
+                    <RefreshCw size={13} /> Buscar novos
+                  </Button>
+                  <Text fontSize="2xs" color="var(--admin-text-soft)" lineHeight="1.6">
+                    {hasGmail
+                      ? "Sincroniza a Caixa de entrada e o Spam da conta Google conectada."
+                      : "Para receber, ative o recebimento (inbound) do domínio nas Configurações."}
+                  </Text>
+                </>
+              ) : null}
+            </Stack>
+          )
         ) : (
           folderMessages.map((m) => {
             const who = activeFolder === "sent"
               ? m.toAddresses.join(", ")
               : displayName(m.fromAddress, m.fromName);
             const unread = m.direction === "inbound" && !m.read;
+            // Etiqueta da pasta — só na Caixa de entrada "misturada" não faz sentido
+            // (lá é tudo não-classificado); mostra em "Todas as contas" e afins.
+            const cat = m.category && knownSlugs.has(m.category)
+              ? folders.find((f) => f.slug === m.category)
+              : null;
             return (
               <Box
                 key={m.id}
                 onClick={() => openMessage(m)}
                 cursor="pointer"
-                px={4}
+                pl={5}
+                pr={4}
                 py={3}
                 borderBottomWidth="1px"
                 borderColor="var(--admin-border)"
                 bg={selectedId === m.id ? "var(--admin-surface-2)" : "transparent"}
                 _hover={{ bg: "var(--admin-surface-2)" }}
                 position="relative"
+                overflow="hidden"
               >
                 {unread ? (
                   <Box position="absolute" left="6px" top="50%" transform="translateY(-50%)" w="6px" h="6px" borderRadius="full" bg="var(--admin-primary)" />
                 ) : null}
                 <HStack justify="space-between" gap={2}>
-                  <Text fontSize="sm" fontWeight={unread ? "800" : "600"} truncate flex="1">
+                  <Text fontSize="sm" fontWeight={unread ? "800" : "600"} truncate flex="1" minW={0}>
                     {who}
                   </Text>
                   <Text fontSize="xs" color="var(--admin-text-soft)" flexShrink={0}>
@@ -2199,9 +2680,25 @@ function Mailbox({
                 <Text fontSize="sm" fontWeight={unread ? "700" : "500"} truncate>
                   {m.subject || "(sem assunto)"}
                 </Text>
-                <Text fontSize="xs" color="var(--admin-text-soft)" truncate>
-                  {snippet(m)}
-                </Text>
+                <HStack gap={2} minW={0}>
+                  {cat && !currentFolder ? (
+                    <Box
+                      flexShrink={0}
+                      px={1.5}
+                      py="1px"
+                      borderRadius="5px"
+                      fontSize="2xs"
+                      fontWeight="700"
+                      bg={`${cat.color ?? "#64748b"}1a`}
+                      color={cat.color ?? "#64748b"}
+                    >
+                      {cat.name}
+                    </Box>
+                  ) : null}
+                  <Text fontSize="xs" color="var(--admin-text-soft)" truncate flex="1" minW={0}>
+                    {snippet(m)}
+                  </Text>
+                </HStack>
               </Box>
             );
           })
@@ -2222,19 +2719,179 @@ function Mailbox({
             onSent={() => { setCompose(null); callbacks.onRefresh(); }}
           />
         ) : selected ? (
-          <MessageView message={selected} onBack={() => setSelectedId(null)} onReply={() => startReply(selected)} />
+          <MessageView
+            message={selected}
+            folders={folders}
+            onBack={() => setSelectedId(null)}
+            onReply={() => startReply(selected)}
+            onMove={callbacks.onMoveToFolder ? (slug) => moveTo(selected, slug) : undefined}
+          />
         ) : (
-          <Flex h="100%" minH="400px" align="center" justify="center" p={8}>
-            <Stack align="center" gap={2}>
-              <Icon as={Mail} boxSize={8} color="var(--admin-text-soft)" />
-              <Text color="var(--admin-text-soft)" fontSize="sm">
-                Selecione uma mensagem para ler
-              </Text>
-            </Stack>
-          </Flex>
+          <InboxOverview
+            unreadCount={unreadCount}
+            totalInbox={accountMessages.filter((m) => mailboxOf(m) === "inbox").length}
+            folders={folders}
+            catCounts={catCounts}
+            syncMsg={syncMsg}
+            organize={aiSettings?.organize}
+            onOpenFolder={(slug) => { setSel(`c:${slug}`); setSelectedId(null); }}
+            onSync={doSync}
+            pending={pending}
+          />
         )}
       </Box>
     </Flex>
+
+      {/* Modal criar/renomear pasta */}
+      {folderModal ? (
+        <FolderNameModal
+          mode={folderModal.mode}
+          initial={folderModal.mode === "rename" ? folderModal.name : ""}
+          error={folderErr}
+          pending={pending}
+          onCancel={() => { setFolderModal(null); setFolderErr(null); }}
+          onSubmit={submitFolder}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/** Resumo da caixa (painel de leitura vazio) — visão geral em vez do texto seco. */
+function InboxOverview({
+  unreadCount,
+  totalInbox,
+  folders,
+  catCounts,
+  syncMsg,
+  organize,
+  onOpenFolder,
+  onSync,
+  pending,
+}: {
+  unreadCount: number;
+  totalInbox: number;
+  folders: MailFolder[];
+  catCounts: { unread: Record<string, number>; total: Record<string, number> };
+  syncMsg: string | null;
+  organize?: boolean;
+  onOpenFolder: (slug: string) => void;
+  onSync: () => void;
+  pending: boolean;
+}) {
+  return (
+    <Flex h="100%" minH="400px" align="center" justify="center" p={{ base: 6, md: 10 }}>
+      <Stack gap={6} maxW="440px" w="100%" align="stretch">
+        <Stack gap={1} align="center" textAlign="center">
+          <Icon as={Inbox} boxSize={8} color="var(--admin-primary)" />
+          <Text fontWeight="800" fontSize="lg">Sua caixa de entrada</Text>
+          <Text fontSize="sm" color="var(--admin-text-soft)">
+            {unreadCount > 0
+              ? `${unreadCount} não lida${unreadCount > 1 ? "s" : ""} · ${totalInbox} recebida${totalInbox === 1 ? "" : "s"}`
+              : `Tudo em dia · ${totalInbox} recebida${totalInbox === 1 ? "" : "s"}`}
+          </Text>
+        </Stack>
+
+        {folders.length ? (
+          <Stack gap={2}>
+            <Text fontSize="2xs" fontWeight="800" letterSpacing="0.06em" textTransform="uppercase" color="var(--admin-text-soft)">
+              Pastas
+            </Text>
+            <Box display="grid" gridTemplateColumns={{ base: "1fr", sm: "1fr 1fr" }} gap={2}>
+              {folders.map((f) => {
+                const total = catCounts.total[f.slug] ?? 0;
+                const unread = catCounts.unread[f.slug] ?? 0;
+                return (
+                  <HStack
+                    key={f.slug}
+                    as="button"
+                    onClick={() => onOpenFolder(f.slug)}
+                    gap={2}
+                    px={3}
+                    py={2.5}
+                    borderRadius="12px"
+                    borderWidth="1px"
+                    borderColor="var(--admin-border)"
+                    bg="var(--admin-surface)"
+                    _hover={{ borderColor: "var(--admin-primary)" }}
+                    cursor="pointer"
+                    justify="space-between"
+                    textAlign="left"
+                  >
+                    <HStack gap={2} minW={0}>
+                      <FolderIcon size={15} color={f.color ?? undefined} />
+                      <Text fontSize="sm" fontWeight="600" truncate>{f.name}</Text>
+                    </HStack>
+                    <Text fontSize="xs" color={unread ? "var(--admin-primary)" : "var(--admin-text-soft)"} fontWeight={unread ? "800" : "500"} flexShrink={0}>
+                      {unread ? unread : total || ""}
+                    </Text>
+                  </HStack>
+                );
+              })}
+            </Box>
+          </Stack>
+        ) : null}
+
+        <Stack gap={2} align="center">
+          <Button size="sm" tone="outline" borderRadius="10px" onClick={onSync} loading={pending}>
+            <RefreshCw size={14} /> Buscar novos
+          </Button>
+          <Text fontSize="2xs" color="var(--admin-text-soft)" textAlign="center" lineHeight="1.6">
+            {syncMsg ? `${syncMsg} · ` : ""}
+            {organize === false
+              ? "Organização por IA desligada — ligue no botão “IA” do topo."
+              : folders.length
+                ? "Selecione um e-mail à esquerda para ler. A IA organiza os recebidos nas pastas."
+                : "Selecione um e-mail à esquerda para ler."}
+          </Text>
+        </Stack>
+      </Stack>
+    </Flex>
+  );
+}
+
+/** Modalzinho de nome de pasta (criar/renomear). */
+function FolderNameModal({
+  mode,
+  initial,
+  error,
+  pending,
+  onCancel,
+  onSubmit,
+}: {
+  mode: "create" | "rename";
+  initial: string;
+  error: string | null;
+  pending: boolean;
+  onCancel: () => void;
+  onSubmit: (name: string) => void;
+}) {
+  const [name, setName] = useState(initial);
+  return (
+    <Modal
+      open
+      onClose={onCancel}
+      title={mode === "create" ? "Nova pasta" : "Renomear pasta"}
+      size="sm"
+      footer={
+        <>
+          <Button tone="ghost" onClick={onCancel} disabled={pending}>Cancelar</Button>
+          <Button tone="primary" onClick={() => onSubmit(name)} loading={pending} disabled={!name.trim()}>
+            {mode === "create" ? "Criar" : "Salvar"}
+          </Button>
+        </>
+      }
+    >
+      <FormInput
+        label="Nome da pasta"
+        value={name}
+        autoFocus
+        placeholder="Ex.: Parceiros"
+        error={error ?? undefined}
+        onChange={(e) => setName(e.currentTarget.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) onSubmit(name); }}
+      />
+    </Modal>
   );
 }
 
@@ -2281,14 +2938,23 @@ function FolderButton({
 
 function MessageView({
   message,
+  folders,
   onBack,
   onReply,
+  onMove,
 }: {
   message: MailMessage;
+  folders: MailFolder[];
   onBack: () => void;
   onReply: () => void;
+  onMove?: (slug: string | null) => void;
 }) {
   const attachments = message.attachments ?? [];
+  // Mover só faz sentido em recebidos (os enviados não entram em pasta).
+  const canMove = !!onMove && message.direction === "inbound" && folders.length > 0;
+  const curCat = message.category && folders.some((f) => f.slug === message.category)
+    ? message.category
+    : null;
   return (
     <Stack gap={0} h="100%">
       <HStack justify="space-between" px={5} py={4} borderBottomWidth="1px" borderColor="var(--admin-border)" gap={3}>
@@ -2300,10 +2966,39 @@ function MessageView({
             {message.subject || "(sem assunto)"}
           </Text>
         </HStack>
-        <Button size="sm" tone="outline" onClick={onReply}>
-          <Reply size={14} /> Responder
-        </Button>
+        <HStack gap={2} flexShrink={0}>
+          {canMove ? (
+            <ActionMenu
+              label="Mover para"
+              size="sm"
+              tone="ghost"
+              icon={<FolderIcon size={14} />}
+              items={[
+                ...folders.map((f) => ({
+                  label: f.slug === curCat ? `${f.name} ✓` : f.name,
+                  icon: <FolderIcon size={14} color={f.color ?? undefined} />,
+                  onClick: () => onMove!(f.slug === curCat ? null : f.slug),
+                })),
+                ...(curCat
+                  ? [{ label: "Tirar da pasta", icon: <Inbox size={14} />, onClick: () => onMove!(null) }]
+                  : []),
+              ]}
+            />
+          ) : null}
+          <Button size="sm" tone="outline" onClick={onReply}>
+            <Reply size={14} /> Responder
+          </Button>
+        </HStack>
       </HStack>
+
+      {message.aiRepliedAt ? (
+        <HStack px={5} py={2} bg="rgba(37,99,235,0.06)" borderBottomWidth="1px" borderColor="var(--admin-border)" gap={2}>
+          <Icon as={Sparkles} boxSize={3.5} color="var(--admin-primary)" />
+          <Text fontSize="2xs" color="var(--admin-text-soft)">
+            Respondido automaticamente pela IA em {new Date(message.aiRepliedAt).toLocaleString("pt-BR")}
+          </Text>
+        </HStack>
+      ) : null}
 
       <Box px={5} py={3} borderBottomWidth="1px" borderColor="var(--admin-border)">
         <HStack justify="space-between" flexWrap="wrap" gap={1}>

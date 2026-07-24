@@ -54,6 +54,7 @@ export { EmptyState } from "./components/EmptyState";
 export { EmailHtmlView } from "./components/EmailHtmlView";
 export {
   MailClient,
+  DEFAULT_MAIL_CATEGORIES,
   type MailResult,
   type MailProvider,
   type MailConnEditor,
@@ -66,6 +67,8 @@ export {
   type MailInboxAccount,
   type MailAttachment,
   type MailMessage,
+  type MailFolder,
+  type MailAiSettings,
   type MailCallbacks,
 } from "./components/email/MailClient";
 export {
