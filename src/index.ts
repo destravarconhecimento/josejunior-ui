@@ -46,6 +46,7 @@ export type { NavItem, NavSection, Brand, AppUser } from "./shell/types";
 export { Screen } from "./components/Screen";
 export { PageHeader } from "./components/PageHeader";
 export { PageBody } from "./components/PageBody";
+export { ScrollArea } from "./components/ScrollArea";
 export { Card } from "./components/Card";
 export { Button, type ButtonTone } from "./components/Button";
 export { Tag, StatusBadge, DeliveryBadge } from "./components/Badge";
