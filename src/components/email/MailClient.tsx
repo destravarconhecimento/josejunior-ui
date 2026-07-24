@@ -43,6 +43,7 @@ import { Card } from "../Card";
 import { Switch } from "../controls";
 import { DataTable } from "../DataTable";
 import { EmailHtmlView } from "../EmailHtmlView";
+import { markdownToEmailHtml } from "./markdown";
 import { EmptyState } from "../EmptyState";
 import { FormField, FormInput, FormSelect, FormTextarea } from "../form";
 import { GoogleCredentialForm } from "../GoogleCredentialForm";
