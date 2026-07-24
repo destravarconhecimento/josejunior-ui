@@ -5,8 +5,10 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Box, Flex, HStack, Spinner, Stack, Text, chakra } from "@chakra-ui/react";
 import { ArrowLeft, Maximize2, MessageCircle, RefreshCw, Search, Send, Users, X } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa6";
 import { EntityAvatar } from "../EntityAvatar";
 import { Input } from "../controls";
+import { useFabDock, setFabOpen, FAB_BASE, FAB_PANEL_BOTTOM } from "../fab/dock";
 import {
   ChatRow,
   MessageBubble,
@@ -60,8 +62,6 @@ export type WhatsAppFabProps = {
   expandHref?: string;
   /** Rotas onde o FAB some (a própria tela do WhatsApp, por exemplo). */
   hideOnPaths?: string[];
-  /** Chave do localStorage da posição (o FAB é arrastável). */
-  storageKey?: string;
   /** Avisa quando abre/fecha — o dono usa pra ligar/desligar o polling. */
   onOpenChange?: (open: boolean) => void;
   callbacks: WhatsAppFabCallbacks;
@@ -75,7 +75,6 @@ export function WhatsAppFab({
   assistantName,
   expandHref,
   hideOnPaths = [],
-  storageKey = "wa-fab-pos",
   onOpenChange,
   callbacks,
 }: WhatsAppFabProps) {
@@ -89,22 +88,22 @@ export function WhatsAppFab({
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-  const drag = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null);
   const fioRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) setPos(JSON.parse(saved));
-    } catch {
-      /* posição é conforto, não estado crítico */
-    }
-  }, [storageKey]);
+  // Dock partilhado: empilha os FABs (WhatsApp em baixo) e garante que só um
+  // painel abre de cada vez — abrir a IA some com este, e vice-versa.
+  const wantShow = connected && !hideOnPaths.includes(pathname);
+  const { bottom, othersOpen } = useFabDock("whatsapp", wantShow);
 
   useEffect(() => {
     onOpenChange?.(open);
   }, [open, onOpenChange]);
+
+  // Espelha o aberto no dock e recua se o irmão (IA) abrir.
+  useEffect(() => setFabOpen("whatsapp", open), [open]);
+  useEffect(() => {
+    if (othersOpen && open) setOpen(false);
+  }, [othersOpen, open]);
 
   // Abrir por evento: dá um atalho a quem quiser ("abrir o WhatsApp") sem prop drilling.
   useEffect(() => {
@@ -112,38 +111,6 @@ export function WhatsAppFab({
     window.addEventListener("wa-fab:open", abrir);
     return () => window.removeEventListener("wa-fab:open", abrir);
   }, []);
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    drag.current = { startX: e.clientX, startY: e.clientY, baseX: rect.left, baseY: rect.top, moved: false };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-  const onPointerMove = (e: React.PointerEvent) => {
-    const d = drag.current;
-    if (!d) return;
-    const dx = e.clientX - d.startX;
-    const dy = e.clientY - d.startY;
-    if (Math.abs(dx) + Math.abs(dy) > 6) d.moved = true;
-    if (d.moved) {
-      setPos({
-        x: Math.min(window.innerWidth - 60, Math.max(4, d.baseX + dx)),
-        y: Math.min(window.innerHeight - 60, Math.max(4, d.baseY + dy)),
-      });
-    }
-  };
-  const onPointerUp = () => {
-    const d = drag.current;
-    drag.current = null;
-    if (d?.moved) {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(pos));
-      } catch {
-        /* idem */
-      }
-    } else {
-      setOpen((v) => !v);
-    }
-  };
 
   const abrirConversa = useCallback(
     async (id: string) => {
@@ -229,22 +196,16 @@ export function WhatsAppFab({
 
   const naoLidas = useMemo(() => chats.reduce((acc, c) => acc + (c.unreadCount ?? 0), 0), [chats]);
 
-  if (!connected || hideOnPaths.includes(pathname)) return null;
+  if (!wantShow || othersOpen) return null;
 
   const botao = (
     <chakra.button
       type="button"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      onClick={() => setOpen((v) => !v)}
       position="fixed"
-      style={
-        pos
-          ? { left: pos.x, top: pos.y, background: "#25d366", boxShadow: "0 12px 34px rgba(7,26,51,0.35)", touchAction: "none" }
-          : { background: "#25d366", boxShadow: "0 12px 34px rgba(7,26,51,0.35)", touchAction: "none" }
-      }
-      bottom={pos ? undefined : 6}
-      right={pos ? undefined : "88px"}
+      style={{ background: "#25d366", boxShadow: "0 12px 34px rgba(7,26,51,0.35)" }}
+      bottom={`${open ? FAB_BASE : bottom}px`}
+      right={`${FAB_BASE}px`}
       zIndex={1400}
       w="56px"
       h="56px"
@@ -254,11 +215,11 @@ export function WhatsAppFab({
       justifyContent="center"
       color="white"
       _hover={{ transform: "scale(1.06)" }}
-      transition="transform .15s"
+      transition="transform .15s, bottom .18s ease"
       aria-label="WhatsApp"
       title="WhatsApp"
     >
-      {open ? <X size={22} /> : <MessageCircle size={24} />}
+      {open ? <X size={22} /> : <FaWhatsapp size={26} />}
       {!open && naoLidas > 0 ? (
         <Box
           position="absolute"
@@ -290,8 +251,8 @@ export function WhatsAppFab({
       {botao}
       <Flex
         position="fixed"
-        bottom="92px"
-        right={6}
+        bottom={`${FAB_PANEL_BOTTOM}px`}
+        right={`${FAB_BASE}px`}
         zIndex={1400}
         w={{ base: "calc(100vw - 32px)", sm: "380px" }}
         h={{ base: "72vh", sm: "580px" }}
@@ -340,7 +301,7 @@ export function WhatsAppFab({
             </>
           ) : (
             <>
-              <MessageCircle size={18} />
+              <FaWhatsapp size={18} />
               <Stack gap={0} flex={1} minW={0}>
                 <Text fontSize="sm" fontWeight="700">
                   WhatsApp

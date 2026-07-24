@@ -49,6 +49,7 @@ export { PageBody } from "./components/PageBody";
 export { Card } from "./components/Card";
 export { Button, type ButtonTone } from "./components/Button";
 export { Tag, StatusBadge, DeliveryBadge } from "./components/Badge";
+export { LeadKindBadge, classifyLead, LEAD_KIND_META, type LeadKindKey } from "./components/LeadKind";
 export { EmptyState } from "./components/EmptyState";
 export { EmailHtmlView } from "./components/EmailHtmlView";
 export {
@@ -125,6 +126,10 @@ export { MonthPicker } from "./components/MonthPicker";
 export { ActionMenu, type ActionMenuItem } from "./components/ActionMenu";
 export { LocaleSelector, type LocaleOption } from "./components/LocaleSelector";
 export { FlagIcon } from "./components/FlagIcon";
+// Ícone de MARCA do WhatsApp (o lucide só tem `MessageCircle` genérico). Vem do
+// pacote `react-icons` (Font Awesome 6) — nada de SVG à mão. Fonte única: os
+// FABs e os botões flutuantes importam ESTE, não o react-icons direto.
+export { FaWhatsapp as WhatsAppIcon } from "react-icons/fa6";
 export { ColorPicker, type ColorScheme } from "./components/ColorPicker";
 export { Tabs, type TabDef } from "./components/Tabs";
 export { PanelTabs } from "./components/PanelTabs";

@@ -7,6 +7,7 @@ import { Box, HStack, Image, Spinner, Stack, Text, Textarea, chakra } from "@cha
 import { Sparkles, X, Send, Paperclip, Loader2, Maximize2 } from "lucide-react";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { useAiChat } from "./ai/useAiChat";
+import { useFabDock, setFabOpen, FAB_BASE, FAB_PANEL_BOTTOM } from "./fab/dock";
 
 /** Link do Next com as props de estilo do Chakra (o botão de expandir). */
 const ChakraLink = chakra(Link);
@@ -57,49 +58,24 @@ export function AiAssistantFab({
   const chat = useAiChat({ chatEndpoint, uploadEndpoint, uploadFolder, sendHistory, storageKey, path: pathname });
   const { messages, setMessages, input, setInput, loading, error, attachment, setAttachment, uploading, pickImage, send, canSend, scrollRef, scrollToEnd, restored } = chat;
   const fileRef = useRef<HTMLInputElement>(null);
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-  const drag = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null);
 
+  // Dock partilhado: empilha os FABs e garante que só um painel abre de cada vez.
+  const wantShow = !hideOnPaths.includes(pathname);
+  const { bottom, othersOpen } = useFabDock("ai", wantShow);
+
+  // Espelha o estado de aberto no dock e recua se o irmão (WhatsApp) abrir.
+  useEffect(() => setFabOpen("ai", open), [open]);
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("ai-fab-pos");
-      if (saved) setPos(JSON.parse(saved));
-    } catch {}
-  }, []);
+    if (othersOpen && open) setOpen(false);
+  }, [othersOpen, open]);
+
   useEffect(() => {
     const openFab = () => setOpen(true);
     window.addEventListener("ai-fab:open", openFab);
     return () => window.removeEventListener("ai-fab:open", openFab);
   }, []);
 
-  const onPointerDown = (e: React.PointerEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    drag.current = { startX: e.clientX, startY: e.clientY, baseX: rect.left, baseY: rect.top, moved: false };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-  const onPointerMove = (e: React.PointerEvent) => {
-    const d = drag.current;
-    if (!d) return;
-    const dx = e.clientX - d.startX;
-    const dy = e.clientY - d.startY;
-    if (Math.abs(dx) + Math.abs(dy) > 6) d.moved = true;
-    if (d.moved) {
-      const x = Math.min(window.innerWidth - 60, Math.max(4, d.baseX + dx));
-      const y = Math.min(window.innerHeight - 60, Math.max(4, d.baseY + dy));
-      setPos({ x, y });
-    }
-  };
-  const onPointerUp = () => {
-    const d = drag.current;
-    drag.current = null;
-    if (d?.moved) {
-      try { localStorage.setItem("ai-fab-pos", JSON.stringify(pos)); } catch {}
-    } else {
-      setOpen((v) => !v);
-    }
-  };
-
-  const hidden = hideOnPaths.includes(pathname);
+  const hidden = !wantShow || othersOpen;
 
   // Só busca o histórico do servidor se não houver conversa restaurada — no
   // sistema o GET devolve vazio de propósito (stateless), e sobrescrever aqui
@@ -127,13 +103,11 @@ export function AiAssistantFab({
     <>
       <chakra.button
         type="button"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
+        onClick={() => setOpen((v) => !v)}
         position="fixed"
-        style={pos ? { left: pos.x, top: pos.y, background: accent, boxShadow: "0 12px 34px rgba(7,26,51,0.35)", touchAction: "none" } : { background: accent, boxShadow: "0 12px 34px rgba(7,26,51,0.35)", touchAction: "none" }}
-        bottom={pos ? undefined : 6}
-        right={pos ? undefined : 6}
+        style={{ background: accent, boxShadow: "0 12px 34px rgba(7,26,51,0.35)" }}
+        bottom={`${open ? FAB_BASE : bottom}px`}
+        right={`${FAB_BASE}px`}
         zIndex={1400}
         w="56px"
         h="56px"
@@ -143,7 +117,7 @@ export function AiAssistantFab({
         justifyContent="center"
         color="white"
         _hover={{ transform: "scale(1.06)" }}
-        transition="transform .15s"
+        transition="transform .15s, bottom .18s ease"
         aria-label={`Falar com ${title}`}
       >
         {open ? <X size={22} /> : <Sparkles size={22} />}
@@ -152,8 +126,8 @@ export function AiAssistantFab({
       {open && (
         <Box
           position="fixed"
-          bottom="92px"
-          right={6}
+          bottom={`${FAB_PANEL_BOTTOM}px`}
+          right={`${FAB_BASE}px`}
           zIndex={1400}
           w={{ base: "calc(100vw - 32px)", sm: "400px" }}
           h={{ base: "70vh", sm: "560px" }}
