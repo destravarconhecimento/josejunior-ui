@@ -2665,7 +2665,19 @@ function Mailbox({
         maxH={{ base: "560px", md: "100%" }}
         overflowY="auto"
       >
-        <HStack justify="space-between" px={4} py={3} borderBottomWidth="1px" borderColor="var(--admin-border)" gap={2}>
+        {/* Topo da lista (nome da pasta + busca + atualizar) fica preso no scroll da lista */}
+        <HStack
+          justify="space-between"
+          px={4}
+          py={3}
+          borderBottomWidth="1px"
+          borderColor="var(--admin-border)"
+          gap={2}
+          position="sticky"
+          top={0}
+          zIndex={2}
+          bg="var(--admin-surface)"
+        >
           <HStack gap={2} minW={0} flexShrink={0} maxW="40%">
             <Text fontWeight="700" fontSize="sm" truncate>
               {currentFolder ? currentFolder.name : FOLDER_LABEL[activeFolder]}
