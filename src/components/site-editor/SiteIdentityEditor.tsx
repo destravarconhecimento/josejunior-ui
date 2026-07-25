@@ -299,6 +299,11 @@ export interface SiteIdentityCallbacks {
    * pro Blob e chama `onUploaded(url)`. Sem ele, o botão de trocar foto não aparece.
    */
   renderImageUpload?: (slot: SiteImageUploadSlot) => React.ReactNode;
+  /**
+   * Slot da seção de idiomas (TranslationsSection montada pelo app com as actions
+   * dele). Renderiza depois do "Salvar conteúdo", antes do bloco de Marketing.
+   */
+  translations?: React.ReactNode;
 }
 
 export interface SiteIdentityEditorProps extends SiteIdentityCallbacks {
@@ -312,6 +317,7 @@ export function SiteIdentityEditor({
   onSaveContent,
   onSaveMarketing,
   renderImageUpload,
+  translations,
 }: SiteIdentityEditorProps) {
   const [c, setC] = useState<SiteIdentityContent>(initial);
   const [contentLoading, setContentLoading] = useState(false);
@@ -868,6 +874,8 @@ export function SiteIdentityEditor({
       </Card>
 
       <SaveBar label="Salvar conteúdo" onSave={onSaveContentClick} loading={contentLoading} saved={contentSaved} error={contentError} />
+
+      {translations}
 
       {/* ——— Marketing & Rastreamento ——— */}
       <Box h="1px" bg="var(--admin-divider)" my={2} />
