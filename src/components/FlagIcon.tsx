@@ -3,7 +3,7 @@ import { Box, chakra } from "@chakra-ui/react";
 /**
  * Bandeira de país em SVG INLINE (sem lib, sem emoji). Emoji de bandeira não
  * renderiza no Windows; este componente desenha a bandeira igual em qualquer SO.
- * Suporta os países que a plataforma usa hoje (br/gb/es/jp) e cai num globo neutro
+ * Suporta os países do catálogo de idiomas (br/gb/es/jp/fr/de/it/cn) e cai num globo neutro
  * pra qualquer outro código. Aspecto fixo 4:3, cantinho arredondado + hairline.
  * `en` usa a bandeira do REINO UNIDO (gb) — o inglês da plataforma é o britânico.
  */
@@ -64,6 +64,40 @@ const FLAGS: Record<string, React.ReactNode> = {
     <>
       <rect width={24} height={18} fill="#AA151B" />
       <rect y={4.5} width={24} height={9} fill="#F1BF00" />
+    </>
+  ),
+  // França: tricolor vertical azul/branco/vermelho.
+  fr: (
+    <>
+      <rect width={24} height={18} fill="#fff" />
+      <rect width={8} height={18} fill="#002395" />
+      <rect x={16} width={8} height={18} fill="#ED2939" />
+    </>
+  ),
+  // Alemanha: tricolor horizontal preto/vermelho/dourado.
+  de: (
+    <>
+      <rect width={24} height={18} fill="#000" />
+      <rect y={6} width={24} height={6} fill="#DD0000" />
+      <rect y={12} width={24} height={6} fill="#FFCE00" />
+    </>
+  ),
+  // Itália: tricolor vertical verde/branco/vermelho.
+  it: (
+    <>
+      <rect width={24} height={18} fill="#fff" />
+      <rect width={8} height={18} fill="#009246" />
+      <rect x={16} width={8} height={18} fill="#CE2B37" />
+    </>
+  ),
+  // China: campo vermelho, estrela dourada grande (as 4 menores somem neste tamanho).
+  cn: (
+    <>
+      <rect width={24} height={18} fill="#DE2910" />
+      <path
+        d="M6 3.2 L6.9 5.9 L9.7 5.9 L7.4 7.6 L8.3 10.3 L6 8.6 L3.7 10.3 L4.6 7.6 L2.3 5.9 L5.1 5.9 Z"
+        fill="#FFDE00"
+      />
     </>
   ),
   // Fallback neutro: globo.
