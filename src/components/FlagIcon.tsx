@@ -3,7 +3,7 @@ import { Box, chakra } from "@chakra-ui/react";
 /**
  * Bandeira de país em SVG INLINE (sem lib, sem emoji). Emoji de bandeira não
  * renderiza no Windows; este componente desenha a bandeira igual em qualquer SO.
- * Suporta os países que a plataforma usa hoje (br/gb/es) e cai num globo neutro
+ * Suporta os países que a plataforma usa hoje (br/gb/es/jp) e cai num globo neutro
  * pra qualquer outro código. Aspecto fixo 4:3, cantinho arredondado + hairline.
  * `en` usa a bandeira do REINO UNIDO (gb) — o inglês da plataforma é o britânico.
  */
@@ -50,6 +50,13 @@ const FLAGS: Record<string, React.ReactNode> = {
       <rect y={6} width={24} height={6} fill="#fff" />
       <rect x={10} width={4} height={18} fill="#C8102E" />
       <rect y={7} width={24} height={4} fill="#C8102E" />
+    </>
+  ),
+  // Japão (Hinomaru): campo branco, disco vermelho centralizado.
+  jp: (
+    <>
+      <rect width={24} height={18} fill="#fff" />
+      <circle cx={12} cy={9} r={5.4} fill="#BC002D" />
     </>
   ),
   // Espanha: vermelho/amarelo(dobro)/vermelho.
