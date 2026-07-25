@@ -211,10 +211,10 @@ export function TranslationsSection({ title = "Idiomas", labels, load, save, tra
       <HStack justify="space-between" align="start" flexWrap="wrap" gap={3} mb={1}>
         {header}
         <HStack gap={2}>
-          <Button size="sm" tone="outline" onClick={doTranslate} loading={translating}>
+          <Button type="button" size="sm" tone="outline" onClick={doTranslate} loading={translating}>
             <Sparkles size={14} /> Traduzir agora
           </Button>
-          <Button size="sm" tone="primary" onClick={doSave} loading={saving} disabled={dirty.length === 0}>
+          <Button type="button" size="sm" tone="primary" onClick={doSave} loading={saving} disabled={dirty.length === 0}>
             Salvar traduções{dirty.length > 0 ? ` (${dirty.length})` : ""}
           </Button>
         </HStack>
@@ -231,6 +231,7 @@ export function TranslationsSection({ title = "Idiomas", labels, load, save, tra
           return (
             <Button
               key={l.code}
+              type="button"
               size="sm"
               tone={isActive ? "primary" : "outline"}
               onClick={() => setActive(l.code)}
