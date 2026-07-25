@@ -16,6 +16,7 @@ import { Button } from "./Button";
 import { Card } from "./Card";
 import { EmptyState } from "./EmptyState";
 import { Modal } from "./Modal";
+import { Screen } from "./Screen";
 import { FormInput, FormTextarea } from "./form";
 import { Switch } from "./controls";
 import { useConfirm } from "./useConfirm";
@@ -42,6 +43,8 @@ export type EvolucaoSaveData = {
 };
 
 export type EvolucoesManagerProps = {
+  /** Título da tela (o componente é dono do `Screen` — a ação "Nova evolução" vive no header). */
+  title: string;
   items: EvolucaoItem[];
   onCreate: (data: EvolucaoSaveData) => Promise<void> | void;
   onUpdate: (id: number, data: EvolucaoSaveData) => Promise<void> | void;
@@ -70,6 +73,7 @@ const EMPTY_DRAFT: Draft = {
 };
 
 export function EvolucoesManager({
+  title,
   items,
   onCreate,
   onUpdate,
@@ -158,14 +162,16 @@ export function EvolucoesManager({
   };
 
   return (
-    <Stack gap={5}>
-      <Flex justify="flex-end">
+    <Screen
+      title={title}
+      actions={
         <Button tone="primary" onClick={openNew}>
           <Plus size={18} /> Nova evolução
         </Button>
-      </Flex>
-
-      {items.length === 0 ? (
+      }
+    >
+      <Stack gap={5}>
+        {items.length === 0 ? (
         <EmptyState
           icon={TrendingUp}
           title="Nenhuma evolução ainda"
@@ -291,8 +297,9 @@ export function EvolucoesManager({
         </Switch.Root>
       </Modal>
 
-      {confirmDialog}
-    </Stack>
+        {confirmDialog}
+      </Stack>
+    </Screen>
   );
 }
 

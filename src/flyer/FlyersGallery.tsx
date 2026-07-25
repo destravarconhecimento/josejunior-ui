@@ -10,6 +10,7 @@ import { Copy, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
 import { Box, Flex, Heading, HStack, SimpleGrid, Stack, Text } from "../primitives";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
+import { Screen } from "../components/Screen";
 import { Badge } from "../components/controls";
 import { EmptyState } from "../components/EmptyState";
 import { useConfirm } from "../components/useConfirm";
@@ -22,6 +23,8 @@ const CARD_W = 220;
 const PREVIEW_SCALE = CARD_W / CANVAS_W;
 
 export type FlyersGalleryProps = {
+  /** Título da tela (o componente é dono do `Screen` — a ação "Novo flyer" vive no header). */
+  title: string;
   flyers: FlyerSummary[];
   onCreate: () => Promise<void> | void;
   onOpen: (id: number) => void;
@@ -29,7 +32,7 @@ export type FlyersGalleryProps = {
   onDelete: (id: number) => Promise<void> | void;
 };
 
-export function FlyersGallery({ flyers, onCreate, onOpen, onDuplicate, onDelete }: FlyersGalleryProps) {
+export function FlyersGallery({ title, flyers, onCreate, onOpen, onDuplicate, onDelete }: FlyersGalleryProps) {
   const { confirm, confirmDialog } = useConfirm();
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -75,14 +78,16 @@ export function FlyersGallery({ flyers, onCreate, onOpen, onDuplicate, onDelete 
   };
 
   return (
-    <Stack gap={5}>
-      <Flex justify="flex-end">
+    <Screen
+      title={title}
+      actions={
         <Button tone="primary" onClick={create} loading={creating}>
           <Plus size={18} /> Novo flyer
         </Button>
-      </Flex>
-
-      {flyers.length === 0 ? (
+      }
+    >
+      <Stack gap={5}>
+        {flyers.length === 0 ? (
         <EmptyState
           icon={ImageIcon}
           title="Nenhum flyer ainda"
@@ -155,7 +160,8 @@ export function FlyersGallery({ flyers, onCreate, onOpen, onDuplicate, onDelete 
           ))}
         </SimpleGrid>
       )}
-      {confirmDialog}
-    </Stack>
+        {confirmDialog}
+      </Stack>
+    </Screen>
   );
 }
