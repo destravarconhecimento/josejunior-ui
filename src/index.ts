@@ -140,6 +140,7 @@ export {
   type TranslationsEntry,
   type TranslationsActionResult,
 } from "./components/TranslationsSection";
+export { RepSiteSectionsEditor, REPSITE_I18N_LABELS, type RepSiteSectionsEditorProps } from "./components/RepSiteSectionsEditor";
 // Editor "Meu site" (josejunior.dev) — componente PURO (molde MailClient): todas
 // as seções + o módulo de rastreamento vivem aqui; o app injeta actions e o slot
 // de upload. Ver components/site-editor/.
