@@ -29,6 +29,7 @@ import {
   Plus,
   RefreshCw,
   Reply,
+  Search,
   Send,
   Settings,
   ShieldAlert,
@@ -2297,10 +2298,41 @@ function Mailbox({
   const catSlug = sel.startsWith("c:") ? sel.slice(2) : null;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [compose, setCompose] = useState<null | ComposeState>(null);
+  // Busca da caixa: filtra remetente/destinatário/assunto/corpo da lista aberta.
+  const [query, setQuery] = useState("");
   // Trocar de conta no topo → fecha a mensagem aberta (pode não existir na nova conta).
   useEffect(() => {
     setSelectedId(null);
+    setQuery("");
   }, [accountId]);
+
+  // Auto-atualização: a caixa busca novos e-mails sozinha (sem clicar no ⟳) —
+  // sync silencioso na Resend/Gmail + refresh a cada 60s, só com a aba visível.
+  const cbRef = useRef(callbacks);
+  cbRef.current = callbacks;
+  useEffect(() => {
+    let busy = false;
+    const tick = async () => {
+      if (busy || document.visibilityState !== "visible") return;
+      busy = true;
+      try {
+        await cbRef.current.onSync();
+      } catch {
+        /* silencioso — o refresh abaixo ainda traz o que chegou via webhook */
+      }
+      cbRef.current.onRefresh();
+      busy = false;
+    };
+    const id = setInterval(tick, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
   // Modal de criar/renomear pasta (só admin com onCreateFolder).
   const [folderModal, setFolderModal] = useState<
     null | { mode: "create" } | { mode: "rename"; slug: string; name: string }
@@ -2364,6 +2396,19 @@ function Mailbox({
     return list.sort((a, b) => +new Date(b.date) - +new Date(a.date));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountMessages, activeFolder, catSlug, catMissing, knownSlugs]);
+
+  // Busca aplicada por cima da lista aberta (remetente, destinatário, assunto e corpo).
+  const trimmedQuery = query.trim().toLowerCase();
+  const visibleMessages = useMemo(() => {
+    if (!trimmedQuery) return folderMessages;
+    return folderMessages.filter((m) => {
+      const body = (m.bodyText || m.bodyHtml || "").replace(/<[^>]*>/g, " ");
+      return [m.subject ?? "", m.fromName ?? "", m.fromAddress, m.toAddresses.join(" "), body]
+        .join(" ")
+        .toLowerCase()
+        .includes(trimmedQuery);
+    });
+  }, [folderMessages, trimmedQuery]);
 
   // Não-lidas da Caixa de entrada = TODAS as recebidas não-lidas (inclui as já classificadas).
   const unreadCount = accountMessages.filter(
@@ -2621,7 +2666,7 @@ function Mailbox({
         overflowY="auto"
       >
         <HStack justify="space-between" px={4} py={3} borderBottomWidth="1px" borderColor="var(--admin-border)" gap={2}>
-          <HStack gap={2} minW={0}>
+          <HStack gap={2} minW={0} flexShrink={0} maxW="40%">
             <Text fontWeight="700" fontSize="sm" truncate>
               {currentFolder ? currentFolder.name : FOLDER_LABEL[activeFolder]}
             </Text>
@@ -2629,6 +2674,49 @@ function Mailbox({
               <Text fontSize="2xs" color="var(--admin-text-soft)" flexShrink={0}>
                 {catCounts.total[currentFolder.slug]}
               </Text>
+            ) : null}
+          </HStack>
+          {/* Busca da caixa — filtra a lista aberta enquanto digita */}
+          <HStack
+            flex="1"
+            minW={{ base: "90px", md: "140px" }}
+            maxW="320px"
+            gap={1.5}
+            px={2.5}
+            borderWidth="1px"
+            borderColor="var(--admin-border)"
+            borderRadius="8px"
+            bg="var(--admin-surface-2)"
+          >
+            <Box color="var(--admin-text-soft)" flexShrink={0} display="flex">
+              <Search size={13} />
+            </Box>
+            <chakra.input
+              value={query}
+              onChange={(e) => setQuery(e.currentTarget.value)}
+              placeholder="Buscar"
+              fontSize="xs"
+              py={1.5}
+              bg="transparent"
+              outline="none"
+              border="none"
+              w="100%"
+              minW={0}
+              color="var(--admin-text)"
+              _placeholder={{ color: "var(--admin-text-soft)" }}
+            />
+            {query ? (
+              <Box
+                as="button"
+                onClick={() => setQuery("")}
+                color="var(--admin-text-soft)"
+                flexShrink={0}
+                display="flex"
+                cursor="pointer"
+                aria-label="Limpar busca"
+              >
+                <X size={13} />
+              </Box>
             ) : null}
           </HStack>
           <HStack gap={1} flexShrink={0}>
@@ -2673,8 +2761,17 @@ function Mailbox({
           </HStack>
         </HStack>
 
-        {folderMessages.length === 0 ? (
-          currentFolder ? (
+        {visibleMessages.length === 0 ? (
+          trimmedQuery ? (
+            <Stack p={6} gap={1} align="flex-start">
+              <Text fontSize="sm" color="var(--admin-text-soft)">
+                Nenhum e-mail encontrado para “{query.trim()}”.
+              </Text>
+              <Text fontSize="2xs" color="var(--admin-text-soft)">
+                A busca olha remetente, destinatário, assunto e corpo da lista aberta.
+              </Text>
+            </Stack>
+          ) : currentFolder ? (
             <Stack p={6} gap={2} align="flex-start">
               <Text fontSize="sm" color="var(--admin-text-soft)">
                 Nenhum e-mail nesta pasta ainda.
@@ -2710,7 +2807,7 @@ function Mailbox({
             </Stack>
           )
         ) : (
-          folderMessages.map((m) => {
+          visibleMessages.map((m) => {
             const isSent = activeFolder === "sent";
             const who = isSent ? m.toAddresses.join(", ") : displayName(m.fromAddress, m.fromName);
             // O José quer VER o e-mail, não só o nome: quando há um nome próprio,
