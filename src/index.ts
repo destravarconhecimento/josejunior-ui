@@ -131,6 +131,15 @@ export { AccountSelector, type AccountSelectorOption } from "./components/Accoun
 export { ActionMenu, type ActionMenuItem } from "./components/ActionMenu";
 export { LocaleSelector, type LocaleOption } from "./components/LocaleSelector";
 export { FlagIcon } from "./components/FlagIcon";
+export {
+  TranslationsSection,
+  type TranslationsSectionProps,
+  type TranslationsPayload,
+  type TranslationsLocale,
+  type TranslationsField,
+  type TranslationsEntry,
+  type TranslationsActionResult,
+} from "./components/TranslationsSection";
 // Editor "Meu site" (josejunior.dev) — componente PURO (molde MailClient): todas
 // as seções + o módulo de rastreamento vivem aqui; o app injeta actions e o slot
 // de upload. Ver components/site-editor/.
