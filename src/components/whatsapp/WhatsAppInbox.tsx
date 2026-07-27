@@ -8,6 +8,7 @@ import { ChatMarkdown } from "../ChatMarkdown";
 import { EntityAvatar } from "../EntityAvatar";
 import { Field, Input, NativeSelect } from "../controls";
 import { Modal } from "../Modal";
+import type { UiRealtimeSubscribe } from "../realtime";
 
 /* ============================================================
  * Inbox de WhatsApp — super-componente PURO do core (estilo do
@@ -122,7 +123,17 @@ function displayName(c: WaChat): string {
   return c.name?.trim() || (c.isGroup ? "Grupo" : fmtPhone(c._id));
 }
 
-export function WhatsAppInbox({ api }: { api: WaInboxApi }) {
+export function WhatsAppInbox({
+  api,
+  onRealtime,
+}: {
+  api: WaInboxApi;
+  /**
+   * TEMPO REAL por injeção (opcional): `(aviso) => cancelar`. Com ela, o fio
+   * aberto recarrega no instante da mensagem e o ciclo de 4s vira 20s.
+   */
+  onRealtime?: UiRealtimeSubscribe;
+}) {
   const [chats, setChats] = useState<WaChat[] | null>(null);
   const [chatsErr, setChatsErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -212,21 +223,34 @@ export function WhatsAppInbox({ api }: { api: WaInboxApi }) {
     [messages, pending],
   );
 
+  // TEMPO REAL: mensagem no número → o fio aberto recarrega na hora.
+  useEffect(() => {
+    if (!peer || !onRealtime) return;
+    return onRealtime(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      void reloadThread(peer);
+    });
+  }, [peer, onRealtime, reloadThread]);
+
   // Enquanto um chat está aberto, sincroniza sozinho: mensagens novas, respostas
   // da IA e a versão persistida do que você enviou aparecem sem apertar Atualizar.
+  // Com tempo real, o ciclo vira rede de segurança (20s).
   useEffect(() => {
     if (!peer) return;
     let alive = true;
-    const id = setInterval(async () => {
-      if (typeof document !== "undefined" && document.hidden) return;
-      const res = await api.getMessages(peer);
-      if (alive && res.ok) applyServer(res.data ?? []);
-    }, 4000);
+    const id = setInterval(
+      async () => {
+        if (typeof document !== "undefined" && document.hidden) return;
+        const res = await api.getMessages(peer);
+        if (alive && res.ok) applyServer(res.data ?? []);
+      },
+      onRealtime ? 20_000 : 4000,
+    );
     return () => {
       alive = false;
       clearInterval(id);
     };
-  }, [peer, api, applyServer]);
+  }, [peer, api, applyServer, onRealtime]);
 
   const openChat = async (id: string, name: string, isGroup: boolean) => {
     setPeer(id);

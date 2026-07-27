@@ -52,6 +52,8 @@ export { Button, type ButtonTone } from "./components/Button";
 export { Tag, StatusBadge, DeliveryBadge } from "./components/Badge";
 export { LeadKindBadge, classifyLead, LEAD_KIND_META, type LeadKindKey } from "./components/LeadKind";
 export { EmptyState } from "./components/EmptyState";
+// Tempo real por INJEÇÃO (o ui não conhece transporte — ver components/realtime.ts)
+export type { UiRealtimeEvent, UiRealtimeSubscribe } from "./components/realtime";
 export { EmailHtmlView } from "./components/EmailHtmlView";
 export {
   MailClient,

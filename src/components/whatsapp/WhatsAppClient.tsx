@@ -37,6 +37,7 @@ import { Modal } from "../Modal";
 import { ChatMarkdown } from "../ChatMarkdown";
 import { Input, Textarea } from "../controls";
 import { useConfirm } from "../useConfirm";
+import type { UiRealtimeSubscribe } from "../realtime";
 
 /* ============================================================
  * WhatsAppClient — super-componente PURO do WhatsApp (o "cliente
@@ -213,6 +214,12 @@ export type WhatsAppClientProps = {
   /** Slots de configuração já prontos (QR, agente, fila, pacing…). */
   configSlots?: WhatsAppConfigSlot[];
   callbacks: WhatsAppCallbacks;
+  /**
+   * TEMPO REAL por injeção (opcional): `(aviso) => cancelar`. Quando vem, o fio
+   * aberto recarrega no instante em que uma mensagem entra/sai, e o ciclo de 4s
+   * afrouxa pra 20s (rede de segurança). Sem ela, nada muda: 4s como sempre.
+   */
+  onRealtime?: UiRealtimeSubscribe;
 };
 
 /* ── Constantes visuais (identidade real do WhatsApp) ───────── */
@@ -896,6 +903,7 @@ function ChatWorkspace({
   abrirId,
   onAbriu,
   onNovaConversa,
+  onRealtime,
 }: {
   chats: WhatsAppChat[];
   loadingChats?: boolean;
@@ -905,6 +913,7 @@ function ChatWorkspace({
   abrirId?: string | null;
   onAbriu?: () => void;
   onNovaConversa?: () => void;
+  onRealtime?: UiRealtimeSubscribe;
 }) {
   const [categoria, setCategoria] = useState<Categoria>("conversas");
   const [query, setQuery] = useState("");
@@ -1043,15 +1052,28 @@ function ChatWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abrirId]);
 
-  // polling: enquanto uma conversa está aberta, sincroniza sozinho
+  // TEMPO REAL: mensagem entrou/saiu → o fio aberto recarrega na hora.
   useEffect(() => {
-    if (!selectedId) return;
-    const id = setInterval(() => {
+    if (!selectedId || !onRealtime) return;
+    return onRealtime(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       void loadThread(selectedId);
-    }, 4000);
+    });
+  }, [selectedId, onRealtime, loadThread]);
+
+  // polling: enquanto uma conversa está aberta, sincroniza sozinho. Com tempo
+  // real ligado ele vira só rede de segurança (20s) — sem ele, 4s como sempre.
+  useEffect(() => {
+    if (!selectedId) return;
+    const id = setInterval(
+      () => {
+        if (typeof document !== "undefined" && document.hidden) return;
+        void loadThread(selectedId);
+      },
+      onRealtime ? 20_000 : 4000,
+    );
     return () => clearInterval(id);
-  }, [selectedId, loadThread]);
+  }, [selectedId, loadThread, onRealtime]);
 
   // rola pro fim quando o fio muda (inclui bolhas otimistas)
   useEffect(() => {
@@ -1684,6 +1706,7 @@ export function WhatsAppClient({
   assistantName,
   configSlots = [],
   callbacks,
+  onRealtime,
 }: WhatsAppClientProps) {
   const [view, setView] = useState<"conversas" | "config">("conversas");
   const [statsOpen, setStatsOpen] = useState(false);
@@ -1782,6 +1805,7 @@ export function WhatsAppClient({
         abrirId={abrirId}
         onAbriu={() => setAbrirId(null)}
         onNovaConversa={callbacks.onNovaConversa && connected ? () => setNovaOpen(true) : undefined}
+        onRealtime={onRealtime}
       />
     );
 

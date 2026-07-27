@@ -53,6 +53,7 @@ import { GoogleCredentialForm } from "../GoogleCredentialForm";
 import { Modal } from "../Modal";
 import { PageBody } from "../PageBody";
 import { PageHeader } from "../PageHeader";
+import type { UiRealtimeSubscribe } from "../realtime";
 import { Tabs, type TabDef } from "../Tabs";
 import { useConfirm } from "../useConfirm";
 
@@ -386,6 +387,11 @@ export function MailClient(props: {
   folders?: MailFolder[];
   /** Config da IA da caixa. Ausente = botão "IA" some (superfície sem IA). */
   aiSettings?: MailAiSettings;
+  /**
+   * TEMPO REAL por injeção (opcional): `(aviso) => cancelar`. Com ela, o e-mail
+   * que o webhook grava aparece na hora e o ciclo de 60s afrouxa pra 5 min.
+   */
+  onRealtime?: UiRealtimeSubscribe;
 }) {
   const [view, setView] = useState<"inbox" | "settings">(props.initialView);
   const [aiOpen, setAiOpen] = useState(false);
@@ -519,6 +525,7 @@ export function MailClient(props: {
             isAdmin={props.isAdmin}
             callbacks={cb}
             onGoSettings={props.isAdmin ? () => setView("settings") : undefined}
+            onRealtime={props.onRealtime}
           />
         )}
       </PageBody>
@@ -2276,6 +2283,7 @@ function Mailbox({
   isAdmin,
   callbacks,
   onGoSettings,
+  onRealtime,
 }: {
   accounts: MailInboxAccount[];
   messages: MailMessage[];
@@ -2287,6 +2295,7 @@ function Mailbox({
   isAdmin: boolean;
   callbacks: MailCallbacks;
   onGoSettings?: () => void;
+  onRealtime?: UiRealtimeSubscribe;
 }) {
   const [pending, start] = useTransition();
   const ALL = ALL_ACCOUNTS;
@@ -2323,7 +2332,9 @@ function Mailbox({
       cbRef.current.onRefresh();
       busy = false;
     };
-    const id = setInterval(tick, 60_000);
+    // Com tempo real, o webhook avisa quando chega e-mail → o ciclo (que ainda
+    // serve pro que só o `onSync` traz, tipo Gmail) afrouxa pra 5 min.
+    const id = setInterval(tick, onRealtime ? 5 * 60_000 : 60_000);
     const onVisible = () => {
       if (document.visibilityState === "visible") void tick();
     };
@@ -2332,7 +2343,18 @@ function Mailbox({
       clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [onRealtime]);
+
+  // TEMPO REAL: e-mail recebido/entrega atualizada → a caixa aberta recarrega na
+  // hora. Só `onRefresh` (ler o que o webhook JÁ gravou); nada de `onSync` aqui,
+  // senão cada evento viraria uma ida à Resend.
+  useEffect(() => {
+    if (!onRealtime) return;
+    return onRealtime(() => {
+      if (document.visibilityState !== "visible") return;
+      cbRef.current.onRefresh();
+    });
+  }, [onRealtime]);
   // Modal de criar/renomear pasta (só admin com onCreateFolder).
   const [folderModal, setFolderModal] = useState<
     null | { mode: "create" } | { mode: "rename"; slug: string; name: string }

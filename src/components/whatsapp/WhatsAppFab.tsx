@@ -9,6 +9,7 @@ import { FaWhatsapp } from "react-icons/fa6";
 import { EntityAvatar } from "../EntityAvatar";
 import { Input } from "../controls";
 import { useFabDock, setFabOpen, FAB_BASE, FAB_PANEL_BOTTOM } from "../fab/dock";
+import type { UiRealtimeSubscribe } from "../realtime";
 import {
   ChatRow,
   MessageBubble,
@@ -65,6 +66,12 @@ export type WhatsAppFabProps = {
   /** Avisa quando abre/fecha — o dono usa pra ligar/desligar o polling. */
   onOpenChange?: (open: boolean) => void;
   callbacks: WhatsAppFabCallbacks;
+  /**
+   * TEMPO REAL por injeção (opcional): `(aviso) => cancelar`. O FAB não tinha
+   * ciclo nenhum — o fio aberto ficava congelado até fechar e abrir de novo.
+   * Com isto, mensagem nova aparece sozinha (e a lista se atualiza pelo dono).
+   */
+  onRealtime?: UiRealtimeSubscribe;
 };
 
 export function WhatsAppFab({
@@ -77,6 +84,7 @@ export function WhatsAppFab({
   hideOnPaths = [],
   onOpenChange,
   callbacks,
+  onRealtime,
 }: WhatsAppFabProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -125,6 +133,17 @@ export function WhatsAppFab({
     },
     [callbacks],
   );
+
+  // TEMPO REAL: recarrega o fio aberto SEM piscar (não limpa as mensagens nem
+  // acende o spinner — a bolha nova entra e pronto).
+  useEffect(() => {
+    if (!open || !chatId || !onRealtime) return;
+    return onRealtime(() => {
+      void callbacks.onSelecionar(chatId).then((r) => {
+        if (r.ok) setMsgs(r.data ?? []);
+      });
+    });
+  }, [open, chatId, onRealtime, callbacks]);
 
   const enviar = useCallback(async () => {
     const t = texto.trim();
