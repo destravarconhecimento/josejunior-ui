@@ -30,7 +30,9 @@ declare global {
 }
 
 const SCRIPT_ID = "cf-turnstile-script";
-const SCRIPT_SRC = "https://challenge.platform.cloudflare.com/turnstile/v0/api.js?render=explicit";
+// URL EXATA da Cloudflare — a doc proíbe proxy/cache e não existe host alternativo
+// (`challenge.platform.cloudflare.com` NÃO resolve: o widget nunca carregava).
+const SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
 /** Carrega o script uma única vez por página e resolve quando a API existe. */
 function carregarTurnstile(): Promise<TurnstileApi | null> {
@@ -104,7 +106,14 @@ export function Captcha({ onToken, sistemaBase, onEnabled, theme = "auto" }: Cap
     let widgetId: string | null = null;
     let vivo = true;
     void carregarTurnstile().then((api) => {
-      if (!vivo || !api || !box.current) return;
+      if (!vivo) return;
+      if (!api || !box.current) {
+        // Script bloqueado (extensão, rede corporativa, Cloudflare fora): solta a
+        // trava do botão. O servidor continua validando — o visitante pelo menos
+        // recebe um erro que dá pra entender, em vez de um formulário morto.
+        cbEnabled.current?.(false);
+        return;
+      }
       widgetId = api.render(box.current, {
         sitekey: siteKey,
         theme,
