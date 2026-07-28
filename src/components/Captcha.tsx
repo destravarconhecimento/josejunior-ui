@@ -84,7 +84,10 @@ export function Captcha({ onToken, sistemaBase, onEnabled, theme = "auto" }: Cap
 
   useEffect(() => {
     let vivo = true;
-    fetch(`${base}/api/captcha`, { cache: "no-store" })
+    // Manda o próprio hostname: o Turnstile valida domínio, então site de rep com
+    // domínio próprio recebe a site key do widget dele, não a nossa.
+    const host = typeof window === "undefined" ? "" : window.location.hostname;
+    fetch(`${base}/api/captcha?host=${encodeURIComponent(host)}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { enabled?: boolean; siteKey?: string } | null) => {
         if (!vivo) return;
