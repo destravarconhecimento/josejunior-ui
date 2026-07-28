@@ -36,6 +36,7 @@ import {
   Sparkles,
   Star,
   Trash2,
+  Wand2,
   X,
 } from "lucide-react";
 import { AccountSelector } from "../AccountSelector";
@@ -230,6 +231,11 @@ export type MailCallbacks = {
   // domínios (connectionId opcional → escolhe a conta Resend dona)
   onAddDomain: (domain: string, connectionId?: string) => Promise<MailResult<{ id: string }>>;
   onSyncDomain: (id: string) => Promise<MailResult<{ verified: boolean }>>;
+  /** Cria os registros do domínio no nosso DNS (SPF/DKIM/MX + DMARC). Só o
+   *  sistema liga — o botão só aparece onde a app sabe mexer na zona. */
+  onPublishDns?: (
+    id: string,
+  ) => Promise<MailResult<{ published: number; already: number; verified: boolean; failures: string[] }>>;
   onRemoveDomain: (id: string) => Promise<MailResult>;
   // contas
   onCreateAccount: (input: {
@@ -1843,6 +1849,31 @@ function DomainManager({
     });
   }
 
+  function publishDns(id: string) {
+    if (!callbacks.onPublishDns) return;
+    setErr(null);
+    setMsg(null);
+    start(async () => {
+      const r = await callbacks.onPublishDns!(id);
+      if (!r.ok) {
+        setErr(r.error);
+        return;
+      }
+      const d = r.data;
+      if (d?.failures.length) {
+        setErr(`Não deu pra criar tudo (o domínio usa DNS de fora?): ${d.failures.join(" · ")}`);
+        if (d.published) setOpenId(id);
+        return;
+      }
+      setMsg(
+        d?.published
+          ? `${d.published} registro(s) criado(s) no DNS.${d.verified ? " Domínio verificado!" : " Verificando a propagação — clique em Verificar em alguns minutos."}`
+          : "Tudo já estava no DNS (SPF, DKIM e DMARC).",
+      );
+      callbacks.onRefresh();
+    });
+  }
+
   async function remove(id: string, domain: string) {
     if (!(await confirm({ title: `Remover o domínio ${domain}?`, description: "As contas vinculadas perdem o domínio.", confirmLabel: "Remover", tone: "danger" }))) return;
     setErr(null);
@@ -1866,7 +1897,9 @@ function DomainManager({
               Domínios
             </Text>
             <Text fontSize="sm" color="var(--admin-text-soft)">
-              Adicione o domínio, publique os registros DNS e verifique.
+              {callbacks.onPublishDns
+                ? "Adicione o domínio e clique em Criar no DNS — SPF, DKIM e DMARC entram sozinhos se a zona for nossa."
+                : "Adicione o domínio, publique os registros DNS e verifique."}
             </Text>
           </Stack>
         </HStack>
@@ -1942,6 +1975,11 @@ function DomainManager({
                     >
                       {openId === d.id ? "Ocultar DNS" : "Ver DNS"}
                     </Button>
+                    {callbacks.onPublishDns ? (
+                      <Button size="sm" tone="outline" onClick={() => publishDns(d.id)} loading={pending}>
+                        <Wand2 size={14} /> Criar no DNS
+                      </Button>
+                    ) : null}
                     <Button size="sm" tone="outline" onClick={() => verify(d.id)} loading={pending}>
                       <RefreshCw size={14} /> Verificar
                     </Button>
@@ -1960,7 +1998,9 @@ function DomainManager({
                 {openId === d.id ? (
                   <Box mt={4} overflowX="auto">
                     <Text fontSize="xs" color="var(--admin-text-soft)" mb={2}>
-                      Publique estes registros no seu provedor de DNS. Depois clique em Verificar.
+                      {callbacks.onPublishDns
+                        ? "Se a zona for nossa, o botão Criar no DNS publica tudo isto (mais o DMARC) sozinho. Fora dela, cole os registros no provedor do domínio e clique em Verificar."
+                        : "Publique estes registros no seu provedor de DNS. Depois clique em Verificar."}
                     </Text>
                     <DataTable
                       columns={[
