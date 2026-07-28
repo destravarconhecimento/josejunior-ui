@@ -232,6 +232,36 @@ export {
 export { ActionListCard, type ActionListItem, type ActionTone } from "./components/ActionListCard";
 export { RecentSalesList, type RecentSaleItem, type CoinSaleStatus } from "./components/RecentSalesList";
 
+// sitekit — motor visual dos SITES PÚBLICOS (segmento, representante, meu site):
+// tema por `vibe`, ícone por NOME, mockup de produto em CSS, faixa de confiança.
+// Tudo dado → CSS, RSC-safe. Ver packages/ui/src/sitekit/index.ts.
+export {
+  resolveSiteIcon,
+  SITE_ICON_NAMES,
+  SITE_VIBES,
+  SITE_VIBE_NAMES,
+  resolveSiteTheme,
+  brandGradient,
+  darken,
+  tint,
+  DeviceMock,
+  MOCK_KINDS,
+  TrustStrip,
+  DEFAULT_TRUST_SELF_SERVE,
+  DEFAULT_TRUST_ATENDIMENTO,
+  type LucideIcon,
+  type SiteVibe,
+  type SiteTheme,
+  type ResolvedSiteTheme,
+  type MockSpec,
+  type MockDevice,
+  type MockKind,
+  type MockRow,
+  type MockKpi,
+  type MockTranslate,
+  type TrustItem,
+} from "./sitekit";
+
 // Editor de Flyers (canvas puro + editor client + galeria) — apps/site
 export { SlidePage, type SlidePageProps, type SlideMode } from "./flyer/SlidePage";
 export { FlyerEditor, type FlyerEditorProps, type FlyerSaveData } from "./flyer/FlyerEditor";
