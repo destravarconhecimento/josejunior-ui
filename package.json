@@ -7,7 +7,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./markdown": "./src/components/email/markdown.ts"
+    "./markdown": "./src/components/email/markdown.ts",
+    "./captcha": "./src/components/Captcha.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
