@@ -104,6 +104,12 @@ export {
   type WhatsAppFabCallbacks,
 } from "./components/whatsapp/WhatsAppFab";
 export {
+  ConexaoWhatsApp,
+  type ConexaoWhatsAppProps,
+  type ConexaoWhatsAppPairResult,
+  type ConexaoWhatsAppModo,
+} from "./components/whatsapp/ConexaoWhatsApp";
+export {
   GoogleCredentialForm,
   type GoogleCredentialSaveResult,
   type GoogleRedirectUri,
