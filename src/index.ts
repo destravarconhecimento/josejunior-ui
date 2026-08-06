@@ -110,6 +110,14 @@ export {
   type ConexaoWhatsAppModo,
 } from "./components/whatsapp/ConexaoWhatsApp";
 export {
+  ConexaoPlugin,
+  type ConexaoPluginProps,
+  type PluginConfigView,
+  type PluginDeviceView,
+  type PluginFilaView,
+  type PluginCodigo,
+} from "./components/whatsapp/ConexaoPlugin";
+export {
   GoogleCredentialForm,
   type GoogleCredentialSaveResult,
   type GoogleRedirectUri,
