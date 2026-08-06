@@ -118,6 +118,15 @@ export {
   type PluginCodigo,
 } from "./components/whatsapp/ConexaoPlugin";
 export {
+  ContasWhatsApp,
+  type ContasWhatsAppProps,
+  type WaContaModo,
+  type WaContaView,
+  type WaContaAcao,
+  type WaPedidoStatus,
+  type WaPedidoView,
+} from "./components/whatsapp/ContasWhatsApp";
+export {
   GoogleCredentialForm,
   type GoogleCredentialSaveResult,
   type GoogleRedirectUri,
