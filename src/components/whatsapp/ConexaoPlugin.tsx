@@ -75,6 +75,12 @@ export interface ConexaoPluginProps {
   downloadUrl: string;
   /** Versão publicada do .zip (aparece ao lado do botão). */
   versao?: string | null;
+  /**
+   * Mostrar o interruptor da IA. Falso onde este canal não tem IA ligada (o
+   * painel do representante, onde o plugin é braço de prospeção): um botão que
+   * não faz nada mente para quem o liga.
+   */
+  mostrarIa?: boolean;
   onSalvar: (config: PluginConfigView) => Promise<void>;
   onGerarCodigo: () => Promise<PluginCodigo>;
   onRevogar: (deviceId: string) => Promise<void>;
@@ -184,6 +190,7 @@ export function ConexaoPlugin({
   capHoje,
   downloadUrl,
   versao,
+  mostrarIa = true,
   onSalvar,
   onGerarCodigo,
   onRevogar,
@@ -539,11 +546,13 @@ export function ConexaoPlugin({
               volta para o servidor-whats sozinho — é melhor sair pelo outro canal do que não sair.
             </Text>
 
-            <Switch.Root checked={form.ai} onCheckedChange={(d) => set({ ai: Boolean(d.checked) })}>
-              <Switch.HiddenInput />
-              <Switch.Control />
-              <Switch.Label>A IA responde o que chegar por aqui</Switch.Label>
-            </Switch.Root>
+            {mostrarIa ? (
+              <Switch.Root checked={form.ai} onCheckedChange={(d) => set({ ai: Boolean(d.checked) })}>
+                <Switch.HiddenInput />
+                <Switch.Control />
+                <Switch.Label>A IA responde o que chegar por aqui</Switch.Label>
+              </Switch.Root>
+            ) : null}
 
             <Switch.Root checked={form.checkExists} onCheckedChange={(d) => set({ checkExists: Boolean(d.checked) })}>
               <Switch.HiddenInput />
