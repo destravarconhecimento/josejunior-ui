@@ -262,6 +262,9 @@ export type MailCallbacks = {
   onUploadAttachment?: (file: File) => Promise<{ ok: true; url: string; filename: string } | { ok: false; error: string }>;
   onSync: () => Promise<MailResult<{ synced: number }>>;
   onMarkRead: (id: string, read: boolean) => Promise<MailResult>;
+  /** Busca na Resend os anexos de UM recebido que entrou na caixa sem eles (histórico
+   *  antigo). Chamado ao ABRIR a mensagem, uma vez por sessão. Ausente = não tenta. */
+  onFetchAttachments?: (messageId: string) => Promise<MailResult<{ attachments: MailAttachment[] }>>;
   // pastas inteligentes (ausentes → some a affordance correspondente)
   /** Cria uma pasta nova (nome livre; o app gera o slug). Ausente = "+ Nova pasta" some. */
   onCreateFolder?: (name: string) => Promise<MailResult>;
@@ -2347,6 +2350,10 @@ function Mailbox({
   const catSlug = sel.startsWith("c:") ? sel.slice(2) : null;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [compose, setCompose] = useState<null | ComposeState>(null);
+  // Anexos que fomos buscar na Resend ao abrir um recebido antigo (por mensagem;
+  // `[]` = já procuramos e não havia — não procura de novo).
+  const [anexosBuscados, setAnexosBuscados] = useState<Record<string, MailAttachment[]>>({});
+  const [buscandoAnexos, setBuscandoAnexos] = useState<string | null>(null);
   // Busca da caixa: filtra remetente/destinatário/assunto/corpo da lista aberta.
   const [query, setQuery] = useState("");
   // Trocar de conta no topo → fecha a mensagem aberta (pode não existir na nova conta).
@@ -2500,6 +2507,27 @@ function Mailbox({
         callbacks.onRefresh();
       });
     }
+    buscarAnexos(m);
+  }
+
+  /**
+   * Recebido antigo entrou na caixa antes de sabermos ler anexo. Ao abrir, vai
+   * buscar na Resend — uma vez por mensagem, e só quem tem `resendId` (quem não
+   * tem não há onde procurar). O resultado fica no banco; aqui é só pra aparecer
+   * na hora, sem esperar recarregar.
+   */
+  function buscarAnexos(m: MailMessage) {
+    const buscar = callbacks.onFetchAttachments;
+    if (!buscar) return;
+    if (m.direction !== "inbound" || !m.resendId) return;
+    if (m.attachments?.length || anexosBuscados[m.id] !== undefined) return;
+    setBuscandoAnexos(m.id);
+    void buscar(m.id)
+      .then((r) => {
+        setAnexosBuscados((antes) => ({ ...antes, [m.id]: r.ok ? (r.data?.attachments ?? []) : [] }));
+      })
+      .catch(() => setAnexosBuscados((antes) => ({ ...antes, [m.id]: [] })))
+      .finally(() => setBuscandoAnexos((id) => (id === m.id ? null : id)));
   }
 
   // "De:" padrão ao escrever: a conta em foco, ou a principal quando em "Todas".
@@ -3025,6 +3053,8 @@ function Mailbox({
             onReply={() => startReply(selected)}
             onMove={callbacks.onMoveToFolder ? (slug) => moveTo(selected, slug) : undefined}
             onSetMailbox={callbacks.onSetMailbox ? (mb) => setMailbox(selected, mb) : undefined}
+            anexosExtra={anexosBuscados[selected.id]}
+            buscandoAnexos={buscandoAnexos === selected.id}
           />
         ) : null}
       </Box>
@@ -3139,6 +3169,8 @@ function MessageView({
   onReply,
   onMove,
   onSetMailbox,
+  anexosExtra,
+  buscandoAnexos,
 }: {
   message: MailMessage;
   folders: MailFolder[];
@@ -3147,8 +3179,11 @@ function MessageView({
   onReply: () => void;
   onMove?: (slug: string | null) => void;
   onSetMailbox?: (mailbox: "inbox" | "spam" | "trash") => void;
+  /** Anexos buscados na Resend agora (recebido antigo que entrou sem eles). */
+  anexosExtra?: MailAttachment[];
+  buscandoAnexos?: boolean;
 }) {
-  const attachments = message.attachments ?? [];
+  const attachments = message.attachments?.length ? message.attachments : (anexosExtra ?? []);
   const mb: Folder = mailbox ?? mailboxOf(message);
   const inInbox = mb === "inbox";
   // Mover pra PASTA só faz sentido nos Recebidos (não em Spam/Lixeira/Enviados).
@@ -3239,6 +3274,14 @@ function MessageView({
       <Box flex="1" overflowY="auto" p={message.bodyHtml ? 0 : 5}>
         <EmailHtmlView html={message.bodyHtml} text={message.bodyText} minHeight={360} />
       </Box>
+
+      {!attachments.length && buscandoAnexos ? (
+        <Box px={5} py={3} borderTopWidth="1px" borderColor="var(--admin-border)">
+          <Text fontSize="xs" color="var(--admin-text-soft)">
+            Buscando anexos…
+          </Text>
+        </Box>
+      ) : null}
 
       {attachments.length ? (
         <Box px={5} py={3} borderTopWidth="1px" borderColor="var(--admin-border)">
