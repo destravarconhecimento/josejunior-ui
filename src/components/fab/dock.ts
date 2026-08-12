@@ -50,6 +50,20 @@ const MODO_KEY = "jj:fab-modo";
 /** Largura do painel encostado (px) — a mesma nos dois FABs. */
 export const FAB_LATERAL_W = 420;
 
+/**
+ * Variáveis que o painel ACOPLADO publica no `<html>`:
+ *   • `--jj-fab-dock-w` — a largura crua (420px), enquanto houver painel encostado;
+ *   • `data-fab-dock="1"` — o interruptor.
+ *
+ * Quem transforma isso em espaço reservado é o CSS estrutural (`--jj-fab-dock`),
+ * e só a partir de `lg`: abaixo disso a janela é estreita demais pra doar 420px
+ * — lá o painel segue POR CIMA, como sempre foi. O shell (e a tabela em tela
+ * cheia) só lê `var(--jj-fab-dock, 0px)`; sem o CSS carregado o valor é 0 e o
+ * comportamento antigo continua valendo.
+ */
+const DOCK_ATTR = "data-fab-dock";
+const DOCK_W_VAR = "--jj-fab-dock-w";
+
 export function useFabModo(id: FabId): [FabModo, (m: FabModo) => void] {
   // Começa SEMPRE flutuante e lê a preferência no efeito: ler o localStorage no
   // primeiro render faria o HTML do servidor divergir do cliente (hidratação).
@@ -79,8 +93,8 @@ export function useFabModo(id: FabId): [FabModo, (m: FabModo) => void] {
   return [modo, setModo];
 }
 
-type State = { mounted: readonly FabId[]; openId: FabId | null; suppress: number };
-let state: State = { mounted: [], openId: null, suppress: 0 };
+type State = { mounted: readonly FabId[]; openId: FabId | null; suppress: number; acoplado: FabId | null };
+let state: State = { mounted: [], openId: null, suppress: 0, acoplado: null };
 const subs = new Set<() => void>();
 
 function emit() {
@@ -114,6 +128,44 @@ export function setFabOpen(id: FabId, open: boolean) {
   if (next === state.openId) return;
   state = { ...state, openId: next };
   emit();
+}
+
+function setAcoplado(id: FabId, on: boolean) {
+  const next = on ? id : state.acoplado === id ? null : state.acoplado;
+  if (next === state.acoplado) return;
+  state = { ...state, acoplado: next };
+  // Escreve no <html> em vez de no React: o espaço é reservado por CSS, então
+  // atravessa navegação, shell e Portal sem ninguém precisar re-renderizar.
+  if (typeof document !== "undefined") {
+    const root = document.documentElement;
+    if (next) {
+      root.style.setProperty(DOCK_W_VAR, `${FAB_LATERAL_W}px`);
+      root.setAttribute(DOCK_ATTR, "1");
+    } else {
+      root.removeAttribute(DOCK_ATTR);
+      root.style.removeProperty(DOCK_W_VAR);
+    }
+  }
+  emit();
+}
+
+/**
+ * ACOPLA o painel: enquanto `on`, a página encolhe pela direita em vez de ficar
+ * TAPADA pelo painel encostado (é o "vira docker e empurra o site pra esquerda").
+ * `on` tem de espelhar o que está REALMENTE na tela — painel aberto, em modo
+ * lateral e não escondido pela rota —, senão o painel some e a página fica com
+ * um vão de 420px. Solta sozinho ao desmontar (troca de tela, logout).
+ */
+export function useFabAcoplado(id: FabId, on: boolean) {
+  useEffect(() => {
+    setAcoplado(id, on);
+    return () => setAcoplado(id, false);
+  }, [id, on]);
+}
+
+/** Há painel encostado agora? (pra quem precisa reagir em JS, não em CSS.) */
+export function useFabAcopladoAtivo() {
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot).acoplado != null;
 }
 
 /**

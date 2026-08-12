@@ -541,7 +541,13 @@ export function DataTable<T>({
     <Portal>
       <Box
         position="fixed"
-        inset={0}
+        top={0}
+        left={0}
+        bottom={0}
+        // Não é `inset: 0`: com um FAB ACOPLADO à direita, a janela útil termina
+        // onde o painel começa — senão a tela cheia nasceria por baixo dele
+        // (o painel está em z-index maior) e a última coluna ficava tapada.
+        right="var(--jj-fab-dock, 0px)"
         zIndex={1300}
         bg="var(--admin-bg)"
         display="flex"

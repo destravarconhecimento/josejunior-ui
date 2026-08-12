@@ -21,6 +21,7 @@ import { FaWhatsapp } from "react-icons/fa6";
 import { EntityAvatar } from "../EntityAvatar";
 import { Textarea } from "../controls";
 import {
+  useFabAcoplado,
   useFabDock,
   useFabModo,
   setFabOpen,
@@ -172,6 +173,10 @@ export function WhatsAppFab({
   // inteira). A escolha fica guardada — ver `useFabModo`.
   const [modo, setModo] = useFabModo("whatsapp");
   const lateral = modo === "lateral";
+  // Encostado = ACOPLADO: a página encolhe pela direita em vez de ficar tapada.
+  // A condição espelha o que de facto aparece na tela (ver os `return null`
+  // abaixo) — reservar espaço pra um painel escondido deixaria um vão vazio.
+  useFabAcoplado("whatsapp", lateral && open && !othersOpen && !hideOnPaths.includes(pathname));
 
   useEffect(() => {
     onOpenChange?.(open);

@@ -17,6 +17,7 @@ import {
 import { ChatMarkdown } from "./ChatMarkdown";
 import { useAiChat } from "./ai/useAiChat";
 import {
+  useFabAcoplado,
   useFabDock,
   useFabModo,
   setFabOpen,
@@ -83,6 +84,10 @@ export function AiAssistantFab({
   // inteira). A escolha fica guardada — ver `useFabModo`.
   const [modo, setModo] = useFabModo("ai");
   const lateral = modo === "lateral";
+  // Encostado = ACOPLADO: a página encolhe pela direita em vez de ficar tapada.
+  // A condição espelha o que de facto aparece na tela (`hidden` logo abaixo) —
+  // reservar espaço pra um painel escondido deixaria um vão vazio.
+  useFabAcoplado("ai", lateral && open && wantShow && !othersOpen);
 
   // Espelha o estado de aberto no dock e recua se o irmão (WhatsApp) abrir.
   useEffect(() => setFabOpen("ai", open), [open]);

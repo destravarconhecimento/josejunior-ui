@@ -104,6 +104,12 @@ export function TopBarShell({
         // chumbar número mágico (ver `--admin-content-h` no <main>).
         "--admin-topbar-h": "calc(56px + env(safe-area-inset-top))",
         "@media (min-width: 62em)": { "--admin-topbar-h": "52px" },
+        // FAB encostado na direita: o painel EMPURRA a página em vez de tapá-la.
+        // Fica no root (e não só no <main>) de propósito — assim a topbar também
+        // encolhe e o menu do usuário não some atrás do painel. Vale 0 quando
+        // não há nada acoplado; ver `--jj-fab-dock` no CSS estrutural.
+        paddingRight: "var(--jj-fab-dock, 0px)",
+        transition: "padding-right .22s ease",
       }}
     >
       <Flex

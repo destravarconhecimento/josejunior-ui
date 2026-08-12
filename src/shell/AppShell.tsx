@@ -122,7 +122,14 @@ export function AppShell({
     ) : null;
 
   return (
-    <Flex minH="100vh" align="stretch">
+    <Flex
+      minH="100vh"
+      align="stretch"
+      // FAB encostado na direita: o painel EMPURRA a página em vez de tapá-la
+      // (a sidebar fica no lugar, o miolo é que encolhe). Vale 0 quando não há
+      // nada acoplado; ver `--jj-fab-dock` no CSS estrutural.
+      css={{ paddingRight: "var(--jj-fab-dock, 0px)", transition: "padding-right .22s ease" }}
+    >
       {/* ── Sidebar (desktop, recolhível) ───────────────────────────────── */}
       <Box
         as="aside"

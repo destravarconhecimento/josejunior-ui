@@ -15,6 +15,16 @@ export const ADMIN_STRUCTURAL_CSS = `
   font-family: var(--admin-font-heading);
   letter-spacing: var(--admin-heading-ls, -0.2px);
 }
+/* ── Painel ACOPLADO (o FAB encostado na direita) ──────────────────────────
+   Encostado, o painel não pode TAPAR a página: o shell reserva a coluna com
+   \`padding-right: var(--jj-fab-dock)\` e a página encolhe. A reserva só liga em
+   \`lg\` — abaixo disso a janela é estreita demais pra doar 420px, e lá o painel
+   continua por cima (comportamento antigo). O \`<html>\` ganha data-fab-dock="1"
+   e a largura crua enquanto durar; ver \`components/fab/dock.ts\`. */
+:root { --jj-fab-dock: 0px; }
+@media (min-width: 62em) {
+  html[data-fab-dock="1"] { --jj-fab-dock: var(--jj-fab-dock-w, 0px); }
+}
 .admin-card {
   background: var(--admin-surface);
   border: 1px solid var(--admin-border);
