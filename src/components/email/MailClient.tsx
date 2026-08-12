@@ -2376,7 +2376,7 @@ function AccountManager({
 
 function Mailbox({
   accounts,
-  messages,
+  messages: messagesDoServidor,
   defaultAccountId,
   accountId,
   folders,
@@ -2402,6 +2402,55 @@ function Mailbox({
   onEstado?: (detalhe: string) => void;
 }) {
   const [pending, start] = useTransition();
+
+  /**
+   * REMENDO OTIMISTA — a tela de e-mail é `force-dynamic`: cada `onRefresh()`
+   * refaz a página inteira (até 300 mensagens). Até o servidor voltar, a lista e
+   * os contadores mostravam o estado VELHO, e o clique parecia não ter pego
+   * (abrir e-mail, etiquetar, marcar spam). Agora a mudança vale na hora aqui e
+   * o refresh só RECONCILIA: assim que o servidor reflete o remendo, ele morre.
+   * Falhou a ação? o remendo é desfeito e a caixa volta ao que era.
+   */
+  const [remendos, setRemendos] = useState<Record<string, Partial<MailMessage>>>({});
+  const remendar = useCallback((id: string, patch: Partial<MailMessage>) => {
+    setRemendos((antes) => ({ ...antes, [id]: { ...antes[id], ...patch } }));
+  }, []);
+  const desremendar = useCallback((id: string, campos: (keyof MailMessage)[]) => {
+    setRemendos((antes) => {
+      const atual = antes[id];
+      if (!atual) return antes;
+      const resto = { ...atual };
+      for (const c of campos) delete resto[c];
+      const proximo = { ...antes };
+      if (Object.keys(resto).length) proximo[id] = resto;
+      else delete proximo[id];
+      return proximo;
+    });
+  }, []);
+  useEffect(() => {
+    setRemendos((antes) => {
+      if (!Object.keys(antes).length) return antes;
+      const proximo: Record<string, Partial<MailMessage>> = {};
+      for (const m of messagesDoServidor) {
+        const p = antes[m.id];
+        if (!p) continue;
+        // Sobra só o que o servidor AINDA não refletiu (o resto já é verdade).
+        const pendente = Object.fromEntries(
+          Object.entries(p).filter(([campo, valor]) => (m as Record<string, unknown>)[campo] !== valor),
+        ) as Partial<MailMessage>;
+        if (Object.keys(pendente).length) proximo[m.id] = pendente;
+      }
+      return proximo;
+    });
+  }, [messagesDoServidor]);
+  const messages = useMemo(
+    () =>
+      Object.keys(remendos).length
+        ? messagesDoServidor.map((m) => (remendos[m.id] ? { ...m, ...remendos[m.id] } : m))
+        : messagesDoServidor,
+    [messagesDoServidor, remendos],
+  );
+
   const ALL = ALL_ACCOUNTS;
   // Conta principal acessível (se houver) — é onde a caixa abre e o "De:" padrão.
   const primaryId =
@@ -2631,8 +2680,11 @@ function Mailbox({
   function openMessage(m: MailMessage) {
     setSelectedId(m.id);
     if (m.direction === "inbound" && !m.read) {
+      // O badge cai NA HORA (é o que o José vê primeiro); o servidor confirma depois.
+      remendar(m.id, { read: true });
       start(async () => {
-        await callbacks.onMarkRead(m.id, true);
+        const r = await callbacks.onMarkRead(m.id, true);
+        if (!r.ok) desremendar(m.id, ["read"]);
         callbacks.onRefresh();
       });
     }
@@ -2694,24 +2746,33 @@ function Mailbox({
   // ── Categorias: etiquetar mensagem, criar/renomear/remover categoria ──
   function moveTo(m: MailMessage, slug: string | null) {
     if (!callbacks.onMoveToFolder) return;
+    // Sai da categoria velha e entra na nova na hora — inclusive nos contadores.
+    remendar(m.id, { category: slug });
+    setSelectedId(null);
     start(async () => {
       const r = await callbacks.onMoveToFolder!(m.id, slug);
-      if (r.ok) {
-        setSelectedId(null);
-        callbacks.onRefresh();
+      // Falhou: desfaz e reabre a mensagem — some sem avisar seria pior.
+      if (!r.ok) {
+        desremendar(m.id, ["category"]);
+        setSelectedId(m.id);
       }
+      callbacks.onRefresh();
     });
   }
 
   // Move p/ caixa fixa: Recebidos / Spam / Lixeira (marcar como spam, restaurar, etc.).
   function setMailbox(m: MailMessage, mailbox: "inbox" | "spam" | "trash") {
     if (!callbacks.onSetMailbox) return;
+    // Some da caixa atual imediatamente — marcar spam tem que ser instantâneo.
+    remendar(m.id, { mailbox });
+    setSelectedId(null);
     start(async () => {
       const r = await callbacks.onSetMailbox!(m.id, mailbox);
-      if (r.ok) {
-        setSelectedId(null);
-        callbacks.onRefresh();
+      if (!r.ok) {
+        desremendar(m.id, ["mailbox"]);
+        setSelectedId(m.id);
       }
+      callbacks.onRefresh();
     });
   }
 
