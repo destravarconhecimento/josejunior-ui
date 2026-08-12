@@ -48,7 +48,6 @@ export { PageHeader } from "./components/PageHeader";
 export { PageBody } from "./components/PageBody";
 export { ScrollArea } from "./components/ScrollArea";
 export { Card } from "./components/Card";
-export { Captcha, type CaptchaProps } from "./components/Captcha";
 export { Button, type ButtonTone } from "./components/Button";
 export { Tag, StatusBadge, DeliveryBadge } from "./components/Badge";
 export { LeadKindBadge, classifyLead, LEAD_KIND_META, type LeadKindKey } from "./components/LeadKind";
