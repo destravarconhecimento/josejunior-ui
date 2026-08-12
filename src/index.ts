@@ -247,6 +247,7 @@ export {
   type QueuePriority,
 } from "./components/OperationalQueue";
 export { ProcessFunnelCard, type FunnelStage } from "./components/ProcessFunnelCard";
+export { FunnelStagesBar, type FunnelBarStage } from "./components/FunnelStagesBar";
 export {
   ConversationSnapshotList,
   type ConversationSnapshotItem,
