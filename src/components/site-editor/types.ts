@@ -67,6 +67,31 @@ export interface SiteStatItem {
   value: string;
   label: string;
 }
+/**
+ * Porta de contexto da home ("Tenho uma clínica"). `vertical` é o SLUG do
+ * registro de segmentos — é ele que vai no `?vertical=` do diagnóstico e no
+ * evento de funil; `href` é a página de destino (nem sempre tem o mesmo nome).
+ */
+export interface SiteDoorItem {
+  vertical: string;
+  label: string;
+  desc: string;
+  href: string;
+  icon?: string;
+}
+/** Dor concreta → o que muda, por contexto. */
+export interface SitePainItem {
+  vertical: string;
+  label: string;
+  pain: string;
+  after: string;
+}
+/** Etapa do fluxo "uma operação rodando" (ícone + título + descrição). */
+export interface SiteFlowStepItem {
+  icon: string;
+  title: string;
+  desc: string;
+}
 
 /** Cores/fontes do site — mesmo vocabulário do tema dos tenants. Tudo opcional. */
 export interface SiteThemeContent {
@@ -85,7 +110,10 @@ export interface SiteIdentityContent {
     titleLead: string;
     titleHighlight: string;
     subtitle: string;
+    /** Foto de PERFIL (seção "Sobre"). Vazio = /assets/perfil.png. */
     photo?: string;
+    /** Imagem do TOPO da home (hero de operação). Vazio = usa a foto de perfil. */
+    image?: string;
     primaryCtaLabel: string;
     secondaryCtaLabel: string;
     stats: SiteStatItem[];
@@ -108,6 +136,33 @@ export interface SiteIdentityContent {
   testimonials: { eyebrow: string; title: string; items: SiteTestimonialItem[] };
   finalCta: { title: string; text: string; whatsappLabel: string; projectsLabel: string };
   contact: { eyebrow: string; title: string; subtitle: string; email: string };
+  /* ── Blocos da HOME nova (7 blocos). Renderizados por `HomeBlocks.tsx`. ── */
+  /** Bloco 1 — hero de operação (topo da home). UMA CTA só (→ /diagnostico). */
+  operationHero: {
+    eyebrow: string;
+    titleLead: string;
+    titleHighlight: string;
+    subtitle: string;
+    ctaLabel: string;
+  };
+  /** Bloco 2 — escolha de contexto (as portas). */
+  contextDoors: { eyebrow: string; title: string; subtitle: string; doors: SiteDoorItem[] };
+  /** Bloco 4 — dor concreta → o que muda, por contexto. */
+  painToChange: { eyebrow: string; title: string; items: SitePainItem[] };
+  /** Bloco 5 — uma operação rodando (mensagem → agendamento → ficha → portal). */
+  operationShowcase: { eyebrow: string; title: string; subtitle: string; steps: SiteFlowStepItem[] };
+  /** Bloco 6 — como a implantação acontece. Sem preço, nunca. */
+  implantation: {
+    eyebrow: string;
+    title: string;
+    subtitle: string;
+    steps: SiteStepItem[];
+    needsTitle: string;
+    needs: string[];
+    note: string;
+  };
+  /** Bloco 7 — a mesma conversão do topo, repetida no fim. */
+  diagnosticCta: { title: string; text: string; ctaLabel: string };
   socials: SiteSocialItem[];
   seo: { title: string; description: string };
   theme?: SiteThemeContent;

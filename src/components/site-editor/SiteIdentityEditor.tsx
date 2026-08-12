@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Box,
   Field,
+  Flex,
   HStack,
   IconButton,
   Input,
@@ -13,8 +14,24 @@ import {
   Text,
   Textarea,
 } from "@chakra-ui/react";
-import { Plus, Trash2, Save, Check, BarChart3, Link2, Copy, Palette } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Save,
+  Check,
+  BarChart3,
+  Link2,
+  Copy,
+  Palette,
+  Home,
+  Briefcase,
+  Users,
+  Layers,
+  Languages,
+} from "lucide-react";
 import { Button } from "../Button";
+import { Tabs, type TabDef } from "../Tabs";
+import { Accordion, type AccordionItemDef } from "../Accordion";
 import { SITE_ICON_OPTIONS } from "./icon-options";
 import type {
   SiteIdentityContent,
@@ -30,7 +47,17 @@ import type {
  * app (`renderImageUpload`), pois quem sobe o arquivo pro Blob é a server action.
  *
  * Consumido por `apps/sistema` (Meu site → josejunior.dev, renderizado pelo
- * apps/web). Todas as seções ("sections") e o módulo de rastreamento vivem aqui.
+ * apps/web).
+ *
+ * ORGANIZAÇÃO (o porquê das abas): era um rolo único de ~15 cartões com UM botão
+ * de salvar lá embaixo — dar manutenção era impossível. Agora cada assunto é uma
+ * ABA com o seu próprio botão de salvar, e as seções longas (home, portfólio,
+ * outras páginas) vêm FECHADAS em grupos: clicou, abriu, editou.
+ *
+ * ⚠️ O conteúdo do site é UM documento só (`landing_content.main`): qualquer
+ * "Salvar" grava o documento inteiro. O botão fica perto do que você está
+ * editando — mas ele não perde a edição que você fez em outra aba (por isso o
+ * texto de apoio diz isso em voz alta, em vez de fingir gravação parcial).
  */
 
 const inputProps = {
@@ -45,21 +72,54 @@ const inputProps = {
 function Card({
   title,
   icon,
+  hint,
   children,
 }: {
   title: string;
   icon?: React.ReactNode;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <Box className="admin-card" p={{ base: 5, md: 7 }} h="100%">
-      <HStack gap={2} mb={5}>
-        {icon}
-        <Text fontSize="lg" fontWeight="700" color="var(--admin-primary)" className="admin-h">
-          {title}
-        </Text>
-      </HStack>
+      <Stack gap={hint ? 1 : 0} mb={5}>
+        <HStack gap={2}>
+          {icon}
+          <Text fontSize="lg" fontWeight="700" color="var(--admin-primary)" className="admin-h">
+            {title}
+          </Text>
+        </HStack>
+        {hint ? (
+          <Text fontSize="sm" color="var(--admin-text-soft)">
+            {hint}
+          </Text>
+        ) : null}
+      </Stack>
       <Stack gap={5}>{children}</Stack>
+    </Box>
+  );
+}
+
+/** Etiqueta curta (onde a seção aparece, se está no ar, contador de itens). */
+function Tag({ children, tone = "soft" }: { children: React.ReactNode; tone?: "soft" | "warn" | "off" }) {
+  const styles = {
+    soft: { bg: "var(--admin-nav-active)", color: "var(--admin-primary)", border: "1px solid var(--admin-border)" },
+    warn: { bg: "rgba(234,179,8,0.12)", color: "#854d0e", border: "1px solid rgba(234,179,8,0.35)" },
+    off: { bg: "rgba(100,116,139,0.10)", color: "#475569", border: "1px solid rgba(100,116,139,0.25)" },
+  }[tone];
+  return (
+    <Box
+      as="span"
+      display="inline-block"
+      px={2}
+      py={0.5}
+      borderRadius="full"
+      fontSize="11px"
+      fontWeight="700"
+      whiteSpace="nowrap"
+      {...styles}
+    >
+      {children}
     </Box>
   );
 }
@@ -69,6 +129,7 @@ function TextField({
   value,
   onChange,
   textarea,
+  rows,
   type,
   placeholder,
   helper,
@@ -77,6 +138,7 @@ function TextField({
   value: string;
   onChange: (v: string) => void;
   textarea?: boolean;
+  rows?: number;
   type?: string;
   placeholder?: string;
   helper?: string;
@@ -85,7 +147,7 @@ function TextField({
     <Field.Root>
       <Field.Label fontWeight="600" fontSize="sm" color="var(--admin-primary)">{label}</Field.Label>
       {textarea ? (
-        <Textarea value={value} onChange={(e) => onChange(e.target.value)} rows={2} placeholder={placeholder} {...inputProps} />
+        <Textarea value={value} onChange={(e) => onChange(e.target.value)} rows={rows ?? 2} placeholder={placeholder} {...inputProps} />
       ) : (
         <Input value={value} type={type} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} {...inputProps} />
       )}
@@ -154,7 +216,7 @@ function ToggleField({
   );
 }
 
-/** Seletor de ícone (nomes espelhados do web em icon-options.ts). */
+/** Seletor de ícone (nomes vindos do registry do design-system). */
 function IconSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <NativeSelect.Root size="lg" w="180px">
@@ -177,11 +239,12 @@ function IconSelect({ value, onChange }: { value: string; onChange: (v: string) 
 /**
  * Editor genérico de lista: cada item vira uma linha (renderRow) com botão de
  * remover; botão de adicionar no fim. `update(patch)` faz o merge imutável do
- * item corrente. Reaproveitado por todas as seções em lista (benefícios,
- * serviços, projetos, trajetória, depoimentos, destaques, contatos, skills…).
+ * item corrente. Reaproveitado por todas as seções em lista (portas, dores,
+ * passos, projetos, trajetória, depoimentos, destaques, contatos, skills…).
  */
 function ListBlock<T extends object>({
   label,
+  hint,
   items,
   onChange,
   empty,
@@ -190,6 +253,7 @@ function ListBlock<T extends object>({
   renderRow,
 }: {
   label: string;
+  hint?: string;
   items: T[];
   onChange: (next: T[]) => void;
   empty: T;
@@ -204,7 +268,8 @@ function ListBlock<T extends object>({
   };
   return (
     <Box>
-      <Text fontWeight="600" fontSize="sm" color="var(--admin-primary)" mb={2}>{label}</Text>
+      <Text fontWeight="600" fontSize="sm" color="var(--admin-primary)" mb={hint ? 0.5 : 2}>{label}</Text>
+      {hint ? <Text fontSize="xs" color="var(--admin-text-soft)" mb={2}>{hint}</Text> : null}
       <Stack gap={3}>
         {items.map((item, i) => (
           <HStack
@@ -243,6 +308,126 @@ function ListBlock<T extends object>({
           </Button>
         )}
       </Stack>
+    </Box>
+  );
+}
+
+/** Lista de textos simples (parágrafos do Sobre, o que eu preciso de você…). */
+function StringList({
+  label,
+  hint,
+  items,
+  onChange,
+  addLabel,
+  max,
+  placeholder,
+  rows = 2,
+}: {
+  label: string;
+  hint?: string;
+  items: string[];
+  onChange: (next: string[]) => void;
+  addLabel: string;
+  max?: number;
+  placeholder?: string;
+  rows?: number;
+}) {
+  return (
+    <Box>
+      <Text fontWeight="600" fontSize="sm" color="var(--admin-primary)" mb={hint ? 0.5 : 2}>{label}</Text>
+      {hint ? <Text fontSize="xs" color="var(--admin-text-soft)" mb={2}>{hint}</Text> : null}
+      <Stack gap={2}>
+        {items.map((v, i) => (
+          <HStack key={i} gap={2} align="flex-start">
+            <Textarea
+              value={v}
+              rows={rows}
+              flex="1"
+              placeholder={placeholder}
+              onChange={(e) => {
+                const next = [...items];
+                next[i] = e.target.value;
+                onChange(next);
+              }}
+              {...inputProps}
+            />
+            <IconButton
+              aria-label="Remover"
+              size="sm"
+              variant="ghost"
+              color="red.500"
+              onClick={() => onChange(items.filter((_, j) => j !== i))}
+            >
+              <Trash2 size={15} />
+            </IconButton>
+          </HStack>
+        ))}
+        {(max === undefined || items.length < max) && (
+          <Button
+            size="sm"
+            variant="outline"
+            alignSelf="flex-start"
+            borderColor="var(--admin-border)"
+            color="var(--admin-primary)"
+            borderRadius="10px"
+            onClick={() => onChange([...items, ""])}
+          >
+            <Plus size={14} style={{ marginRight: 4 }} /> {addLabel}
+          </Button>
+        )}
+      </Stack>
+    </Box>
+  );
+}
+
+/** Campo de imagem: prévia + botão de upload (slot do app) + voltar ao padrão. */
+function ImageField({
+  label,
+  hint,
+  value,
+  fallback,
+  folder,
+  onChange,
+  renderImageUpload,
+}: {
+  label: string;
+  hint: string;
+  value: string;
+  /** O que o site mostra quando o campo está vazio (só pra prévia). */
+  fallback: string;
+  folder: string;
+  onChange: (url: string) => void;
+  renderImageUpload?: (slot: SiteImageUploadSlot) => React.ReactNode;
+}) {
+  const src = value.trim() || fallback;
+  return (
+    <Box>
+      <Text fontWeight="600" fontSize="sm" color="var(--admin-primary)" mb={2}>{label}</Text>
+      <HStack gap={4} align="flex-start" flexWrap="wrap">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={label}
+          style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 12, border: "1px solid var(--admin-border)", background: "#0b0614" }}
+        />
+        <Stack gap={2} flex="1" minW="240px">
+          <HStack gap={2} flexWrap="wrap">
+            {renderImageUpload?.({ folder, label: "Enviar imagem", onUploaded: onChange })}
+            {value.trim() ? (
+              <Button size="sm" variant="ghost" color="red.500" borderRadius="10px" onClick={() => onChange("")}>
+                Usar o padrão
+              </Button>
+            ) : null}
+          </HStack>
+          <Input
+            value={value}
+            placeholder={fallback}
+            onChange={(e) => onChange(e.target.value)}
+            {...inputProps}
+          />
+          <Text fontSize="xs" color="var(--admin-text-soft)">{hint}</Text>
+        </Stack>
+      </HStack>
     </Box>
   );
 }
@@ -289,6 +474,87 @@ function SaveBar({
   );
 }
 
+/** Cabeçalho da aba: o que ela edita + o botão de salvar DELA (topo, sempre à mão). */
+function TabHeader({
+  title,
+  desc,
+  saveLabel,
+  onSave,
+  loading,
+  saved,
+  error,
+  dirty,
+}: {
+  title: string;
+  desc: string;
+  saveLabel: string;
+  onSave: () => void;
+  loading: boolean;
+  saved: boolean;
+  error: string | null;
+  dirty: boolean;
+}) {
+  return (
+    <Box className="admin-card" p={{ base: 4, md: 5 }}>
+      <Flex gap={4} direction={{ base: "column", md: "row" }} align={{ base: "stretch", md: "center" }}>
+        <Stack gap={1} flex="1" minW={0}>
+          <Text fontSize="lg" fontWeight="800" color="var(--admin-primary)" className="admin-h">
+            {title}
+          </Text>
+          <Text fontSize="sm" color="var(--admin-text-soft)">{desc}</Text>
+        </Stack>
+        <HStack gap={3} flexShrink={0} justify={{ base: "flex-start", md: "flex-end" }} flexWrap="wrap">
+          {dirty ? <Tag tone="warn">alterações não salvas</Tag> : null}
+          {saved ? (
+            <HStack gap={1.5} color="#15803d" fontSize="sm" fontWeight="700">
+              <Check size={16} /> Salvo
+            </HStack>
+          ) : null}
+          <Button
+            onClick={onSave}
+            loading={loading}
+            size="lg"
+            bg="var(--admin-primary)"
+            color="white"
+            _hover={{ bg: "var(--admin-primary-dark)" }}
+            borderRadius="10px"
+          >
+            <Save size={16} style={{ marginRight: 6 }} /> {saveLabel}
+          </Button>
+        </HStack>
+      </Flex>
+      {error ? (
+        <Box mt={3} bg="rgba(220,38,38,0.06)" border="1px solid rgba(220,38,38,0.25)" borderRadius="10px" px={3} py={2}>
+          <Text color="red.700" fontSize="sm">{error}</Text>
+        </Box>
+      ) : null}
+    </Box>
+  );
+}
+
+/**
+ * Título de um grupo do acordeão: nome + linha de apoio (onde aparece no site).
+ * Tudo em `span` porque isso é renderizado DENTRO do `<button>` do trigger.
+ */
+function groupTitle(title: string, hint: string) {
+  return (
+    <Box as="span" display="flex" flexDirection="column" gap={0.5}>
+      <Text as="span" fontWeight="700" fontSize="sm" color="var(--admin-primary)">{title}</Text>
+      <Text as="span" fontWeight="400" fontSize="xs" color="var(--admin-text-soft)">{hint}</Text>
+    </Box>
+  );
+}
+
+const TABS: TabDef[] = [
+  { value: "marca", label: "Marca & imagens", icon: <Palette size={15} /> },
+  { value: "home", label: "Home", icon: <Home size={15} /> },
+  { value: "portfolio", label: "Portfólio", icon: <Briefcase size={15} /> },
+  { value: "sobre", label: "Sobre & contato", icon: <Users size={15} /> },
+  { value: "outras", label: "Outras páginas", icon: <Layers size={15} /> },
+  { value: "seo", label: "SEO & rastreamento", icon: <BarChart3 size={15} /> },
+  { value: "idiomas", label: "Idiomas", icon: <Languages size={15} /> },
+];
+
 export interface SiteIdentityCallbacks {
   /** Grava o conteúdo do site (banco do sistema, key 'main'). */
   onSaveContent: (content: SiteIdentityContent) => Promise<SiteSaveResult>;
@@ -299,10 +565,7 @@ export interface SiteIdentityCallbacks {
    * pro Blob e chama `onUploaded(url)`. Sem ele, o botão de trocar foto não aparece.
    */
   renderImageUpload?: (slot: SiteImageUploadSlot) => React.ReactNode;
-  /**
-   * Slot da seção de idiomas (TranslationsSection montada pelo app com as actions
-   * dele). Renderiza depois do "Salvar conteúdo", antes do bloco de Marketing.
-   */
+  /** Slot da aba "Idiomas" (TranslationsSection montada pelo app com as actions dele). */
   translations?: React.ReactNode;
 }
 
@@ -319,15 +582,23 @@ export function SiteIdentityEditor({
   renderImageUpload,
   translations,
 }: SiteIdentityEditorProps) {
+  const [tab, setTab] = useState("marca");
+
   const [c, setC] = useState<SiteIdentityContent>(initial);
+  /** Última versão GRAVADA — é contra ela que "alterações não salvas" compara. */
+  const [saved0, setSaved0] = useState<SiteIdentityContent>(initial);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentSaved, setContentSaved] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
 
   const [m, setM] = useState<SiteMarketing>(initialMarketing);
+  const [mkt0, setMkt0] = useState<SiteMarketing>(initialMarketing);
   const [mktLoading, setMktLoading] = useState(false);
   const [mktSaved, setMktSaved] = useState(false);
   const [mktError, setMktError] = useState<string | null>(null);
+
+  const contentDirty = useMemo(() => JSON.stringify(c) !== JSON.stringify(saved0), [c, saved0]);
+  const mktDirty = useMemo(() => JSON.stringify(m) !== JSON.stringify(mkt0), [m, mkt0]);
 
   // helpers de atualização imutável por seção
   const setBrand = (patch: Partial<SiteIdentityContent["brand"]>) =>
@@ -358,18 +629,33 @@ export function SiteIdentityEditor({
     setC((s) => ({ ...s, theme: { ...s.theme, ...patch } }));
   const setSocials = (socials: SiteIdentityContent["socials"]) =>
     setC((s) => ({ ...s, socials }));
+  // blocos da home nova
+  const setOperationHero = (patch: Partial<SiteIdentityContent["operationHero"]>) =>
+    setC((s) => ({ ...s, operationHero: { ...s.operationHero, ...patch } }));
+  const setContextDoors = (patch: Partial<SiteIdentityContent["contextDoors"]>) =>
+    setC((s) => ({ ...s, contextDoors: { ...s.contextDoors, ...patch } }));
+  const setPainToChange = (patch: Partial<SiteIdentityContent["painToChange"]>) =>
+    setC((s) => ({ ...s, painToChange: { ...s.painToChange, ...patch } }));
+  const setOperationShowcase = (patch: Partial<SiteIdentityContent["operationShowcase"]>) =>
+    setC((s) => ({ ...s, operationShowcase: { ...s.operationShowcase, ...patch } }));
+  const setImplantation = (patch: Partial<SiteIdentityContent["implantation"]>) =>
+    setC((s) => ({ ...s, implantation: { ...s.implantation, ...patch } }));
+  const setDiagnosticCta = (patch: Partial<SiteIdentityContent["diagnosticCta"]>) =>
+    setC((s) => ({ ...s, diagnosticCta: { ...s.diagnosticCta, ...patch } }));
   const setMkt = (patch: Partial<SiteMarketing>) => setM((s) => ({ ...s, ...patch }));
 
   const onSaveContentClick = async () => {
     setContentLoading(true);
     setContentError(null);
     setContentSaved(false);
-    const res = await onSaveContent(c);
+    const snapshot = c;
+    const res = await onSaveContent(snapshot);
     setContentLoading(false);
     if (!res.ok) {
       setContentError(res.error);
       return;
     }
+    setSaved0(snapshot);
     setContentSaved(true);
     setTimeout(() => setContentSaved(false), 2500);
   };
@@ -378,222 +664,430 @@ export function SiteIdentityEditor({
     setMktLoading(true);
     setMktError(null);
     setMktSaved(false);
-    const res = await onSaveMarketing(m);
+    const snapshot = m;
+    const res = await onSaveMarketing(snapshot);
     setMktLoading(false);
     if (!res.ok) {
       setMktError(res.error);
       return;
     }
+    setMkt0(snapshot);
     setMktSaved(true);
     setTimeout(() => setMktSaved(false), 2500);
   };
 
-  return (
-    <Stack gap={6} maxW="1180px" pb={24}>
-      {/* ——— Conteúdo do site ——— */}
-      <SimpleGrid columns={{ base: 1, xl: 2 }} gap={6} alignItems="stretch">
-        <Card title="Marca">
+  /** Cabeçalho + botão de salvar de uma aba de CONTEÚDO (todas gravam o mesmo doc). */
+  const contentHeader = (title: string, desc: string, saveLabel: string) => (
+    <TabHeader
+      title={title}
+      desc={desc}
+      saveLabel={saveLabel}
+      onSave={onSaveContentClick}
+      loading={contentLoading}
+      saved={contentSaved}
+      error={contentError}
+      dirty={contentDirty}
+    />
+  );
+
+  /* ───────────────────────────── HOME (grupos fechados) ───────────────────────────── */
+  const homeGroups: AccordionItemDef[] = [
+    {
+      value: "topo",
+      title: groupTitle("Topo da home", "Primeira dobra: chamada, botão do diagnóstico e os números"),
+      meta: <Tag>bloco 1</Tag>,
+      content: (
+        <Stack gap={5}>
+          <TextField label="Eyebrow (linha de cima)" value={c.operationHero.eyebrow} onChange={(v) => setOperationHero({ eyebrow: v })} />
           <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-            <TextField label="Nome" value={c.brand.name} onChange={(v) => setBrand({ name: v })} />
-            <TextField label="Wordmark" value={c.brand.wordmark} onChange={(v) => setBrand({ wordmark: v })} />
-            <TextField label="Cargo / título" value={c.brand.role} onChange={(v) => setBrand({ role: v })} />
-            <TextField label="WhatsApp (só dígitos)" value={c.brand.whatsapp} onChange={(v) => setBrand({ whatsapp: v })} />
+            <TextField label="Título (parte normal)" value={c.operationHero.titleLead} onChange={(v) => setOperationHero({ titleLead: v })} />
+            <TextField label="Título (parte em destaque)" value={c.operationHero.titleHighlight} onChange={(v) => setOperationHero({ titleHighlight: v })} />
           </SimpleGrid>
-        </Card>
-
-        <Card title="Contato">
-          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-            <TextField label="Eyebrow" value={c.contact.eyebrow} onChange={(v) => setContact({ eyebrow: v })} />
-            <TextField label="Título" value={c.contact.title} onChange={(v) => setContact({ title: v })} />
-          </SimpleGrid>
-          <TextField label="Subtítulo" value={c.contact.subtitle} onChange={(v) => setContact({ subtitle: v })} textarea />
-          <TextField label="Email" value={c.contact.email} onChange={(v) => setContact({ email: v })} />
-        </Card>
-      </SimpleGrid>
-
-      <Card title="Cores do site" icon={<Palette size={18} color="var(--admin-primary)" />}>
-        <Text fontSize="sm" color="var(--admin-text-soft)">
-          A cor do seu site é a MESMA do painel do sistema. Deixe vazio para usar a marca padrão
-          (lilás do José). A “Aparência do painel” (/aparencia) ainda sobrescreve, se preferir separar.
-        </Text>
-        <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
-          <ColorField
-            label="Primária"
-            value={c.theme?.primaryColor ?? ""}
-            onChange={(v) => setTheme({ primaryColor: v })}
-            helper="Botões, links e navegação ativa."
-          />
-          <ColorField
-            label="Destaque (accent)"
-            value={c.theme?.accentColor ?? ""}
-            onChange={(v) => setTheme({ accentColor: v })}
-            helper="Realces e detalhes."
-          />
-          <ColorField
-            label="Escura"
-            value={c.theme?.darkColor ?? ""}
-            onChange={(v) => setTheme({ darkColor: v })}
-            helper="Opcional — derivada da primária se vazia."
-          />
-        </SimpleGrid>
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+          <TextField label="Subtítulo" value={c.operationHero.subtitle} onChange={(v) => setOperationHero({ subtitle: v })} textarea rows={3} />
           <TextField
-            label="Fonte dos títulos"
-            value={c.theme?.fontHeading ?? ""}
-            onChange={(v) => setTheme({ fontHeading: v })}
-            placeholder="ex.: Oswald"
-            helper="Nome da família (Google Fonts). Vazio = padrão."
+            label="Botão (leva ao /diagnostico)"
+            value={c.operationHero.ctaLabel}
+            onChange={(v) => setOperationHero({ ctaLabel: v })}
+            helper="O site inteiro usa o MESMO verbo nessa ação — mude aqui e no CTA final junto."
           />
-          <TextField
-            label="Fonte do corpo"
-            value={c.theme?.fontBody ?? ""}
-            onChange={(v) => setTheme({ fontBody: v })}
-            placeholder="ex.: Lato"
-            helper="Nome da família (Google Fonts). Vazio = padrão."
-          />
-        </SimpleGrid>
-      </Card>
-
-      <Card title="Hero (topo)">
-        <TextField label="Eyebrow" value={c.hero.eyebrow} onChange={(v) => setHero({ eyebrow: v })} />
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-          <TextField label="Título (parte 1)" value={c.hero.titleLead} onChange={(v) => setHero({ titleLead: v })} />
-          <TextField label="Título (destaque)" value={c.hero.titleHighlight} onChange={(v) => setHero({ titleHighlight: v })} />
-        </SimpleGrid>
-        <TextField label="Subtítulo" value={c.hero.subtitle} onChange={(v) => setHero({ subtitle: v })} textarea />
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-          <TextField label="Botão primário" value={c.hero.primaryCtaLabel} onChange={(v) => setHero({ primaryCtaLabel: v })} />
-          <TextField label="Botão secundário" value={c.hero.secondaryCtaLabel} onChange={(v) => setHero({ secondaryCtaLabel: v })} />
-        </SimpleGrid>
-
-        <Box>
-          <Text fontWeight="600" fontSize="sm" color="var(--admin-primary)" mb={2}>Foto do hero (seu perfil)</Text>
-          <HStack gap={4} align="center" flexWrap="wrap">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={c.hero.photo?.trim() || "/assets/perfil.png"}
-              alt="Foto do hero"
-              style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 12, border: "1px solid var(--admin-border)", background: "#0b0614" }}
-            />
-            <Stack gap={1} align="flex-start">
-              {renderImageUpload?.({ folder: "landing/hero", label: "Trocar foto", onUploaded: (url) => setHero({ photo: url }) })}
-              {c.hero.photo && c.hero.photo !== "/assets/perfil.png" ? (
-                <Button size="sm" variant="ghost" color="red.500" borderRadius="10px" onClick={() => setHero({ photo: "/assets/perfil.png" })}>
-                  Usar padrão (perfil.png)
+          <Box>
+            <Text fontWeight="600" fontSize="sm" color="var(--admin-primary)" mb={0.5}>Números do topo</Text>
+            <Text fontSize="xs" color="var(--admin-text-soft)" mb={2}>Aparecem embaixo do botão (ex.: “+50 · Projetos entregues”).</Text>
+            <Stack gap={2}>
+              {c.hero.stats.map((s, i) => (
+                <HStack key={i} gap={2}>
+                  <Input
+                    value={s.value}
+                    placeholder="+50"
+                    w="120px"
+                    onChange={(e) => {
+                      const stats = [...c.hero.stats];
+                      stats[i] = { ...stats[i], value: e.target.value };
+                      setHero({ stats });
+                    }}
+                    {...inputProps}
+                  />
+                  <Input
+                    value={s.label}
+                    placeholder="Projetos entregues"
+                    flex="1"
+                    onChange={(e) => {
+                      const stats = [...c.hero.stats];
+                      stats[i] = { ...stats[i], label: e.target.value };
+                      setHero({ stats });
+                    }}
+                    {...inputProps}
+                  />
+                  <IconButton
+                    aria-label="Remover"
+                    size="sm"
+                    variant="ghost"
+                    color="red.500"
+                    onClick={() => setHero({ stats: c.hero.stats.filter((_, j) => j !== i) })}
+                  >
+                    <Trash2 size={15} />
+                  </IconButton>
+                </HStack>
+              ))}
+              {c.hero.stats.length < 6 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  alignSelf="flex-start"
+                  borderColor="var(--admin-border)"
+                  color="var(--admin-primary)"
+                  borderRadius="10px"
+                  onClick={() => setHero({ stats: [...c.hero.stats, { value: "", label: "" }] })}
+                >
+                  <Plus size={14} style={{ marginRight: 4 }} /> Adicionar número
                 </Button>
-              ) : null}
+              )}
             </Stack>
-          </HStack>
-          <Text fontSize="xs" color="var(--admin-text-soft)" mt={1} mb={4}>PNG/JPG/WebP até 8MB. Ideal: foto sua em fundo transparente. Vazio usa /assets/perfil.png.</Text>
-        </Box>
-
-        <Box>
-          <Text fontWeight="600" fontSize="sm" color="var(--admin-primary)" mb={2}>Estatísticas</Text>
-          <Stack gap={2}>
-            {c.hero.stats.map((s, i) => (
-              <HStack key={i} gap={2}>
-                <Input
-                  value={s.value}
-                  placeholder="+50"
-                  w="120px"
-                  onChange={(e) => {
-                    const stats = [...c.hero.stats];
-                    stats[i] = { ...stats[i], value: e.target.value };
-                    setHero({ stats });
-                  }}
-                  {...inputProps}
-                />
-                <Input
-                  value={s.label}
-                  placeholder="Projetos entregues"
-                  flex="1"
-                  onChange={(e) => {
-                    const stats = [...c.hero.stats];
-                    stats[i] = { ...stats[i], label: e.target.value };
-                    setHero({ stats });
-                  }}
-                  {...inputProps}
-                />
-                <IconButton
-                  aria-label="Remover"
-                  size="sm"
-                  variant="ghost"
-                  color="red.500"
-                  onClick={() => setHero({ stats: c.hero.stats.filter((_, j) => j !== i) })}
-                >
-                  <Trash2 size={15} />
-                </IconButton>
-              </HStack>
-            ))}
-            {c.hero.stats.length < 6 && (
-              <Button
-                size="sm"
-                variant="outline"
-                alignSelf="flex-start"
-                borderColor="var(--admin-border)"
-                color="var(--admin-primary)"
-                borderRadius="10px"
-                onClick={() => setHero({ stats: [...c.hero.stats, { value: "", label: "" }] })}
-              >
-                <Plus size={14} style={{ marginRight: 4 }} /> Adicionar estatística
-              </Button>
+          </Box>
+          <Text fontSize="xs" color="var(--admin-text-soft)">
+            A imagem do topo fica na aba <b>Marca &amp; imagens</b>.
+          </Text>
+        </Stack>
+      ),
+    },
+    {
+      value: "portas",
+      title: groupTitle("Portas de contexto", "“Qual é o seu negócio?” — os cards que abrem cada solução"),
+      meta: <Tag>{c.contextDoors.doors.length} portas</Tag>,
+      content: (
+        <Stack gap={5}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Eyebrow" value={c.contextDoors.eyebrow} onChange={(v) => setContextDoors({ eyebrow: v })} />
+            <TextField label="Título" value={c.contextDoors.title} onChange={(v) => setContextDoors({ title: v })} />
+          </SimpleGrid>
+          <TextField label="Subtítulo" value={c.contextDoors.subtitle} onChange={(v) => setContextDoors({ subtitle: v })} textarea />
+          <ListBlock
+            label="Portas"
+            hint="“Segmento” tem de ser o SLUG do registro de segmentos (ex.: clinica, personal-trainer, cartorio, outro) — é o que vai no diagnóstico e no funil. “Destino” é a página que abre."
+            items={c.contextDoors.doors}
+            onChange={(doors) => setContextDoors({ doors })}
+            empty={{ vertical: "outro", label: "", desc: "", href: "/solucoes/sob-medida", icon: "sparkles" }}
+            addLabel="Adicionar porta"
+            max={8}
+            renderRow={(d, i, update) => (
+              <Stack gap={2}>
+                <HStack gap={2} flexWrap="wrap">
+                  <IconSelect value={d.icon ?? "sparkles"} onChange={(v) => update({ icon: v })} />
+                  <Input value={d.label} placeholder="Tenho uma clínica" flex="1" minW="200px" onChange={(e) => update({ label: e.target.value })} {...inputProps} />
+                </HStack>
+                <Textarea value={d.desc} rows={2} placeholder="O que essa porta promete" onChange={(e) => update({ desc: e.target.value })} {...inputProps} />
+                <HStack gap={2} flexWrap="wrap">
+                  <Input value={d.vertical} placeholder="segmento (slug)" w="200px" onChange={(e) => update({ vertical: e.target.value })} {...inputProps} />
+                  <Input value={d.href} placeholder="/solucoes/clinicas" flex="1" minW="220px" onChange={(e) => update({ href: e.target.value })} {...inputProps} />
+                </HStack>
+              </Stack>
             )}
-          </Stack>
-        </Box>
-      </Card>
-
-      <Card title="Sobre">
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-          <TextField label="Eyebrow" value={c.about.eyebrow} onChange={(v) => setAbout({ eyebrow: v })} />
-          <TextField label="Título" value={c.about.title} onChange={(v) => setAbout({ title: v })} />
-        </SimpleGrid>
-        <Box>
-          <Text fontWeight="600" fontSize="sm" color="var(--admin-primary)" mb={2}>Parágrafos</Text>
-          <Stack gap={2}>
-            {c.about.paragraphs.map((p, i) => (
-              <HStack key={i} gap={2} align="flex-start">
-                <Textarea
-                  value={p}
-                  rows={2}
-                  flex="1"
-                  onChange={(e) => {
-                    const paragraphs = [...c.about.paragraphs];
-                    paragraphs[i] = e.target.value;
-                    setAbout({ paragraphs });
-                  }}
-                  {...inputProps}
-                />
-                <IconButton
-                  aria-label="Remover"
-                  size="sm"
-                  variant="ghost"
-                  color="red.500"
-                  onClick={() => setAbout({ paragraphs: c.about.paragraphs.filter((_, j) => j !== i) })}
-                >
-                  <Trash2 size={15} />
-                </IconButton>
-              </HStack>
-            ))}
-            {c.about.paragraphs.length < 6 && (
-              <Button
-                size="sm"
-                variant="outline"
-                alignSelf="flex-start"
-                borderColor="var(--admin-border)"
-                color="var(--admin-primary)"
-                borderRadius="10px"
-                onClick={() => setAbout({ paragraphs: [...c.about.paragraphs, ""] })}
-              >
-                <Plus size={14} style={{ marginRight: 4 }} /> Adicionar parágrafo
-              </Button>
+          />
+        </Stack>
+      ),
+    },
+    {
+      value: "prova",
+      title: groupTitle("Prova (projetos)", "Os 3 primeiros projetos aparecem aqui, na home"),
+      meta: <Tag tone="soft">na aba Portfólio</Tag>,
+      content: (
+        <Stack gap={4}>
+          <Text fontSize="sm" color="var(--admin-text-soft)">
+            Esse bloco da home mostra os <b>3 primeiros</b> projetos do portfólio (a página
+            <b> /projetos</b> mostra todos). Os textos e a ordem estão na aba <b>Portfólio</b>.
+          </Text>
+          <Button
+            size="sm"
+            variant="outline"
+            alignSelf="flex-start"
+            borderColor="var(--admin-border)"
+            color="var(--admin-primary)"
+            borderRadius="10px"
+            onClick={() => setTab("portfolio")}
+          >
+            Abrir a aba Portfólio
+          </Button>
+        </Stack>
+      ),
+    },
+    {
+      value: "dor",
+      title: groupTitle("Dor → o que muda", "A perda de hoje e o depois, por tipo de negócio"),
+      meta: <Tag>{c.painToChange.items.length} contextos</Tag>,
+      content: (
+        <Stack gap={5}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Eyebrow" value={c.painToChange.eyebrow} onChange={(v) => setPainToChange({ eyebrow: v })} />
+            <TextField label="Título" value={c.painToChange.title} onChange={(v) => setPainToChange({ title: v })} />
+          </SimpleGrid>
+          <ListBlock
+            label="Contextos"
+            hint="Um par “dor de hoje → como fica depois” para cada tipo de negócio."
+            items={c.painToChange.items}
+            onChange={(items) => setPainToChange({ items })}
+            empty={{ vertical: "outro", label: "", pain: "", after: "" }}
+            addLabel="Adicionar contexto"
+            max={8}
+            renderRow={(p, i, update) => (
+              <Stack gap={2}>
+                <HStack gap={2} flexWrap="wrap">
+                  <Input value={p.vertical} placeholder="segmento (slug)" w="200px" onChange={(e) => update({ vertical: e.target.value })} {...inputProps} />
+                  <Input value={p.label} placeholder="Clínica" flex="1" minW="180px" onChange={(e) => update({ label: e.target.value })} {...inputProps} />
+                </HStack>
+                <Textarea value={p.pain} rows={2} placeholder="A dor de hoje" onChange={(e) => update({ pain: e.target.value })} {...inputProps} />
+                <Textarea value={p.after} rows={2} placeholder="Como fica depois" onChange={(e) => update({ after: e.target.value })} {...inputProps} />
+              </Stack>
             )}
-          </Stack>
-        </Box>
-        <TextField label="Texto do card de stack" value={c.about.roleCardText} onChange={(v) => setAbout({ roleCardText: v })} textarea />
-        <TextField label="Bio curta (abaixo da foto)" value={c.about.bio} onChange={(v) => setAbout({ bio: v })} textarea />
+          />
+        </Stack>
+      ),
+    },
+    {
+      value: "operacao",
+      title: groupTitle("Uma operação rodando", "Da mensagem ao portal do cliente — o fluxo em passos"),
+      meta: <Tag>{c.operationShowcase.steps.length} passos</Tag>,
+      content: (
+        <Stack gap={5}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Eyebrow" value={c.operationShowcase.eyebrow} onChange={(v) => setOperationShowcase({ eyebrow: v })} />
+            <TextField label="Título" value={c.operationShowcase.title} onChange={(v) => setOperationShowcase({ title: v })} />
+          </SimpleGrid>
+          <TextField label="Subtítulo" value={c.operationShowcase.subtitle} onChange={(v) => setOperationShowcase({ subtitle: v })} textarea />
+          <ListBlock
+            label="Passos do fluxo"
+            items={c.operationShowcase.steps}
+            onChange={(steps) => setOperationShowcase({ steps })}
+            empty={{ icon: "sparkles", title: "", desc: "" }}
+            addLabel="Adicionar passo"
+            max={8}
+            renderRow={(st, i, update) => (
+              <Stack gap={2}>
+                <HStack gap={2} flexWrap="wrap">
+                  <IconSelect value={st.icon} onChange={(v) => update({ icon: v })} />
+                  <Input value={st.title} placeholder="A mensagem chega" flex="1" minW="200px" onChange={(e) => update({ title: e.target.value })} {...inputProps} />
+                </HStack>
+                <Textarea value={st.desc} rows={2} placeholder="Descrição" onChange={(e) => update({ desc: e.target.value })} {...inputProps} />
+              </Stack>
+            )}
+          />
+        </Stack>
+      ),
+    },
+    {
+      value: "implantacao",
+      title: groupTitle("Como a implantação acontece", "Etapas, o que você precisa entregar e o recado do prazo"),
+      meta: <Tag>{c.implantation.steps.length} etapas</Tag>,
+      content: (
+        <Stack gap={5}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Eyebrow" value={c.implantation.eyebrow} onChange={(v) => setImplantation({ eyebrow: v })} />
+            <TextField label="Título" value={c.implantation.title} onChange={(v) => setImplantation({ title: v })} />
+          </SimpleGrid>
+          <TextField label="Subtítulo" value={c.implantation.subtitle} onChange={(v) => setImplantation({ subtitle: v })} textarea />
+          <ListBlock
+            label="Etapas"
+            items={c.implantation.steps}
+            onChange={(steps) => setImplantation({ steps })}
+            empty={{ number: "", title: "", desc: "" }}
+            addLabel="Adicionar etapa"
+            max={6}
+            renderRow={(st, i, update) => (
+              <Stack gap={2}>
+                <HStack gap={2}>
+                  <Input value={st.number} placeholder="1" w="70px" onChange={(e) => update({ number: e.target.value })} {...inputProps} />
+                  <Input value={st.title} placeholder="Diagnóstico" flex="1" onChange={(e) => update({ title: e.target.value })} {...inputProps} />
+                </HStack>
+                <Textarea value={st.desc} rows={2} placeholder="Descrição" onChange={(e) => update({ desc: e.target.value })} {...inputProps} />
+              </Stack>
+            )}
+          />
+          <TextField label="Título do “o que eu preciso de você”" value={c.implantation.needsTitle} onChange={(v) => setImplantation({ needsTitle: v })} />
+          <StringList
+            label="O que eu preciso de você"
+            items={c.implantation.needs}
+            onChange={(needs) => setImplantation({ needs })}
+            addLabel="Adicionar item"
+            max={8}
+            placeholder="Os acessos do que já existe — domínio, redes, planilhas…"
+          />
+          <TextField
+            label="Recado do prazo"
+            value={c.implantation.note}
+            onChange={(v) => setImplantation({ note: v })}
+            textarea
+            rows={3}
+            helper="Sem preço, nunca — o valor sai da proposta, não do site."
+          />
+        </Stack>
+      ),
+    },
+    {
+      value: "cta",
+      title: groupTitle("Chamada final (diagnóstico)", "A mesma conversão do topo, repetida no fim da home"),
+      meta: <Tag>bloco 7</Tag>,
+      content: (
+        <Stack gap={5}>
+          <TextField label="Título" value={c.diagnosticCta.title} onChange={(v) => setDiagnosticCta({ title: v })} />
+          <TextField label="Texto" value={c.diagnosticCta.text} onChange={(v) => setDiagnosticCta({ text: v })} textarea rows={3} />
+          <TextField label="Botão" value={c.diagnosticCta.ctaLabel} onChange={(v) => setDiagnosticCta({ ctaLabel: v })} />
+        </Stack>
+      ),
+    },
+    {
+      value: "depoimentos",
+      title: groupTitle("Depoimentos", "Fica no fim da home. Lista vazia = a seção some do site"),
+      meta: <Tag tone={c.testimonials.items.length ? "soft" : "off"}>{c.testimonials.items.length ? `${c.testimonials.items.length} no ar` : "oculta"}</Tag>,
+      content: (
+        <Stack gap={5}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Eyebrow" value={c.testimonials.eyebrow} onChange={(v) => setTestimonials({ eyebrow: v })} />
+            <TextField label="Título" value={c.testimonials.title} onChange={(v) => setTestimonials({ title: v })} />
+          </SimpleGrid>
+          <ListBlock
+            label="Depoimentos"
+            hint="Só coloque depoimentos reais."
+            items={c.testimonials.items}
+            onChange={(items) => setTestimonials({ items })}
+            empty={{ name: "", role: "", quote: "" }}
+            addLabel="Adicionar depoimento"
+            max={12}
+            renderRow={(t, i, update) => (
+              <Stack gap={2}>
+                <HStack gap={2}>
+                  <Input value={t.name} placeholder="Nome" flex="1" onChange={(e) => update({ name: e.target.value })} {...inputProps} />
+                  <Input value={t.role} placeholder="Cargo / empresa" flex="1" onChange={(e) => update({ role: e.target.value })} {...inputProps} />
+                </HStack>
+                <Textarea value={t.quote} rows={2} placeholder="Depoimento" onChange={(e) => update({ quote: e.target.value })} {...inputProps} />
+              </Stack>
+            )}
+          />
+        </Stack>
+      ),
+    },
+  ];
 
+  /* ───────────────────────────── PORTFÓLIO (um grupo por projeto) ───────────────────────────── */
+  const projectGroups: AccordionItemDef[] = c.projects.items.map((p, i) => {
+    const update = (patch: Partial<typeof p>) => {
+      const items = c.projects.items.slice();
+      items[i] = { ...items[i], ...patch };
+      setProjects({ items });
+    };
+    return {
+      value: `projeto-${i}`,
+      title: groupTitle(p.name || "(projeto sem nome)", p.tagline || "sem tagline"),
+      meta: (
+        <Box as="span" display="inline-flex" alignItems="center" gap={2}>
+          <Box as="span" display="inline-block" w="14px" h="14px" borderRadius="4px" bg={p.color || "#8B5CF6"} border="1px solid var(--admin-border)" />
+          <Tag tone={p.status === "live" ? "soft" : "off"}>{p.status}</Tag>
+        </Box>
+      ),
+      content: (
+        <Stack gap={4}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Nome" value={p.name} onChange={(v) => update({ name: v })} />
+            <TextField label="Slug (URL)" value={p.slug} onChange={(v) => update({ slug: v })} helper="Sem espaço nem acento — ex.: frota360." />
+          </SimpleGrid>
+          <TextField label="Tagline (uma linha)" value={p.tagline} onChange={(v) => update({ tagline: v })} />
+          <TextField label="Descrição" value={p.description} onChange={(v) => update({ description: v })} textarea rows={3} />
+          <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
+            <TextField label="Categoria" value={p.category} onChange={(v) => update({ category: v })} placeholder="saas, portal, site…" />
+            <Field.Root>
+              <Field.Label fontWeight="600" fontSize="sm" color="var(--admin-primary)">Situação</Field.Label>
+              <NativeSelect.Root size="lg">
+                <NativeSelect.Field
+                  value={p.status}
+                  onChange={(e) => update({ status: e.target.value as "live" | "beta" | "wip" })}
+                  bg="white"
+                  borderColor="var(--admin-border)"
+                  borderRadius="10px"
+                >
+                  <option value="live">No ar (live)</option>
+                  <option value="beta">Beta</option>
+                  <option value="wip">Em construção (wip)</option>
+                </NativeSelect.Field>
+                <NativeSelect.Indicator />
+              </NativeSelect.Root>
+            </Field.Root>
+            <ColorField label="Cor do card" value={p.color} onChange={(v) => update({ color: v })} />
+          </SimpleGrid>
+          <TextField
+            label="Tecnologias"
+            value={p.stack.join(", ")}
+            onChange={(v) => update({ stack: v.split(",").map((x) => x.trim()).filter(Boolean) })}
+            placeholder="Next.js, TypeScript, PostgreSQL"
+            helper="Separe por vírgula."
+          />
+          <TextField label="Site do projeto (opcional)" value={p.website ?? ""} onChange={(v) => update({ website: v })} placeholder="https://…" />
+          <Button
+            size="sm"
+            variant="ghost"
+            color="red.500"
+            alignSelf="flex-start"
+            borderRadius="10px"
+            onClick={() => setProjects({ items: c.projects.items.filter((_, j) => j !== i) })}
+          >
+            <Trash2 size={14} style={{ marginRight: 6 }} /> Remover este projeto
+          </Button>
+        </Stack>
+      ),
+    };
+  });
+
+  /* ───────────────────────────── SOBRE (grupos fechados) ───────────────────────────── */
+  const aboutGroups: AccordionItemDef[] = [
+    {
+      value: "textos",
+      title: groupTitle("Textos do Sobre", "Eyebrow, título, parágrafos e as legendas da foto"),
+      content: (
+        <Stack gap={5}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Eyebrow" value={c.about.eyebrow} onChange={(v) => setAbout({ eyebrow: v })} />
+            <TextField label="Título" value={c.about.title} onChange={(v) => setAbout({ title: v })} />
+          </SimpleGrid>
+          <StringList
+            label="Parágrafos"
+            items={c.about.paragraphs}
+            onChange={(paragraphs) => setAbout({ paragraphs })}
+            addLabel="Adicionar parágrafo"
+            max={6}
+            rows={3}
+          />
+          <TextField label="Texto do card de stack" value={c.about.roleCardText} onChange={(v) => setAbout({ roleCardText: v })} textarea />
+          <TextField label="Bio curta (abaixo da foto)" value={c.about.bio} onChange={(v) => setAbout({ bio: v })} textarea />
+          <Text fontSize="xs" color="var(--admin-text-soft)">
+            A foto de perfil desta seção fica na aba <b>Marca &amp; imagens</b>.
+          </Text>
+        </Stack>
+      ),
+    },
+    {
+      value: "destaques",
+      title: groupTitle("Destaques", "Idade, nacionalidade, idiomas — os selinhos ao lado da foto"),
+      meta: <Tag>{c.about.highlights.length}</Tag>,
+      content: (
         <ListBlock
-          label="Destaques (idade, nacionalidade, idiomas…)"
+          label="Destaques"
           items={c.about.highlights}
           onChange={(highlights) => setAbout({ highlights })}
           empty={{ icon: "sparkles", title: "", subtitle: "" }}
@@ -610,13 +1104,19 @@ export function SiteIdentityEditor({
             </Stack>
           )}
         />
-
+      ),
+    },
+    {
+      value: "infos",
+      title: groupTitle("Informações de contato", "A coluna da direita do Sobre (endereço, telefone, e-mail…)"),
+      meta: <Tag>{c.about.contactInfo.length}</Tag>,
+      content: (
         <ListBlock
-          label="Informações de contato (coluna direita)"
+          label="Informações"
           items={c.about.contactInfo}
           onChange={(contactInfo) => setAbout({ contactInfo })}
           empty={{ icon: "map-pin", label: "", value: "" }}
-          addLabel="Adicionar contato"
+          addLabel="Adicionar informação"
           max={8}
           renderRow={(info, i, update) => (
             <HStack gap={2} flexWrap="wrap">
@@ -626,9 +1126,15 @@ export function SiteIdentityEditor({
             </HStack>
           )}
         />
-
+      ),
+    },
+    {
+      value: "skills",
+      title: groupTitle("Habilidades técnicas", "As barrinhas de nível (nome, 0–100 e cor)"),
+      meta: <Tag>{c.about.skills.length}</Tag>,
+      content: (
         <ListBlock
-          label="Habilidades técnicas (nome, nível 0-100, cor)"
+          label="Habilidades"
           items={c.about.skills}
           onChange={(skills) => setAbout({ skills })}
           empty={{ name: "", level: 80, color: "#8B5CF6" }}
@@ -642,302 +1148,535 @@ export function SiteIdentityEditor({
             </HStack>
           )}
         />
-      </Card>
+      ),
+    },
+  ];
 
-      <Card title="Benefícios (Por que comigo)">
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-          <TextField label="Eyebrow" value={c.benefits.eyebrow} onChange={(v) => setBenefits({ eyebrow: v })} />
-          <TextField label="Título" value={c.benefits.title} onChange={(v) => setBenefits({ title: v })} />
-        </SimpleGrid>
-        <ListBlock
-          label="Cards de benefício"
-          items={c.benefits.items}
-          onChange={(items) => setBenefits({ items })}
-          empty={{ icon: "sparkles", title: "", desc: "" }}
-          addLabel="Adicionar benefício"
-          max={8}
-          renderRow={(b, i, update) => (
-            <Stack gap={2}>
-              <HStack gap={2}>
-                <IconSelect value={b.icon} onChange={(v) => update({ icon: v })} />
-                <Input value={b.title} placeholder="Título" flex="1" onChange={(e) => update({ title: e.target.value })} {...inputProps} />
-              </HStack>
-              <Textarea value={b.desc} rows={2} placeholder="Descrição" onChange={(e) => update({ desc: e.target.value })} {...inputProps} />
-            </Stack>
+  /* ───────────────────────────── OUTRAS PÁGINAS (fechados) ───────────────────────────── */
+  const otherGroups: AccordionItemDef[] = [
+    {
+      value: "hero-assistente",
+      title: groupTitle("Hero do assistente", "Topo da landing de anúncio /ia-para-negocios"),
+      meta: <Tag>no ar</Tag>,
+      content: (
+        <Stack gap={5}>
+          <Text fontSize="sm" color="var(--admin-text-soft)">
+            Este é o hero ANTIGO do site. Ele saiu da home (a home usa o “Topo da home”, na aba
+            Home), mas continua no ar na landing de anúncio <b>/ia-para-negocios</b> — cada
+            campanha ainda pode sobrescrever o texto por cima dele.
+          </Text>
+          <TextField label="Eyebrow" value={c.hero.eyebrow} onChange={(v) => setHero({ eyebrow: v })} />
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Título (parte normal)" value={c.hero.titleLead} onChange={(v) => setHero({ titleLead: v })} />
+            <TextField label="Título (destaque)" value={c.hero.titleHighlight} onChange={(v) => setHero({ titleHighlight: v })} />
+          </SimpleGrid>
+          <TextField label="Subtítulo" value={c.hero.subtitle} onChange={(v) => setHero({ subtitle: v })} textarea rows={3} />
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Botão primário" value={c.hero.primaryCtaLabel} onChange={(v) => setHero({ primaryCtaLabel: v })} />
+            <TextField label="Botão secundário" value={c.hero.secondaryCtaLabel} onChange={(v) => setHero({ secondaryCtaLabel: v })} />
+          </SimpleGrid>
+        </Stack>
+      ),
+    },
+    {
+      value: "beneficios",
+      title: groupTitle("Benefícios (Por que comigo)", "Guardado — hoje nenhuma página mostra esta seção"),
+      meta: <Tag tone="off">fora do ar</Tag>,
+      content: (
+        <Stack gap={5}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Eyebrow" value={c.benefits.eyebrow} onChange={(v) => setBenefits({ eyebrow: v })} />
+            <TextField label="Título" value={c.benefits.title} onChange={(v) => setBenefits({ title: v })} />
+          </SimpleGrid>
+          <ListBlock
+            label="Cards de benefício"
+            items={c.benefits.items}
+            onChange={(items) => setBenefits({ items })}
+            empty={{ icon: "sparkles", title: "", desc: "" }}
+            addLabel="Adicionar benefício"
+            max={8}
+            renderRow={(b, i, update) => (
+              <Stack gap={2}>
+                <HStack gap={2}>
+                  <IconSelect value={b.icon} onChange={(v) => update({ icon: v })} />
+                  <Input value={b.title} placeholder="Título" flex="1" onChange={(e) => update({ title: e.target.value })} {...inputProps} />
+                </HStack>
+                <Textarea value={b.desc} rows={2} placeholder="Descrição" onChange={(e) => update({ desc: e.target.value })} {...inputProps} />
+              </Stack>
+            )}
+          />
+        </Stack>
+      ),
+    },
+    {
+      value: "como-funciona",
+      title: groupTitle("Como funciona (3 passos)", "Guardado — hoje nenhuma página mostra esta seção"),
+      meta: <Tag tone="off">fora do ar</Tag>,
+      content: (
+        <Stack gap={5}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Eyebrow" value={c.howItWorks.eyebrow} onChange={(v) => setHowItWorks({ eyebrow: v })} />
+            <TextField label="Título" value={c.howItWorks.title} onChange={(v) => setHowItWorks({ title: v })} />
+          </SimpleGrid>
+          <ListBlock
+            label="Passos"
+            items={c.howItWorks.steps}
+            onChange={(steps) => setHowItWorks({ steps })}
+            empty={{ number: "", title: "", desc: "" }}
+            addLabel="Adicionar passo"
+            max={6}
+            renderRow={(st, i, update) => (
+              <Stack gap={2}>
+                <HStack gap={2}>
+                  <Input value={st.number} placeholder="1" w="70px" onChange={(e) => update({ number: e.target.value })} {...inputProps} />
+                  <Input value={st.title} placeholder="Título" flex="1" onChange={(e) => update({ title: e.target.value })} {...inputProps} />
+                </HStack>
+                <Textarea value={st.desc} rows={2} placeholder="Descrição" onChange={(e) => update({ desc: e.target.value })} {...inputProps} />
+              </Stack>
+            )}
+          />
+        </Stack>
+      ),
+    },
+    {
+      value: "solucoes",
+      title: groupTitle("Soluções (O que eu construo)", "Guardado — hoje nenhuma página mostra esta seção"),
+      meta: <Tag tone="off">fora do ar</Tag>,
+      content: (
+        <Stack gap={5}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Eyebrow" value={c.services.eyebrow} onChange={(v) => setServices({ eyebrow: v })} />
+            <TextField label="Título" value={c.services.title} onChange={(v) => setServices({ title: v })} />
+          </SimpleGrid>
+          <ListBlock
+            label="Cards de solução"
+            items={c.services.items}
+            onChange={(items) => setServices({ items })}
+            empty={{ icon: "sparkles", title: "", desc: "" }}
+            addLabel="Adicionar solução"
+            max={12}
+            renderRow={(sv, i, update) => (
+              <Stack gap={2}>
+                <HStack gap={2}>
+                  <IconSelect value={sv.icon} onChange={(v) => update({ icon: v })} />
+                  <Input value={sv.title} placeholder="Título" flex="1" onChange={(e) => update({ title: e.target.value })} {...inputProps} />
+                </HStack>
+                <Textarea value={sv.desc} rows={2} placeholder="Descrição" onChange={(e) => update({ desc: e.target.value })} {...inputProps} />
+              </Stack>
+            )}
+          />
+        </Stack>
+      ),
+    },
+    {
+      value: "trajetoria",
+      title: groupTitle("Trajetória (linha do tempo)", "Guardado — hoje nenhuma página mostra esta seção"),
+      meta: <Tag tone="off">fora do ar</Tag>,
+      content: (
+        <Stack gap={5}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Eyebrow" value={c.trajectory.eyebrow} onChange={(v) => setTrajectory({ eyebrow: v })} />
+            <TextField label="Título" value={c.trajectory.title} onChange={(v) => setTrajectory({ title: v })} />
+          </SimpleGrid>
+          <ListBlock
+            label="Marcos"
+            items={c.trajectory.items}
+            onChange={(items) => setTrajectory({ items })}
+            empty={{ year: "", title: "", desc: "" }}
+            addLabel="Adicionar marco"
+            max={12}
+            renderRow={(it, i, update) => (
+              <Stack gap={2}>
+                <HStack gap={2}>
+                  <Input value={it.year} placeholder="2024" w="110px" onChange={(e) => update({ year: e.target.value })} {...inputProps} />
+                  <Input value={it.title} placeholder="Título" flex="1" onChange={(e) => update({ title: e.target.value })} {...inputProps} />
+                </HStack>
+                <Textarea value={it.desc} rows={2} placeholder="Descrição" onChange={(e) => update({ desc: e.target.value })} {...inputProps} />
+              </Stack>
+            )}
+          />
+        </Stack>
+      ),
+    },
+    {
+      value: "cta-antigo",
+      title: groupTitle("CTA final antigo (WhatsApp)", "Guardado — a home usa a chamada do diagnóstico"),
+      meta: <Tag tone="off">fora do ar</Tag>,
+      content: (
+        <Stack gap={5}>
+          <TextField label="Título" value={c.finalCta.title} onChange={(v) => setFinalCta({ title: v })} />
+          <TextField label="Texto" value={c.finalCta.text} onChange={(v) => setFinalCta({ text: v })} textarea rows={3} />
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <TextField label="Botão WhatsApp" value={c.finalCta.whatsappLabel} onChange={(v) => setFinalCta({ whatsappLabel: v })} />
+            <TextField label="Botão projetos" value={c.finalCta.projectsLabel} onChange={(v) => setFinalCta({ projectsLabel: v })} />
+          </SimpleGrid>
+        </Stack>
+      ),
+    },
+  ];
+
+  return (
+    <Stack gap={5} maxW="1180px" pb={24}>
+      <Tabs value={tab} onChange={setTab} items={TABS} sidebarLabel="Meu site" />
+
+      {/* ───────────── Marca & imagens ───────────── */}
+      {tab === "marca" && (
+        <Stack gap={5}>
+          {contentHeader(
+            "Marca & imagens",
+            "Nome, WhatsApp, as duas imagens do site, cores/fontes e os links das redes.",
+            "Salvar marca",
           )}
-        />
-      </Card>
 
-      <Card title="Como funciona (3 passos)">
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-          <TextField label="Eyebrow" value={c.howItWorks.eyebrow} onChange={(v) => setHowItWorks({ eyebrow: v })} />
-          <TextField label="Título" value={c.howItWorks.title} onChange={(v) => setHowItWorks({ title: v })} />
-        </SimpleGrid>
-        <ListBlock
-          label="Passos"
-          items={c.howItWorks.steps}
-          onChange={(steps) => setHowItWorks({ steps })}
-          empty={{ number: "", title: "", desc: "" }}
-          addLabel="Adicionar passo"
-          max={6}
-          renderRow={(st, i, update) => (
-            <Stack gap={2}>
-              <HStack gap={2}>
-                <Input value={st.number} placeholder="1" w="70px" onChange={(e) => update({ number: e.target.value })} {...inputProps} />
-                <Input value={st.title} placeholder="Título" flex="1" onChange={(e) => update({ title: e.target.value })} {...inputProps} />
-              </HStack>
-              <Textarea value={st.desc} rows={2} placeholder="Descrição" onChange={(e) => update({ desc: e.target.value })} {...inputProps} />
-            </Stack>
-          )}
-        />
-      </Card>
-
-      <Card title="Soluções (O que eu construo)">
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-          <TextField label="Eyebrow" value={c.services.eyebrow} onChange={(v) => setServices({ eyebrow: v })} />
-          <TextField label="Título" value={c.services.title} onChange={(v) => setServices({ title: v })} />
-        </SimpleGrid>
-        <ListBlock
-          label="Cards de solução"
-          items={c.services.items}
-          onChange={(items) => setServices({ items })}
-          empty={{ icon: "sparkles", title: "", desc: "" }}
-          addLabel="Adicionar solução"
-          max={12}
-          renderRow={(sv, i, update) => (
-            <Stack gap={2}>
-              <HStack gap={2}>
-                <IconSelect value={sv.icon} onChange={(v) => update({ icon: v })} />
-                <Input value={sv.title} placeholder="Título" flex="1" onChange={(e) => update({ title: e.target.value })} {...inputProps} />
-              </HStack>
-              <Textarea value={sv.desc} rows={2} placeholder="Descrição" onChange={(e) => update({ desc: e.target.value })} {...inputProps} />
-            </Stack>
-          )}
-        />
-      </Card>
-
-      <Card title="Projetos (portfólio)">
-        <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
-          <TextField label="Eyebrow" value={c.projects.eyebrow} onChange={(v) => setProjects({ eyebrow: v })} />
-          <TextField label="Título" value={c.projects.title} onChange={(v) => setProjects({ title: v })} />
-          <TextField label="Subtítulo" value={c.projects.subtitle} onChange={(v) => setProjects({ subtitle: v })} />
-        </SimpleGrid>
-        <ListBlock
-          label="Projetos"
-          items={c.projects.items}
-          onChange={(items) => setProjects({ items })}
-          empty={{ slug: "", name: "", tagline: "", description: "", category: "site", status: "live", stack: [], color: "#8B5CF6" }}
-          addLabel="Adicionar projeto"
-          max={24}
-          renderRow={(p, i, update) => (
-            <Stack gap={2}>
-              <HStack gap={2} flexWrap="wrap">
-                <Input value={p.name} placeholder="Nome" w="160px" onChange={(e) => update({ name: e.target.value })} {...inputProps} />
-                <Input value={p.slug} placeholder="slug" w="140px" onChange={(e) => update({ slug: e.target.value })} {...inputProps} />
-                <Input value={p.category} placeholder="categoria" w="120px" onChange={(e) => update({ category: e.target.value })} {...inputProps} />
-                <NativeSelect.Root size="lg" w="100px">
-                  <NativeSelect.Field
-                    value={p.status}
-                    onChange={(e) => update({ status: e.target.value as "live" | "beta" | "wip" })}
-                    bg="white"
-                    borderColor="var(--admin-border)"
-                    borderRadius="10px"
-                  >
-                    <option value="live">live</option>
-                    <option value="beta">beta</option>
-                    <option value="wip">wip</option>
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
-                <Input type="color" value={p.color} w="56px" px={1} onChange={(e) => update({ color: e.target.value })} {...inputProps} />
-              </HStack>
-              <Input value={p.tagline} placeholder="Tagline curta" onChange={(e) => update({ tagline: e.target.value })} {...inputProps} />
-              <Textarea value={p.description} rows={2} placeholder="Descrição" onChange={(e) => update({ description: e.target.value })} {...inputProps} />
-              <HStack gap={2} flexWrap="wrap">
-                <Input
-                  value={p.stack.join(", ")}
-                  placeholder="Next.js, TypeScript, PostgreSQL"
-                  flex="1"
-                  minW="220px"
-                  onChange={(e) => update({ stack: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })}
-                  {...inputProps}
+          <SimpleGrid columns={{ base: 1, xl: 2 }} gap={5} alignItems="stretch">
+            <Card title="Marca">
+              <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+                <TextField label="Nome" value={c.brand.name} onChange={(v) => setBrand({ name: v })} />
+                <TextField label="Wordmark" value={c.brand.wordmark} onChange={(v) => setBrand({ wordmark: v })} />
+                <TextField label="Cargo / título" value={c.brand.role} onChange={(v) => setBrand({ role: v })} />
+                <TextField
+                  label="WhatsApp (só dígitos)"
+                  value={c.brand.whatsapp}
+                  onChange={(v) => setBrand({ whatsapp: v })}
+                  helper="Fonte única de TODO link de WhatsApp do site."
                 />
-                <Input value={p.website ?? ""} placeholder="https:// (opcional)" w="220px" onChange={(e) => update({ website: e.target.value })} {...inputProps} />
-              </HStack>
-            </Stack>
-          )}
-        />
-      </Card>
+              </SimpleGrid>
+            </Card>
 
-      <Card title="Trajetória (linha do tempo)">
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-          <TextField label="Eyebrow" value={c.trajectory.eyebrow} onChange={(v) => setTrajectory({ eyebrow: v })} />
-          <TextField label="Título" value={c.trajectory.title} onChange={(v) => setTrajectory({ title: v })} />
-        </SimpleGrid>
-        <ListBlock
-          label="Marcos"
-          items={c.trajectory.items}
-          onChange={(items) => setTrajectory({ items })}
-          empty={{ year: "", title: "", desc: "" }}
-          addLabel="Adicionar marco"
-          max={12}
-          renderRow={(it, i, update) => (
-            <Stack gap={2}>
-              <HStack gap={2}>
-                <Input value={it.year} placeholder="2024" w="110px" onChange={(e) => update({ year: e.target.value })} {...inputProps} />
-                <Input value={it.title} placeholder="Título" flex="1" onChange={(e) => update({ title: e.target.value })} {...inputProps} />
-              </HStack>
-              <Textarea value={it.desc} rows={2} placeholder="Descrição" onChange={(e) => update({ desc: e.target.value })} {...inputProps} />
-            </Stack>
-          )}
-        />
-      </Card>
+            <Card
+              title="Imagens do site"
+              hint="Duas imagens diferentes: a do topo da home e a sua foto de perfil, no Sobre."
+            >
+              <ImageField
+                label="Imagem do topo da home"
+                hint="Aparece na primeira dobra (lado direito, fundida no escuro). Vazio = usa a foto de perfil. PNG/JPG/WebP até 8MB."
+                value={c.hero.image ?? ""}
+                fallback={c.hero.photo?.trim() || "/assets/perfil.png"}
+                folder="landing/hero"
+                onChange={(url) => setHero({ image: url })}
+                renderImageUpload={renderImageUpload}
+              />
+              <Box h="1px" bg="var(--admin-divider)" />
+              <ImageField
+                label="Foto de perfil (seção Sobre)"
+                hint="A foto redonda do “Sobre”. Vazio = /assets/perfil.png."
+                value={c.hero.photo ?? ""}
+                fallback="/assets/perfil.png"
+                folder="landing/perfil"
+                onChange={(url) => setHero({ photo: url })}
+                renderImageUpload={renderImageUpload}
+              />
+            </Card>
+          </SimpleGrid>
 
-      <Card title="Depoimentos (vazio = seção oculta)">
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-          <TextField label="Eyebrow" value={c.testimonials.eyebrow} onChange={(v) => setTestimonials({ eyebrow: v })} />
-          <TextField label="Título" value={c.testimonials.title} onChange={(v) => setTestimonials({ title: v })} />
-        </SimpleGrid>
-        <ListBlock
-          label="Depoimentos (só coloque reais)"
-          items={c.testimonials.items}
-          onChange={(items) => setTestimonials({ items })}
-          empty={{ name: "", role: "", quote: "" }}
-          addLabel="Adicionar depoimento"
-          max={12}
-          renderRow={(t, i, update) => (
-            <Stack gap={2}>
-              <HStack gap={2}>
-                <Input value={t.name} placeholder="Nome" flex="1" onChange={(e) => update({ name: e.target.value })} {...inputProps} />
-                <Input value={t.role} placeholder="Cargo / empresa" flex="1" onChange={(e) => update({ role: e.target.value })} {...inputProps} />
-              </HStack>
-              <Textarea value={t.quote} rows={2} placeholder="Depoimento" onChange={(e) => update({ quote: e.target.value })} {...inputProps} />
-            </Stack>
-          )}
-        />
-      </Card>
+          <Card
+            title="Cores e fontes do site"
+            icon={<Palette size={18} color="var(--admin-primary)" />}
+            hint="A cor do seu site é a MESMA do painel do sistema. Vazio = marca padrão (lilás do José); a “Aparência do painel” (/aparencia) ainda sobrescreve, se quiser separar."
+          >
+            <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
+              <ColorField
+                label="Primária"
+                value={c.theme?.primaryColor ?? ""}
+                onChange={(v) => setTheme({ primaryColor: v })}
+                helper="Botões, links e navegação ativa."
+              />
+              <ColorField
+                label="Destaque (accent)"
+                value={c.theme?.accentColor ?? ""}
+                onChange={(v) => setTheme({ accentColor: v })}
+                helper="Realces e detalhes."
+              />
+              <ColorField
+                label="Escura"
+                value={c.theme?.darkColor ?? ""}
+                onChange={(v) => setTheme({ darkColor: v })}
+                helper="Opcional — derivada da primária se vazia."
+              />
+            </SimpleGrid>
+            <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+              <TextField
+                label="Fonte dos títulos"
+                value={c.theme?.fontHeading ?? ""}
+                onChange={(v) => setTheme({ fontHeading: v })}
+                placeholder="ex.: Oswald"
+                helper="Nome da família (Google Fonts). Vazio = padrão."
+              />
+              <TextField
+                label="Fonte do corpo"
+                value={c.theme?.fontBody ?? ""}
+                onChange={(v) => setTheme({ fontBody: v })}
+                placeholder="ex.: Lato"
+                helper="Nome da família (Google Fonts). Vazio = padrão."
+              />
+            </SimpleGrid>
+          </Card>
 
-      <Card title="CTA final">
-        <TextField label="Título" value={c.finalCta.title} onChange={(v) => setFinalCta({ title: v })} />
-        <TextField label="Texto" value={c.finalCta.text} onChange={(v) => setFinalCta({ text: v })} textarea />
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-          <TextField label="Botão WhatsApp" value={c.finalCta.whatsappLabel} onChange={(v) => setFinalCta({ whatsappLabel: v })} />
-          <TextField label="Botão projetos" value={c.finalCta.projectsLabel} onChange={(v) => setFinalCta({ projectsLabel: v })} />
-        </SimpleGrid>
-      </Card>
-
-      <Card title="Redes e canais">
-        <Box>
-          <Stack gap={3}>
-            {c.socials.map((soc, i) => (
-              <HStack key={i} gap={2} p={3} borderRadius="12px" border="1px solid var(--admin-border)" bg="rgba(0,0,0,0.015)" flexWrap="wrap">
-                <Text w="90px" fontSize="sm" fontWeight="700" textTransform="capitalize" color="var(--admin-primary)">{soc.kind}</Text>
-                <Input
-                  value={soc.label}
-                  placeholder="Rótulo"
-                  w="150px"
-                  onChange={(e) => {
-                    const next = [...c.socials];
-                    next[i] = { ...next[i], label: e.target.value };
-                    setSocials(next);
-                  }}
-                  {...inputProps}
-                />
-                {soc.kind === "whatsapp" ? (
-                  <Input value={`Usa o WhatsApp da Marca (${c.brand.whatsapp})`} disabled flex="1" minW="200px" {...inputProps} />
-                ) : (
+          <Card
+            title="Redes e canais"
+            hint="Aparecem no rodapé e na seção de contato. O WhatsApp usa sempre o número da Marca."
+          >
+            <Stack gap={3}>
+              {c.socials.map((soc, i) => (
+                <HStack key={i} gap={2} p={3} borderRadius="12px" border="1px solid var(--admin-border)" bg="rgba(0,0,0,0.015)" flexWrap="wrap">
+                  <Text w="90px" fontSize="sm" fontWeight="700" textTransform="capitalize" color="var(--admin-primary)">{soc.kind}</Text>
                   <Input
-                    value={soc.href}
-                    placeholder="https://…"
-                    flex="1"
-                    minW="200px"
+                    value={soc.label}
+                    placeholder="Rótulo"
+                    w="150px"
                     onChange={(e) => {
                       const next = [...c.socials];
-                      next[i] = { ...next[i], href: e.target.value };
+                      next[i] = { ...next[i], label: e.target.value };
                       setSocials(next);
                     }}
                     {...inputProps}
                   />
-                )}
-              </HStack>
-            ))}
+                  {soc.kind === "whatsapp" ? (
+                    <Input value={`Usa o WhatsApp da Marca (${c.brand.whatsapp})`} disabled flex="1" minW="200px" {...inputProps} />
+                  ) : (
+                    <Input
+                      value={soc.href}
+                      placeholder="https://…"
+                      flex="1"
+                      minW="200px"
+                      onChange={(e) => {
+                        const next = [...c.socials];
+                        next[i] = { ...next[i], href: e.target.value };
+                        setSocials(next);
+                      }}
+                      {...inputProps}
+                    />
+                  )}
+                </HStack>
+              ))}
+            </Stack>
+          </Card>
+
+          <SaveBar label="Salvar marca" onSave={onSaveContentClick} loading={contentLoading} saved={contentSaved} error={contentError} />
+        </Stack>
+      )}
+
+      {/* ───────────── Home ───────────── */}
+      {tab === "home" && (
+        <Stack gap={5}>
+          {contentHeader(
+            "Home (josejunior.dev)",
+            "Os blocos da página inicial, na ordem em que aparecem. Clique num grupo para abrir e editar.",
+            "Salvar home",
+          )}
+          <Box className="admin-card" p={{ base: 3, md: 4 }}>
+            <Accordion items={homeGroups} multiple collapsible />
+          </Box>
+          <SaveBar label="Salvar home" onSave={onSaveContentClick} loading={contentLoading} saved={contentSaved} error={contentError} />
+        </Stack>
+      )}
+
+      {/* ───────────── Portfólio ───────────── */}
+      {tab === "portfolio" && (
+        <Stack gap={5}>
+          {contentHeader(
+            "Portfólio",
+            "Os projetos que aparecem na home (os 3 primeiros) e na página /projetos (todos).",
+            "Salvar portfólio",
+          )}
+
+          <Card title="Cabeçalho da seção">
+            <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+              <TextField label="Eyebrow" value={c.projects.eyebrow} onChange={(v) => setProjects({ eyebrow: v })} />
+              <TextField label="Título" value={c.projects.title} onChange={(v) => setProjects({ title: v })} />
+            </SimpleGrid>
+            <TextField label="Subtítulo" value={c.projects.subtitle} onChange={(v) => setProjects({ subtitle: v })} textarea />
+          </Card>
+
+          <Box className="admin-card" p={{ base: 3, md: 4 }}>
+            <HStack justify="space-between" mb={3} px={1} flexWrap="wrap" gap={2}>
+              <Text fontSize="sm" fontWeight="700" color="var(--admin-primary)">
+                Projetos ({c.projects.items.length})
+              </Text>
+              <Text fontSize="xs" color="var(--admin-text-soft)">
+                A ordem daqui é a ordem do site — os 3 primeiros vão pra home.
+              </Text>
+            </HStack>
+            {projectGroups.length ? (
+              <Accordion items={projectGroups} multiple collapsible />
+            ) : (
+              <Text fontSize="sm" color="var(--admin-text-soft)" px={1} py={4}>
+                Nenhum projeto cadastrado.
+              </Text>
+            )}
+            {c.projects.items.length < 24 && (
+              <Button
+                size="sm"
+                variant="outline"
+                mt={3}
+                borderColor="var(--admin-border)"
+                color="var(--admin-primary)"
+                borderRadius="10px"
+                onClick={() =>
+                  setProjects({
+                    items: [
+                      ...c.projects.items,
+                      { slug: "", name: "Novo projeto", tagline: "", description: "", category: "site", status: "live" as const, stack: [], color: "#8B5CF6" },
+                    ],
+                  })
+                }
+              >
+                <Plus size={14} style={{ marginRight: 4 }} /> Adicionar projeto
+              </Button>
+            )}
+          </Box>
+
+          <SaveBar label="Salvar portfólio" onSave={onSaveContentClick} loading={contentLoading} saved={contentSaved} error={contentError} />
+        </Stack>
+      )}
+
+      {/* ───────────── Sobre & contato ───────────── */}
+      {tab === "sobre" && (
+        <Stack gap={5}>
+          {contentHeader(
+            "Sobre & contato",
+            "As duas últimas seções da home: quem é você e como falam com você.",
+            "Salvar sobre & contato",
+          )}
+
+          <Box className="admin-card" p={{ base: 3, md: 4 }}>
+            <Accordion items={aboutGroups} multiple collapsible />
+          </Box>
+
+          <Card title="Seção de contato" hint="Fica no fim da home, antes do rodapé.">
+            <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+              <TextField label="Eyebrow" value={c.contact.eyebrow} onChange={(v) => setContact({ eyebrow: v })} />
+              <TextField label="Título" value={c.contact.title} onChange={(v) => setContact({ title: v })} />
+            </SimpleGrid>
+            <TextField label="Subtítulo" value={c.contact.subtitle} onChange={(v) => setContact({ subtitle: v })} textarea />
+            <TextField label="E-mail" value={c.contact.email} onChange={(v) => setContact({ email: v })} />
+          </Card>
+
+          <SaveBar label="Salvar sobre & contato" onSave={onSaveContentClick} loading={contentLoading} saved={contentSaved} error={contentError} />
+        </Stack>
+      )}
+
+      {/* ───────────── Outras páginas ───────────── */}
+      {tab === "outras" && (
+        <Stack gap={5}>
+          {contentHeader(
+            "Outras páginas",
+            "O hero da landing de anúncio e as seções antigas — guardadas, mas hoje fora do ar na home.",
+            "Salvar outras páginas",
+          )}
+          <Box className="admin-card" p={{ base: 3, md: 4 }}>
+            <Accordion items={otherGroups} multiple collapsible />
+          </Box>
+          <SaveBar label="Salvar outras páginas" onSave={onSaveContentClick} loading={contentLoading} saved={contentSaved} error={contentError} />
+        </Stack>
+      )}
+
+      {/* ───────────── SEO & rastreamento ───────────── */}
+      {tab === "seo" && (
+        <Stack gap={5}>
+          {contentHeader(
+            "SEO & rastreamento",
+            "O que o Google mostra e como os cliques são medidos. São duas gravações separadas: conteúdo e rastreamento.",
+            "Salvar SEO",
+          )}
+
+          <Card title="SEO (título e descrição da página)">
+            <TextField label="Título (aba do navegador / Google)" value={c.seo.title} onChange={(v) => setSeo({ title: v })} />
+            <TextField
+              label="Meta description"
+              value={c.seo.description}
+              onChange={(v) => setSeo({ description: v })}
+              textarea
+              rows={3}
+              helper="Resumo que aparece nos resultados de busca e ao compartilhar o link."
+            />
+          </Card>
+
+          <Box h="1px" bg="var(--admin-divider)" my={2} />
+
+          <Stack gap={1}>
+            <HStack gap={2}>
+              <BarChart3 size={20} style={{ color: "var(--admin-primary)" }} />
+              <Text fontSize="xl" fontWeight="800" color="var(--admin-primary)" className="admin-h">
+                Marketing &amp; Rastreamento
+              </Text>
+              {mktDirty ? <Tag tone="warn">alterações não salvas</Tag> : null}
+            </HStack>
+            <Text fontSize="sm" color="var(--admin-text-soft)">
+              Mede quem vê o site, quem usa o gerador e quem fala no WhatsApp. Os eventos vão pro GA4 e
+              pro Facebook (Pixel no navegador + Conversions API no servidor, deduplicados). Este bloco
+              tem o <b>seu próprio botão de salvar</b> — não é o conteúdo do site.
+            </Text>
           </Stack>
-          <Text fontSize="xs" color="var(--admin-text-soft)" mt={2}>
-            O WhatsApp usa sempre o número da Marca. Os demais usam o link informado aqui.
-          </Text>
-        </Box>
-      </Card>
 
-      <Card title="SEO (título e descrição da página)">
-        <TextField label="Título (aba do navegador / Google)" value={c.seo.title} onChange={(v) => setSeo({ title: v })} />
-        <TextField label="Meta description" value={c.seo.description} onChange={(v) => setSeo({ description: v })} textarea helper="Resumo que aparece nos resultados de busca e ao compartilhar o link." />
-      </Card>
+          <SimpleGrid columns={{ base: 1, xl: 2 }} gap={5} alignItems="stretch">
+            <Card title="Google Analytics 4" icon={<BarChart3 size={18} style={{ color: "var(--admin-primary)" }} />}>
+              <TextField
+                label="ID de medição"
+                placeholder="G-XXXXXXXXXX"
+                value={m.ga4MeasurementId}
+                onChange={(v) => setMkt({ ga4MeasurementId: v })}
+                helper="Encontre em Admin → Fluxos de dados, no painel do GA4."
+              />
+              <ToggleField label="Ativar GA4" value={m.ga4Enabled} onChange={(v) => setMkt({ ga4Enabled: v })} />
+            </Card>
 
-      <SaveBar label="Salvar conteúdo" onSave={onSaveContentClick} loading={contentLoading} saved={contentSaved} error={contentError} />
-
-      {translations}
-
-      {/* ——— Marketing & Rastreamento ——— */}
-      <Box h="1px" bg="var(--admin-divider)" my={2} />
-      <HStack gap={2}>
-        <BarChart3 size={20} style={{ color: "var(--admin-primary)" }} />
-        <Text fontSize="xl" fontWeight="800" color="var(--admin-primary)" className="admin-h">
-          Marketing & Rastreamento
-        </Text>
-      </HStack>
-      <Text fontSize="sm" color="var(--admin-text-soft)" mt={-2}>
-        Mede quem vê o site, quem usa o gerador e quem fala no WhatsApp. Os eventos vão pro GA4 e pro
-        Facebook (Pixel no navegador + Conversions API no servidor, deduplicados).
-      </Text>
-
-      <SimpleGrid columns={{ base: 1, xl: 2 }} gap={6} alignItems="stretch">
-        <Card title="Google Analytics 4" icon={<BarChart3 size={18} style={{ color: "var(--admin-primary)" }} />}>
-          <TextField
-            label="ID de medição"
-            placeholder="G-XXXXXXXXXX"
-            value={m.ga4MeasurementId}
-            onChange={(v) => setMkt({ ga4MeasurementId: v })}
-            helper="Encontre em Admin → Fluxos de dados, no painel do GA4."
-          />
-          <ToggleField label="Ativar GA4" value={m.ga4Enabled} onChange={(v) => setMkt({ ga4Enabled: v })} />
-        </Card>
-
-        <Card title="Meta Pixel & Conversions API">
-          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-            <TextField
-              label="Pixel ID"
-              placeholder="123456789012345"
-              value={m.facebookPixelId}
-              onChange={(v) => setMkt({ facebookPixelId: v })}
-            />
-            <TextField
-              label="Access Token"
-              type="password"
-              placeholder="EAAB..."
-              value={m.facebookAccessToken}
-              onChange={(v) => setMkt({ facebookAccessToken: v })}
-              helper="Token da Conversions API (Events Manager → Configurações)."
-            />
-            <ToggleField label="Ativar Meta Pixel" value={m.facebookPixelEnabled} onChange={(v) => setMkt({ facebookPixelEnabled: v })} />
-            <ToggleField
-              label="Ativar Conversions API"
-              value={m.facebookConversionsApiEnabled}
-              onChange={(v) => setMkt({ facebookConversionsApiEnabled: v })}
-            />
+            <Card title="Meta Pixel & Conversions API">
+              <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+                <TextField
+                  label="Pixel ID"
+                  placeholder="123456789012345"
+                  value={m.facebookPixelId}
+                  onChange={(v) => setMkt({ facebookPixelId: v })}
+                />
+                <TextField
+                  label="Access Token"
+                  type="password"
+                  placeholder="EAAB..."
+                  value={m.facebookAccessToken}
+                  onChange={(v) => setMkt({ facebookAccessToken: v })}
+                  helper="Token da Conversions API (Events Manager → Configurações)."
+                />
+                <ToggleField label="Ativar Meta Pixel" value={m.facebookPixelEnabled} onChange={(v) => setMkt({ facebookPixelEnabled: v })} />
+                <ToggleField
+                  label="Ativar Conversions API"
+                  value={m.facebookConversionsApiEnabled}
+                  onChange={(v) => setMkt({ facebookConversionsApiEnabled: v })}
+                />
+              </SimpleGrid>
+              <TextField
+                label="Test Event Code (opcional)"
+                placeholder="TEST12345"
+                value={m.facebookTestEventCode}
+                onChange={(v) => setMkt({ facebookTestEventCode: v })}
+                helper="Use para validar eventos no Events Manager sem poluir a produção."
+              />
+            </Card>
           </SimpleGrid>
-          <TextField
-            label="Test Event Code (opcional)"
-            placeholder="TEST12345"
-            value={m.facebookTestEventCode}
-            onChange={(v) => setMkt({ facebookTestEventCode: v })}
-            helper="Use para validar eventos no Events Manager sem poluir a produção."
-          />
-        </Card>
-      </SimpleGrid>
 
-      <SaveBar label="Salvar rastreamento" onSave={onSaveMarketingClick} loading={mktLoading} saved={mktSaved} error={mktError} />
+          <SaveBar label="Salvar rastreamento" onSave={onSaveMarketingClick} loading={mktLoading} saved={mktSaved} error={mktError} />
 
-      <MetaCampaignCard />
+          <MetaCampaignCard />
+        </Stack>
+      )}
+
+      {/* ───────────── Idiomas ───────────── */}
+      {tab === "idiomas" && (
+        <Stack gap={5}>
+          <Box className="admin-card" p={{ base: 4, md: 5 }}>
+            <Stack gap={1}>
+              <Text fontSize="lg" fontWeight="800" color="var(--admin-primary)" className="admin-h">
+                Idiomas
+              </Text>
+              <Text fontSize="sm" color="var(--admin-text-soft)">
+                O português é a FONTE: o que você escreve nas outras abas é o original. Aqui ficam as
+                traduções (EN/ES) — com botão de gravar próprio, dentro da própria seção.
+              </Text>
+            </Stack>
+          </Box>
+          {translations}
+        </Stack>
+      )}
     </Stack>
   );
 }
