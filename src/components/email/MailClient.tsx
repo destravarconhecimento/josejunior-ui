@@ -19,6 +19,7 @@ import {
   Check,
   CircleDashed,
   Copy,
+  Eye,
   Folder as FolderIcon,
   Globe,
   Inbox,
@@ -50,6 +51,7 @@ import { Switch } from "../controls";
 import { DataTable } from "../DataTable";
 import { EmailHtmlView } from "../EmailHtmlView";
 import { markdownToEmailHtml } from "./markdown";
+import { htmlToMarkdown, looksLikeHtml } from "./html-to-markdown";
 import { EmptyState } from "../EmptyState";
 import { FormField, FormInput, FormSelect } from "../form";
 import { GoogleCredentialForm } from "../GoogleCredentialForm";
@@ -2725,11 +2727,12 @@ function Mailbox({
   function startReply(m: MailMessage) {
     const replyTo = m.direction === "inbound" ? m.fromAddress : m.toAddresses[0] ?? "";
     const subj = m.subject ?? "";
-    // Rascunho da IA (se houver) pré-preenche o corpo — texto puro vira HTML simples.
+    // Rascunho da IA (se houver) pré-preenche o corpo. O corpo é MARKDOWN: o
+    // rascunho entra como texto, e se a IA respondeu com tags elas viram
+    // markdown. Embrulhar em <p> aqui (era o que se fazia) enchia o editor de
+    // tag crua e o envio ainda as escapava — chegava "<p>Oi!</p>" por extenso.
     const draft = (m.aiDraft ?? "").trim();
-    const html = draft
-      ? draft.split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, "<br/>")}</p>`).join("")
-      : "";
+    const html = looksLikeHtml(draft) ? htmlToMarkdown(draft) : draft;
     setCompose({
       // responde PELA conta que recebeu (ou a principal/atual, se enviado)
       fromAccountId: m.accountId || composeDefaultId,
@@ -3553,7 +3556,7 @@ function Composer({
 }) {
   const [err, setErr] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [mode, setMode] = useState<"write" | "preview">("write");
+  const [preview, setPreview] = useState(false);
   const [showCc, setShowCc] = useState(() => Boolean(compose.cc && compose.cc.trim()));
   const fileRef = useRef<HTMLInputElement | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
@@ -3596,6 +3599,41 @@ function Composer({
       node.setSelectionRange(s + before.length, s + before.length + sel.length);
     });
   }
+  /** Escreve no lugar do cursor (ou troca a seleção) e devolve o foco. */
+  function insertAtCursor(text: string) {
+    const el = bodyRef.current;
+    const val = compose.html;
+    const s = el?.selectionStart ?? val.length;
+    const e = el?.selectionEnd ?? val.length;
+    patch({ html: val.slice(0, s) + text + val.slice(e) });
+    requestAnimationFrame(() => {
+      const node = bodyRef.current;
+      if (!node) return;
+      node.focus();
+      const p = s + text.length;
+      node.setSelectionRange(p, p);
+    });
+  }
+
+  /**
+   * Colar: o navegador oferece o mesmo conteúdo em `text/html` e `text/plain`.
+   * Quem copia de um e-mail, do Word ou de uma resposta de IA traz HTML — aqui
+   * ele vira MARKDOWN na hora, que é a língua desta caixa. Texto normal (e
+   * markdown já escrito) segue o caminho de sempre, sem passar por conversão.
+   */
+  function onPasteBody(ev: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const html = ev.clipboardData.getData("text/html");
+    const plainText = ev.clipboardData.getData("text/plain");
+    const fonte = html.trim() ? html : looksLikeHtml(plainText) ? plainText : null;
+    if (!fonte) return; // colagem comum — deixa o navegador fazer o trabalho
+    const md = htmlToMarkdown(fonte);
+    // Converteu pra nada? melhor colar o texto puro do que engolir a colagem.
+    const texto = md.trim() ? md : plainText;
+    if (!texto) return;
+    ev.preventDefault();
+    insertAtCursor(texto);
+  }
+
   function prefixLine(prefix: string) {
     const el = bodyRef.current;
     const val = compose.html;
@@ -3705,60 +3743,68 @@ function Composer({
         </ComposeRow>
       </Stack>
 
-      {/* Barra de formatação + alternador Escrever / Pré-visualizar */}
+      {/* Barra de formatação markdown + atalho da pré-visualização */}
       <HStack gap={1} px={5} py={1.5} flexShrink={0} borderBottomWidth="1px" borderColor="var(--admin-border)">
-        <FmtBtn label="Negrito" disabled={mode === "preview"} onClick={() => wrapSel("**", "**", "negrito")}>
+        <FmtBtn label="Negrito" onClick={() => wrapSel("**", "**", "negrito")}>
           <Text as="span" fontWeight="800" fontSize="sm">B</Text>
         </FmtBtn>
-        <FmtBtn label="Itálico" disabled={mode === "preview"} onClick={() => wrapSel("*", "*", "itálico")}>
+        <FmtBtn label="Itálico" onClick={() => wrapSel("*", "*", "itálico")}>
           <Text as="span" fontStyle="italic" fontSize="sm">I</Text>
         </FmtBtn>
-        <FmtBtn label="Código" disabled={mode === "preview"} onClick={() => wrapSel("`", "`", "código")}>
+        <FmtBtn label="Código" onClick={() => wrapSel("`", "`", "código")}>
           <Text as="span" fontFamily="mono" fontSize="12px">{"</>"}</Text>
         </FmtBtn>
-        <FmtBtn label="Lista" disabled={mode === "preview"} onClick={() => prefixLine("- ")}>
+        <FmtBtn label="Lista" onClick={() => prefixLine("- ")}>
           <List size={14} />
         </FmtBtn>
-        <FmtBtn label="Link" disabled={mode === "preview"} onClick={() => wrapSel("[", "](https://)", "texto")}>
+        <FmtBtn label="Link" onClick={() => wrapSel("[", "](https://)", "texto")}>
           <Link2 size={14} />
         </FmtBtn>
         <Box flex="1" />
-        <Box display="inline-flex" borderRadius="8px" borderWidth="1px" borderColor="var(--admin-border)" overflow="hidden">
-          <TabBtn active={mode === "write"} onClick={() => setMode("write")}>Escrever</TabBtn>
-          <TabBtn active={mode === "preview"} onClick={() => setMode("preview")}>Pré-visualizar</TabBtn>
-        </Box>
+        <Text fontSize="11px" color="var(--admin-text-soft)" display={{ base: "none", md: "block" }} mr={2}>
+          markdown
+        </Text>
+        <Button
+          tone="outline"
+          size="xs"
+          onClick={() => setPreview(true)}
+          disabled={!compose.html.trim()}
+        >
+          <Eye size={14} /> Pré-visualizar
+        </Button>
       </HStack>
 
       {/* Corpo — OCUPA todo o espaço restante (mensagem grande, cabeçalho pequeno) */}
       <Box flex="1" minH={0} px={5} py={3} overflow="hidden">
-        {mode === "write" ? (
-          <chakra.textarea
-            ref={bodyRef}
-            value={compose.html}
-            onChange={(e) => patch({ html: e.target.value })}
-            placeholder="Escreva sua mensagem…  (aceita markdown: **negrito**, *itálico*, - listas, [texto](link))"
-            w="100%"
-            h="100%"
-            resize="none"
-            border="none"
-            bg="transparent"
-            p={0}
-            fontSize="sm"
-            lineHeight="1.6"
-            fontFamily="inherit"
-            _focusVisible={{ outline: "none" }}
-            _placeholder={{ color: "var(--admin-text-soft)" }}
-          />
-        ) : (
-          <Box h="100%" borderWidth="1px" borderColor="var(--admin-border)" borderRadius="10px" overflow="hidden" bg="white">
-            {compose.html.trim() ? (
-              <EmailHtmlView html={markdownToEmailHtml(compose.html)} minHeight={220} />
-            ) : (
-              <Box p={4} fontSize="sm" color="var(--admin-text-soft)">Nada para pré-visualizar ainda.</Box>
-            )}
-          </Box>
-        )}
+        <chakra.textarea
+          ref={bodyRef}
+          value={compose.html}
+          onChange={(e) => patch({ html: e.target.value })}
+          onPaste={onPasteBody}
+          placeholder="Escreva ou cole sua mensagem…  (markdown: **negrito**, *itálico*, - listas, [texto](link))"
+          w="100%"
+          h="100%"
+          resize="none"
+          border="none"
+          bg="transparent"
+          p={0}
+          fontSize="sm"
+          lineHeight="1.6"
+          fontFamily="inherit"
+          _focusVisible={{ outline: "none" }}
+          _placeholder={{ color: "var(--admin-text-soft)" }}
+        />
       </Box>
+
+      <ComposePreview
+        open={preview}
+        onClose={() => setPreview(false)}
+        fromLabel={from ? (from.name ? `${from.name} <${from.address}>` : from.address) : "—"}
+        to={compose.to}
+        cc={compose.cc}
+        subject={compose.subject}
+        body={compose.html}
+      />
 
       {/* Anexos + erro */}
       {compose.attachments.length || err ? (
@@ -3880,30 +3926,88 @@ function FmtBtn({
   );
 }
 
-/* Aba Escrever / Pré-visualizar. */
-function TabBtn({
-  active,
-  onClick,
-  children,
+/* Fonte do corpo: a mesma pilha que Gmail/Outlook aplicam por padrão. O e-mail
+   composto vai SEM template de marca (o `sendMail` entrega este HTML puro), então
+   a pré-visualização mostra exatamente o que o destinatário recebe. */
+const PREVIEW_SHELL =
+  "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;" +
+  "font-size:15px;line-height:1.55;color:#0f172a;padding:24px 26px";
+
+/**
+ * Pré-visualização do que vai ser enviado: o markdown já convertido, dentro de
+ * uma "folha" branca com o cabeçalho (assunto, de/para) por cima — o e-mail como
+ * ele chega, não o texto solto. Roda pelo MESMO `markdownToEmailHtml` do envio,
+ * então o que aparece aqui é o HTML que sai.
+ */
+function ComposePreview({
+  open,
+  onClose,
+  fromLabel,
+  to,
+  cc,
+  subject,
+  body,
 }: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
+  open: boolean;
+  onClose: () => void;
+  fromLabel: string;
+  to: string;
+  cc: string;
+  subject: string;
+  body: string;
 }) {
+  const html = useMemo(() => {
+    const inner = markdownToEmailHtml(body);
+    return inner ? `<div style="${PREVIEW_SHELL}">${inner}</div>` : "";
+  }, [body]);
+
   return (
-    <Box
-      as="button"
-      onClick={onClick}
-      px={3}
-      py={1.5}
-      fontSize="12px"
-      fontWeight="700"
-      bg={active ? "var(--admin-primary)" : "transparent"}
-      color={active ? "white" : "var(--admin-text-soft)"}
-      _hover={active ? {} : { bg: "var(--admin-surface-2)" }}
-      transition="background 0.12s"
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Pré-visualizar"
+      size="lg"
+      footer={
+        <Button tone="primary" onClick={onClose}>
+          Voltar a escrever
+        </Button>
+      }
     >
-      {children}
-    </Box>
+      <Box bg="var(--admin-surface-2)" borderRadius="14px" p={{ base: 2, md: 4 }}>
+        <Box
+          maxW="640px"
+          mx="auto"
+          bg="white"
+          borderRadius="12px"
+          overflow="hidden"
+          boxShadow="0 10px 30px rgba(15,23,42,0.12)"
+        >
+          <Stack gap={1} px={6} py={4} borderBottomWidth="1px" borderColor="#e2e8f0">
+            <Text fontSize="md" fontWeight="800" color="#0f172a" lineClamp={2}>
+              {subject.trim() || "(sem assunto)"}
+            </Text>
+            <Text fontSize="xs" color="#64748b" truncate>
+              {fromLabel} → {to.trim() || "(sem destinatário)"}
+            </Text>
+            {cc.trim() ? (
+              <Text fontSize="xs" color="#64748b" truncate>
+                Cc: {cc}
+              </Text>
+            ) : null}
+          </Stack>
+          {html ? (
+            <Box h="min(52vh, 420px)">
+              <EmailHtmlView html={html} minHeight={0} />
+            </Box>
+          ) : (
+            <Box px={6} py={10}>
+              <Text fontSize="sm" color="#64748b" textAlign="center">
+                Nada para pré-visualizar ainda.
+              </Text>
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </Modal>
   );
 }
