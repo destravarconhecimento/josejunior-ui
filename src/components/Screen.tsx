@@ -80,6 +80,23 @@ export function Screen({
       // é relativo à VIEWPORT (`100dvh`), então trava a altura mesmo que todos os
       // ancestrais estiquem — não depende de nenhum deles ter altura definida.
       maxH={fill ? { md: "var(--admin-content-h, calc(100dvh - 132px))" } : undefined}
+      // ESCAPE do próprio `fill`: se o corpo da tela é uma `DataTable` no modo
+      // página (altura natural, quem rola é a janela), o teto acima passa a ser
+      // um estorvo — a tabela ficaria maior que o box e vazaria por cima do que
+      // vem depois. Aqui o teto é SOLTO sozinho, sem tocar em nenhuma das ~34
+      // telas que já passam `fill`. As telas que precisam MESMO de scroll interno
+      // (e-mail, chat, kanban) não têm esse marcador e continuam iguais.
+      css={
+        fill
+          ? {
+              '&:has([data-jj-table="pagina"])': {
+                height: "auto",
+                maxHeight: "none",
+                flex: "none",
+              },
+            }
+          : undefined
+      }
     >
       <PageHeader
         title={title}

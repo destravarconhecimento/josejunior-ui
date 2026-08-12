@@ -192,6 +192,12 @@ export function TopBarShell({
             // que rolava fora do maximizado).
             "--admin-content-h":
               "calc(100dvh - var(--admin-topbar-h) - 16px - 78px - env(safe-area-inset-bottom))",
+            // Segundo contrato, pro que gruda NA JANELA (o `thead`/rodapé da
+            // `DataTable` em modo página). Conta diferente da de cima: aqui só
+            // entra o que TAMPA a janela (a topbar é sticky em TODA largura, e o
+            // dock até `lg`), sem os paddings do <main>.
+            "--admin-sticky-top": "var(--admin-topbar-h)",
+            "--admin-sticky-bottom": "calc(78px + env(safe-area-inset-bottom))",
             "@media (min-width: 48em)": {
               // Tablet: `py` sobe pra 20px (py md:5), mas o dock CONTINUA lá.
               "--admin-content-h":
@@ -200,6 +206,8 @@ export function TopBarShell({
             "@media (min-width: 62em)": {
               // Desktop: dock some, `pb` volta a 20px → `py` simétrico de 40px.
               "--admin-content-h": "calc(100dvh - var(--admin-topbar-h) - 40px)",
+              // A topbar continua sticky no desktop — só o dock sai da conta.
+              "--admin-sticky-bottom": "0px",
             },
           }}
         >

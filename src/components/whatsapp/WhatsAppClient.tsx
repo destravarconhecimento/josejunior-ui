@@ -60,7 +60,15 @@ import type { UiRealtimeSubscribe } from "../realtime";
  * agente, fila, pacing… já existem nos apps — não são recriados aqui).
  * ============================================================ */
 
-export type WhatsAppResult<T = undefined> = { ok: true; data?: T } | { ok: false; error: string };
+/**
+ * `talvezEnviada` só existe na falha de ENVIO: quando o gateway estoura o
+ * tempo, a mensagem pode ter saído mesmo assim (o pipeline dele é síncrono e
+ * legitimamente lento). A UI então CONFERE o fio antes de desfazer a bolha —
+ * sem isso, a pessoa reenviava e o contato recebia em dobro.
+ */
+export type WhatsAppResult<T = undefined> =
+  | { ok: true; data?: T }
+  | { ok: false; error: string; talvezEnviada?: boolean };
 
 /** Quem mandou — espelha o servidor-whats (contrato v2.2.4). */
 export type WhatsAppSentBy = "ia" | "painel" | "campanha" | "fila" | "mfa" | "aparelho" | null;
@@ -146,6 +154,25 @@ export type WhatsAppMessage = {
   sentByName: string | null;
   at: string;
 };
+
+/**
+ * A mensagem que acabei de mandar já está no fio do servidor? Serve pra decidir
+ * se um envio "que falhou" falhou mesmo: o gateway grava a mensagem ANTES de
+ * responder, então tempo esgotado costuma ser lentidão dele, não mensagem
+ * perdida. Compara texto (aparado) e janela de tempo — sem `messageId`, porque
+ * quando o envio estoura o tempo o painel nunca chega a receber um.
+ */
+export function mensagemJaNoFio(fio: WhatsAppMessage[], texto: string, janelaMs = 5 * 60_000): boolean {
+  const alvo = texto.trim();
+  if (!alvo) return false;
+  const agora = Date.now();
+  return fio.some(
+    (m) =>
+      m.direction === "out" &&
+      (m.body || "").trim() === alvo &&
+      Math.abs(agora - new Date(m.at).getTime()) < janelaMs,
+  );
+}
 
 export type WhatsAppStats = {
   conversas: number;
@@ -802,6 +829,10 @@ export function NovaConversaModal({
   const [texto, setTexto] = useState("");
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Envio que MORREU por tempo esgotado pode ter saído: aqui não dá pra
+  // conferir o fio (a conversa ainda não existe na lista), então o botão deixa
+  // de ser "Enviar" e passa a "Fechar e conferir" — nunca um reenvio às cegas.
+  const [talvez, setTalvez] = useState(false);
 
   const digits = onlyDigits(numero);
   // 10 = fixo BR sem DDI; abaixo disso não é número, é engano de digitação.
@@ -815,17 +846,26 @@ export function NovaConversaModal({
       setTexto("");
       setErro(null);
       setBusy(false);
+      setTalvez(false);
     }
   }, [open]);
 
   async function enviar() {
-    if (!valido || busy) return;
+    if (!valido || busy || talvez) return;
     setBusy(true);
     setErro(null);
     const r = await onEnviar(digits, texto.trim(), nome.trim() || undefined);
     setBusy(false);
-    if (r.ok && r.data) onCriada(r.data.chatId);
-    else setErro(r.ok ? "O servidor não devolveu a conversa criada." : r.error);
+    if (r.ok && r.data) {
+      onCriada(r.data.chatId);
+      return;
+    }
+    if (r.ok) {
+      setErro("O servidor não devolveu a conversa criada.");
+      return;
+    }
+    setErro(r.error);
+    if (r.talvezEnviada) setTalvez(true);
   }
 
   return (
@@ -838,9 +878,15 @@ export function NovaConversaModal({
           <Button tone="outline" onClick={onClose} disabled={busy}>
             Cancelar
           </Button>
-          <Button tone="whatsapp" onClick={() => void enviar()} loading={busy} disabled={!valido}>
-            <Send size={15} style={{ marginRight: 6 }} /> Enviar
-          </Button>
+          {talvez ? (
+            <Button tone="whatsapp" onClick={onClose}>
+              Fechar e conferir
+            </Button>
+          ) : (
+            <Button tone="whatsapp" onClick={() => void enviar()} loading={busy} disabled={!valido}>
+              <Send size={15} style={{ marginRight: 6 }} /> Enviar
+            </Button>
+          )}
         </>
       }
     >
@@ -851,7 +897,10 @@ export function NovaConversaModal({
           </Text>
           <Input
             value={numero}
-            onChange={(e) => setNumero(e.target.value)}
+            onChange={(e) => {
+              setNumero(e.target.value);
+              setTalvez(false); // outro destinatário = outro envio, não um reenvio
+            }}
             placeholder="55 11 91234-5678"
             autoFocus
           />
@@ -881,7 +930,10 @@ export function NovaConversaModal({
           </Text>
           <Textarea
             value={texto}
-            onChange={(e) => setTexto(e.target.value)}
+            onChange={(e) => {
+              setTexto(e.target.value);
+              setTalvez(false); // outra mensagem = outro envio, não um reenvio
+            }}
             placeholder="Escreva a mensagem que abre a conversa…"
             rows={4}
           />
@@ -1015,6 +1067,28 @@ function ChatWorkspace({
       }
       setThreadErr(null);
       applyServerThread(r.data ?? []);
+    },
+    [callbacks, applyServerThread],
+  );
+
+  /**
+   * "Falhou" nem sempre é "não foi": o gateway grava a mensagem ANTES de
+   * responder, então um tempo esgotado pode ser só lentidão dele. Antes de
+   * desfazer a bolha, recarrega o fio e procura a mesma mensagem saindo daqui
+   * a pouco — se está lá, foi enviada e não se mexe em nada. Sem isto a pessoa
+   * reenviava e o contacto recebia em dobro.
+   */
+  const saiuMesmo = useCallback(
+    async (chatId: string, texto: string): Promise<boolean> => {
+      const r = await callbacks.onSelecionar(chatId);
+      if (!r.ok) return false;
+      const lista = r.data ?? [];
+      const achou = mensagemJaNoFio(lista, texto);
+      if (achou) {
+        setThreadErr(null);
+        applyServerThread(lista);
+      }
+      return achou;
     },
     [callbacks, applyServerThread],
   );
@@ -1181,6 +1255,9 @@ function ChatWorkspace({
       const r = await callbacks.onResponder(chatId, text);
       setSending(false);
       if (!r.ok) {
+        // Tempo esgotado do gateway ≠ mensagem não enviada — confere o fio
+        // antes de devolver o texto pra caixa (senão vira reenvio em dobro).
+        if (r.talvezEnviada && (await saiuMesmo(chatId, text))) return; // `applyServerThread` já troca a bolha pela do servidor
         setOptimistic((p) => p.filter((m) => m.id !== tempId));
         setSendErr(r.error);
         setReply((cur) => cur || text);
@@ -1205,6 +1282,9 @@ function ChatWorkspace({
       setUploading(false);
       if (!r.ok) {
         setSendErr(r.error);
+        // Anexo não dá pra conferir por texto — mas recarrega o fio pra pessoa
+        // VER se o ficheiro saiu antes de mandar de novo.
+        if (r.talvezEnviada) await loadThread(chatId);
         return;
       }
       await loadThread(chatId);

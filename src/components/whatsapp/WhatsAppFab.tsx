@@ -18,6 +18,7 @@ import {
   WA_DOODLE,
   displayName,
   groupByDay,
+  mensagemJaNoFio,
   type UiMessage,
   type WhatsAppChat,
   type WhatsAppMessage,
@@ -258,6 +259,20 @@ export function WhatsAppFab({
     const r = await callbacks.onResponder(chatId, t);
     setEnviando(false);
     if (!r.ok) {
+      // Tempo esgotado do gateway ≠ mensagem perdida: confere o fio antes de
+      // devolver o texto pra caixa, senão a pessoa reenvia e o contacto recebe
+      // em dobro. Se está lá, o envio CONTA (avisa o funil também).
+      if (r.talvezEnviada) {
+        const check = await callbacks.onSelecionar(chatId);
+        const fio = check.ok ? (check.data ?? []) : [];
+        if (mensagemJaNoFio(fio, t)) {
+          setMsgs(fio);
+          setErro(null);
+          window.dispatchEvent(new CustomEvent<WhatsAppFabSent>(WA_FAB_SENT_EVENT, { detail: { chatId } }));
+          void callbacks.onActualizar();
+          return;
+        }
+      }
       setErro(r.error);
       setMsgs((prev) => prev.filter((m) => m.id !== local.id));
       setTexto(t);

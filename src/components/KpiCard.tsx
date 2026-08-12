@@ -116,3 +116,78 @@ export function KpiCard({
     </Box>
   );
 }
+
+export type KpiRowItem = {
+  label: ReactNode;
+  value: ReactNode;
+  /** Colore só o valor (o número é o que se lê primeiro). */
+  tone?: KpiTone;
+  /** Ícone pequeno, na frente do rótulo. Opcional — a faixa vive bem sem ele. */
+  icon?: ReactNode;
+};
+
+/**
+ * FAIXA de indicadores — a mesma informação do grid de `KpiCard`, em UMA LINHA.
+ *
+ * Existe porque em tela pequena a grade de cards comia metade da altura antes de
+ * a tabela começar: 4 KPIs viravam 2 ou 4 fileiras de ~90px e sobrava uma
+ * janelinha pro que interessa. Aqui a régua é a linha de métricas do funil
+ * ("pra você hoje: 3 · fila: 12 · e-mails hoje: 40 de 60"): um card raso, os
+ * números lado a lado, ~40px no total em qualquer largura.
+ *
+ * Não substitui o `KpiCard` — dashboard, onde o indicador É a tela, continua com
+ * os cards. A faixa é pra tela de TABELA, onde o KPI é contexto e a lista é o
+ * assunto.
+ *
+ * Em largura curta ela rola na horizontal em vez de quebrar: uma linha é uma
+ * linha, e esconder métrica atrás de um swipe é melhor que roubar altura da lista.
+ */
+export function KpiRow({ items }: { items: KpiRowItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <Box className="admin-card" px={3} py={2} overflowX="auto" overflowY="hidden">
+      <HStack gap={0} align="center" minW="max-content">
+        {items.map((item, i) => {
+          const t = TONES[item.tone ?? "neutral"];
+          return (
+            <HStack
+              key={i}
+              gap={2}
+              align="baseline"
+              flexShrink={0}
+              px={3}
+              borderLeftWidth={i === 0 ? 0 : "1px"}
+              borderColor="var(--admin-divider)"
+            >
+              {item.icon ? (
+                <Box color={t.strong} flexShrink={0} alignSelf="center" display="flex">
+                  {item.icon}
+                </Box>
+              ) : null}
+              <Text
+                fontSize="10px"
+                fontWeight="600"
+                color="var(--admin-text-soft)"
+                textTransform="uppercase"
+                letterSpacing="0.04em"
+                whiteSpace="nowrap"
+              >
+                {item.label}
+              </Text>
+              <Text
+                fontSize="md"
+                fontWeight="700"
+                lineHeight="1.2"
+                color={item.tone && item.tone !== "neutral" ? t.strong : "var(--admin-text)"}
+                fontFamily="var(--admin-font-heading)"
+                whiteSpace="nowrap"
+              >
+                {item.value}
+              </Text>
+            </HStack>
+          );
+        })}
+      </HStack>
+    </Box>
+  );
+}

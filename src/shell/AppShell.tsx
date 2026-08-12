@@ -472,13 +472,24 @@ export function AppShell({
             // ~58px pra fora e passava o scroll pra página (o miolo que rolava).
             "--admin-content-h":
               "calc(100dvh - 56px - env(safe-area-inset-top) - 16px - 78px - env(safe-area-inset-bottom))",
+            // Segundo contrato, pro que gruda NA JANELA (o `thead`/rodapé da
+            // `DataTable` em modo página). Não é a mesma conta do `--admin-content-h`:
+            // aqui interessa só o que TAMPA a janela — a topbar em cima e o dock
+            // embaixo —, sem os paddings do <main>.
+            "--admin-sticky-top": "calc(56px + env(safe-area-inset-top))",
+            "--admin-sticky-bottom": "calc(78px + env(safe-area-inset-bottom))",
             "@media (min-width: 48em)": {
               // Tablet: `py` sobe pra 20px, mas o dock CONTINUA lá.
               "--admin-content-h":
                 "calc(100dvh - 56px - env(safe-area-inset-top) - 20px - 78px - env(safe-area-inset-bottom))",
             },
             // Desktop: sidebar no lugar da topbar e sem dock → só os 40px de `py`.
-            "@media (min-width: 62em)": { "--admin-content-h": "calc(100dvh - 40px)" },
+            "@media (min-width: 62em)": {
+              "--admin-content-h": "calc(100dvh - 40px)",
+              // Sem topbar e sem dock: nada tampa a janela, o sticky gruda em 0.
+              "--admin-sticky-top": "0px",
+              "--admin-sticky-bottom": "0px",
+            },
           }}
         >
           {children}

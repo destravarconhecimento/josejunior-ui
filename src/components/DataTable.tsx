@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, type DragEvent, type ReactNode } from "react";
-import { Box, Checkbox, HStack, Stack, Table, Text } from "@chakra-ui/react";
-import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
+import { Box, Checkbox, HStack, Portal, Stack, Table, Text } from "@chakra-ui/react";
+import { ChevronLeft, ChevronRight, GripVertical, Maximize2, Minimize2 } from "lucide-react";
 import { EmptyState } from "./EmptyState";
 import { Button } from "./Button";
 
@@ -42,23 +42,37 @@ const PAGE_SIZE = 25;
 /**
  * Tabela PADRÃO do painel:
  *  - paginação + contador no rodapé (PAGE_SIZE por página);
- *  - desktop: ocupa a altura disponível da tela (scroll interno, header sticky);
  *  - `actions` adiciona a coluna "Ações" à direita (editar/remover/etc.);
  *  - mobile: vira lista de CARDS (label: valor), organizada e sem scroll lateral.
  *
- * ALTURA — a tabela ENCHE por PADRÃO (sem prop nenhuma):
- *  - Dentro de um `Screen fill` (ancestral de altura fechada) ela come EXATAMENTE
- *    a altura que sobra depois do que estiver acima (KPIs, abas, filtros). Sem
- *    número mágico: quem mede é o flexbox. É o caminho normal de toda tela cheia.
- *  - Fora de um ancestral fechado (Card/Modal/`Screen` sem `fill`) o `flex:1` é
- *    inerte e ela cai em ALTURA NATURAL sozinha — mini/embutida não precisa de prop.
- *  - `fillHeight={false}`: força natural mesmo dentro de um `Screen fill` — pro
- *    caso raro de uma tabela secundária que NÃO deve crescer (ex.: várias tabelas
- *    empilhadas na mesma tela).
- *  - `fillHeight={number}` (LEGADO, EVITE): auto-limita à viewport com um offset
- *    chutado (`calc(100vh - Npx)`) — a fonte da inconsistência que isto substitui.
- *    Mantido só enquanto telas antigas não migram; o guardrail proíbe número novo.
- *  - `fill` (redundante hoje): marcador explícito do mesmo comportamento padrão.
+ * ALTURA — quem rola é a PÁGINA (modo `pagina`, o padrão):
+ *  A tabela desenha TODAS as linhas da página em altura natural e NÃO tem scroll
+ *  próprio. Quem rola é a janela; grudam no lugar: a toolbar (busca/filtros) no
+ *  topo, o `thead` logo abaixo dela e o rodapé (contador + paginação) no fundo.
+ *  Em tela pequena isso é a diferença entre ver 3 linhas e ver a lista inteira —
+ *  antes o miolo era o que sobrava depois de KPIs + abas + filtros.
+ *
+ *  ⚠️ Por que não dá pra "só tirar a altura": `position: sticky` só enxerga o
+ *  scrollport mais próximo, e QUALQUER ancestral com `overflow: auto|scroll|hidden`
+ *  vira um. Por isso, no modo página, o card usa `overflow: clip` (recorta igual,
+ *  mas NÃO cria scroll container) e a região da tabela não tem overflow nenhum —
+ *  inclusive no eixo X. Tabela larga demais é caso do `expandir` (abaixo).
+ *
+ *  O offset do sticky vem dos shells em `--admin-sticky-top` / `--admin-sticky-bottom`
+ *  (topbar do mobile, BottomNav) — nada de número mágico aqui. A altura da toolbar
+ *  é MEDIDA, porque ela cresce quando os filtros quebram linha.
+ *
+ * EXPANDIR: botão no rodapé joga a tabela em tela cheia (`100dvh`, fora do fluxo
+ *  da página) com scroll interno nos dois eixos e cabeçalho grudado. É o lugar de
+ *  tabela larga e de "quero ver tudo de uma vez". ESC fecha. `expansivel={false}`
+ *  tira o botão.
+ *
+ * MODOS ANTIGOS (retrocompat, nenhum call-site precisou mudar):
+ *  - `fillHeight={false}`: mini/natural, sem sticky e sem expandir — tabela
+ *    secundária embutida (várias empilhadas, dentro de card/modal).
+ *  - `fillHeight={number}` (LEGADO, EVITE): scroll interno limitado à viewport por
+ *    um offset chutado (`calc(100vh - Npx)`). O guardrail proíbe número novo.
+ *  - `fill` / `fillHeight={true}`: hoje são o próprio padrão (modo página).
  */
 export function DataTable<T>({
   columns,
@@ -69,8 +83,8 @@ export function DataTable<T>({
   selectedKey,
   actions,
   pageSize = PAGE_SIZE,
-  // Default = ENCHE (mede a altura livre via flexbox). `false` = mini/natural;
-  // `number` = offset legado (evite). Ver o bloco ALTURA no doc acima.
+  // Default = modo PÁGINA (sem scroll interno; quem rola é a janela). `false` =
+  // mini/natural; `number` = offset legado (evite). Ver o bloco ALTURA no doc acima.
   fillHeight = true,
   fill = false,
   toolbar,
@@ -78,6 +92,8 @@ export function DataTable<T>({
   onReorder,
   dense = false,
   selection,
+  titulo,
+  expansivel = true,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -89,13 +105,13 @@ export function DataTable<T>({
   /** Célula de ações por linha — renderizada na coluna "Ações" (à direita). */
   actions?: (row: T) => ReactNode;
   pageSize?: number;
-  /** Altura no desktop. Default (`true`) = ENCHE a altura livre via flexbox (o
-   *  padrão de toda tela cheia num `Screen fill`). `false` = mini/natural (força
-   *  não-crescer, ex.: tabelas empilhadas). `number` = offset legado em px a
+  /** Altura. Default (`true`) = modo PÁGINA: altura natural, sem scroll interno,
+   *  sticky na toolbar/`thead`/rodapé. `false` = mini/natural (tabela secundária
+   *  embutida: sem sticky, sem expandir). `number` = offset legado em px a
    *  descontar da viewport (`calc(100vh - Npx)`) — EVITE, o guardrail proíbe. */
   fillHeight?: boolean | number;
-  /** Redundante: marcador explícito do comportamento PADRÃO (encher). Mantido por
-   *  retrocompat/legibilidade — uma tabela já enche sem nenhuma prop. */
+  /** Redundante: hoje o padrão JÁ é o modo página. Mantido por retrocompat —
+   *  quando presente, vence `fillHeight` (era o marcador de "esta enche"). */
   fill?: boolean;
   /** Barra (busca/filtros) COLADA no topo do card, acima do cabeçalho. */
   toolbar?: ReactNode;
@@ -107,10 +123,15 @@ export function DataTable<T>({
   dense?: boolean;
   /** Seleção em massa (checkbox por linha + selecionar todos). Opt-in. */
   selection?: Selection;
+  /** Nome da tabela — só aparece na barra do modo expandido (tela cheia). */
+  titulo?: string;
+  /** false = esconde o botão "expandir" do rodapé. */
+  expansivel?: boolean;
 }) {
   const [page, setPage] = useState(0);
   const [dragKey, setDragKey] = useState<string | number | null>(null);
   const [overKey, setOverKey] = useState<string | number | null>(null);
+  const [expandido, setExpandido] = useState(false);
   const effPageSize = paginate ? pageSize : Math.max(rows.length, 1);
   const pages = Math.max(1, Math.ceil(rows.length / effPageSize));
   const current = Math.min(page, pages - 1);
@@ -121,14 +142,48 @@ export function DataTable<T>({
   const from = rows.length === 0 ? 0 : current * effPageSize + 1;
   const to = Math.min(rows.length, (current + 1) * effPageSize);
 
-  // ALTURA — a tabela ENCHE por padrão: o flexbox mede o espaço que sobra
-  // depois de KPIs/abas/filtros (sem número mágico). Só NÃO enche quando é mini
-  // (`fillHeight={false}`) ou usa o offset legado (`fillHeight={number}`, mantido
-  // enquanto telas antigas não migram). E "encher" é INERTE fora de um ancestral
-  // de altura fechada (Card/Modal/`Screen` sem `fill`): lá o `flex:1` não faz nada
-  // e a tabela cai em altura natural sozinha — mini não precisa de prop.
-  const magicOffset = typeof fillHeight === "number" ? fillHeight : null;
-  const grows = fill || (fillHeight !== false && magicOffset === null);
+  // ALTURA — 3 modos. `fill` continua vencendo `fillHeight` (era o marcador de
+  // "esta enche"; hoje "encher" virou o padrão, então ele só anula os outros dois).
+  const magicOffset = !fill && typeof fillHeight === "number" ? fillHeight : null;
+  const mini = !fill && fillHeight === false;
+  /** Padrão: altura natural, zero scroll interno — quem rola é a janela. */
+  const modoPagina = !mini && magicOffset === null;
+
+  // A toolbar é MEDIDA (e não chutada) porque ela cresce quando os filtros quebram
+  // linha — é o offset de onde o `thead` gruda. Ref com cleanup (React 19).
+  const [alturaToolbar, setAlturaToolbar] = useState(0);
+  const medirToolbar = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    const medir = () => setAlturaToolbar(el.getBoundingClientRect().height);
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Offsets do sticky. No modo página quem manda são as vars dos shells (topbar do
+  // mobile em cima, BottomNav embaixo); no expandido o scrollport é o overlay, e aí
+  // não há nada acima nem abaixo pra descontar.
+  const topoBase = expandido ? "0px" : "var(--admin-sticky-top, 0px)";
+  const stickyToolbar = modoPagina || expandido ? topoBase : undefined;
+  const stickyCabecalho =
+    modoPagina || expandido ? `calc(${topoBase} + ${alturaToolbar}px)` : 0;
+  const stickyRodape = modoPagina && !expandido ? "var(--admin-sticky-bottom, 0px)" : undefined;
+
+  // Tela cheia: ESC fecha e a página de trás não rola junto.
+  useEffect(() => {
+    if (!expandido) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExpandido(false);
+    };
+    const anterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = anterior;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [expandido]);
 
   // Seleção em massa: "selecionar todos" abrange TODAS as linhas filtradas (todas
   // as páginas), não só a visível — por isso mapeia `rows` inteiro, não `visible`.
@@ -166,38 +221,46 @@ export function DataTable<T>({
   }
 
   const toolbarNode = toolbar ? (
-    <Box px={3} py={2.5} borderBottomWidth="1px" borderColor="var(--admin-divider)" flexShrink={0}>
+    <Box
+      ref={medirToolbar}
+      px={3}
+      py={2.5}
+      borderBottomWidth="1px"
+      borderColor="var(--admin-divider)"
+      flexShrink={0}
+      // Gruda no topo junto com o `thead`. `bg` opaco é obrigatório: sem ele as
+      // linhas passariam por baixo e apareceriam através da barra de filtros.
+      position={stickyToolbar ? "sticky" : undefined}
+      top={stickyToolbar}
+      zIndex={stickyToolbar ? 3 : undefined}
+      bg="var(--admin-surface)"
+    >
       {toolbar}
     </Box>
   ) : null;
 
   if (rows.length === 0) {
+    // Vazia não tem o que rolar: fica em altura natural e, no modo página, ainda
+    // marca `data-jj-table` pro `Screen fill` soltar o teto (senão sobraria um
+    // retângulo vazio do tamanho da tela).
     return (
       <Box
         className="admin-card"
-        overflow="hidden"
+        data-jj-table={modoPagina ? "pagina" : undefined}
+        overflow={modoPagina ? "clip" : "hidden"}
         p={0}
-        display={fill ? { md: "flex" } : undefined}
-        flexDirection={fill ? { md: "column" } : undefined}
-        flex={fill ? { md: "1" } : undefined}
-        minH={fill ? { md: 0 } : undefined}
       >
         {toolbarNode}
-        <Box
-          p={6}
-          flex={fill ? { md: "1" } : undefined}
-          display={fill ? { md: "flex" } : undefined}
-          alignItems={fill ? { md: "center" } : undefined}
-          justifyContent={fill ? { md: "center" } : undefined}
-        >
-          {empty ?? <EmptyState title="Nada por aqui ainda." />}
-        </Box>
+        <Box p={6}>{empty ?? <EmptyState title="Nada por aqui ainda." />}</Box>
       </Box>
     );
   }
 
   const cell = (c: Column<T>, row: T) =>
     c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? "");
+
+  // Só faz sentido expandir o que tem altura de verdade: mini embutida fica fora.
+  const mostraExpandir = expansivel && !mini;
 
   const footer = (
     <HStack
@@ -210,52 +273,87 @@ export function DataTable<T>({
       flexWrap="wrap"
       gap={2}
       flexShrink={0}
+      // Gruda no fundo da janela (acima da BottomNav do mobile): a paginação e o
+      // contador ficam ao alcance sem precisar rolar a lista inteira.
+      position={stickyRodape ? "sticky" : undefined}
+      bottom={stickyRodape}
+      zIndex={stickyRodape ? 3 : undefined}
     >
       <Text fontSize="xs" color="var(--admin-text-soft)">
         {from}–{to} de {rows.length}
       </Text>
-      {pages > 1 ? (
-        <HStack gap={1}>
-          <Button size="xs" tone="ghost" disabled={current === 0} onClick={() => setPage(current - 1)} aria-label="Página anterior">
-            <ChevronLeft size={14} />
+      <HStack gap={1}>
+        {pages > 1 ? (
+          <>
+            <Button size="xs" tone="ghost" disabled={current === 0} onClick={() => setPage(current - 1)} aria-label="Página anterior">
+              <ChevronLeft size={14} />
+            </Button>
+            <Text fontSize="xs" color="var(--admin-text-soft)" px={1}>
+              {current + 1}/{pages}
+            </Text>
+            <Button size="xs" tone="ghost" disabled={current >= pages - 1} onClick={() => setPage(current + 1)} aria-label="Próxima página">
+              <ChevronRight size={14} />
+            </Button>
+          </>
+        ) : null}
+        {mostraExpandir ? (
+          <Button
+            size="xs"
+            tone="ghost"
+            onClick={() => setExpandido((v) => !v)}
+            aria-label={expandido ? "Sair da tela cheia" : "Expandir para tela cheia"}
+            title={expandido ? "Sair da tela cheia (Esc)" : "Expandir para tela cheia"}
+          >
+            {expandido ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           </Button>
-          <Text fontSize="xs" color="var(--admin-text-soft)" px={1}>
-            {current + 1}/{pages}
-          </Text>
-          <Button size="xs" tone="ghost" disabled={current >= pages - 1} onClick={() => setPage(current + 1)} aria-label="Próxima página">
-            <ChevronRight size={14} />
-          </Button>
-        </HStack>
-      ) : null}
+        ) : null}
+      </HStack>
     </HStack>
   );
 
-  return (
+  const cartao = (
     <Box
       className="admin-card"
-      overflow="hidden"
+      // Marcador lido pelo `Screen` (`:has([data-jj-table="pagina"])`): é ele que
+      // faz o `Screen fill` SOLTAR o teto de altura — sem isso a tabela em altura
+      // natural vazaria pra fora do box da tela. Nenhum call-site precisa mudar.
+      data-jj-table={expandido ? "expandido" : modoPagina ? "pagina" : undefined}
+      // ⚠️ `clip` (e NÃO `hidden`) no modo página: recorta o card do mesmo jeito
+      // mas não cria scroll container — é a única razão do sticky continuar de pé.
+      overflow={modoPagina && !expandido ? "clip" : "hidden"}
       p={0}
-      // `grows`: o card vira coluna flex pra a região de scroll poder crescer
-      // dentro dele (o ancestral fechado é o `Screen fill`). Desligado no mobile.
-      display={grows ? { md: "flex" } : undefined}
-      flexDirection={grows ? { md: "column" } : undefined}
-      flex={grows ? { md: "1" } : undefined}
-      minH={grows ? { md: 0 } : undefined}
+      // Expandido: o card é a coluna que ocupa o overlay inteiro.
+      display={expandido ? "flex" : undefined}
+      flexDirection={expandido ? "column" : undefined}
+      flex={expandido ? "1" : undefined}
+      minH={expandido ? 0 : undefined}
     >
       {toolbarNode}
-      {/* Desktop: tabela com header sticky e altura da tela */}
+      {/* Desktop: tabela. Modo página = sem overflow NENHUM (senão mata o sticky). */}
       <Box
         display={{ base: "none", md: "block" }}
-        overflowY="auto"
-        overflowX="auto"
-        // `grows` = flexbox mede a altura livre (sem número mágico); senão só o
-        // offset LEGADO (`fillHeight={number}`) ainda chuta uma altura da viewport.
-        flex={grows ? { md: "1" } : undefined}
+        overflowY={modoPagina && !expandido ? undefined : "auto"}
+        overflowX={modoPagina && !expandido ? undefined : "auto"}
+        flex={expandido ? "1" : undefined}
         maxH={magicOffset !== null ? `calc(100vh - ${magicOffset}px)` : undefined}
-        minH={grows ? { md: 0 } : magicOffset !== null ? "200px" : undefined}
+        minH={expandido ? 0 : magicOffset !== null ? "200px" : undefined}
+        // Sem scroll horizontal no modo página, texto longo QUEBRA em vez de
+        // empurrar a tabela pra fora do card. Quem precisa de largura usa o expandir.
+        css={
+          modoPagina && !expandido
+            ? { "& tbody td": { overflowWrap: "anywhere" } }
+            : undefined
+        }
       >
         <Table.Root size={dense ? "sm" : "md"} width="full">
-          <Table.Header position="sticky" top={0} zIndex={1} bg="var(--admin-surface)" boxShadow="0 1px 0 var(--admin-divider)">
+          <Table.Header
+            position="sticky"
+            // Gruda LOGO ABAIXO da toolbar (que já está grudada no topo da janela).
+            top={stickyCabecalho}
+            zIndex={2}
+            bg="var(--admin-surface)"
+            boxShadow="0 1px 0 var(--admin-divider)"
+          >
             <Table.Row>
               {selection ? (
                 <Table.ColumnHeader width="40px">
@@ -377,7 +475,14 @@ export function DataTable<T>({
       </Box>
 
       {/* Mobile: cards empilhados (sem scroll lateral) */}
-      <Stack display={{ base: "flex", md: "none" }} gap={0}>
+      <Stack
+        display={{ base: "flex", md: "none" }}
+        gap={0}
+        // No expandido o desktop some, então é esta lista que vira a área rolável.
+        flex={expandido ? "1" : undefined}
+        minH={expandido ? 0 : undefined}
+        overflowY={expandido ? "auto" : undefined}
+      >
         {visible.map((row, i) => {
           const rowKey = getRowKey(row, i);
           const checked = selection?.selectedKeys.has(rowKey) ?? false;
@@ -425,5 +530,41 @@ export function DataTable<T>({
 
       {footer}
     </Box>
+  );
+
+  if (!expandido) return cartao;
+
+  // Tela cheia: sai do fluxo da página (por isso o Portal — dentro da tela ele
+  // herdaria qualquer `transform`/`overflow` de ancestral e o `fixed` viraria
+  // relativo). Aqui o scrollport é este box, então o sticky volta a ser `top: 0`.
+  return (
+    <Portal>
+      <Box
+        position="fixed"
+        inset={0}
+        zIndex={1300}
+        bg="var(--admin-bg)"
+        display="flex"
+        flexDirection="column"
+        gap={2}
+        p={{ base: 2, md: 3 }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={titulo ? `${titulo} em tela cheia` : "Tabela em tela cheia"}
+      >
+        <HStack justify="space-between" px={1} flexShrink={0}>
+          <Text fontSize="sm" fontWeight="600" lineClamp={1}>
+            {titulo ?? "Tabela"}{" "}
+            <Text as="span" color="var(--admin-text-soft)" fontWeight="400">
+              · {rows.length} {rows.length === 1 ? "item" : "itens"}
+            </Text>
+          </Text>
+          <Button size="xs" tone="ghost" onClick={() => setExpandido(false)}>
+            <Minimize2 size={14} /> Fechar (Esc)
+          </Button>
+        </HStack>
+        {cartao}
+      </Box>
+    </Portal>
   );
 }

@@ -214,7 +214,7 @@ export { AiAssistantConsole, type AiConsoleSuggestion } from "./components/ai/Ai
 export { useAiChat, type AiChatMsg } from "./components/ai/useAiChat";
 
 // Primitivos premium (KPIs, avatar, IA, timeline, ações rápidas)
-export { KpiCard, type KpiTone, type KpiTrendTone } from "./components/KpiCard";
+export { KpiCard, KpiRow, type KpiRowItem, type KpiTone, type KpiTrendTone } from "./components/KpiCard";
 export { ProgressBar, type ProgressTone } from "./components/ProgressBar";
 export {
   EntityAvatar,
