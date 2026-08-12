@@ -402,6 +402,9 @@ export function MailClient(props: {
   folders?: MailFolder[];
   /** Config da IA da caixa (vira a aba "IA" das Configurações). */
   aiSettings?: MailAiSettings;
+  /** A superfície sabe auto-responder? `false` esconde o bloco de respostas
+   *  automáticas na config (o tenant só faz triagem — não promete o que não faz). */
+  aiAutoReply?: boolean;
   /**
    * Chat da IA da caixa (botão "IA" → painel na direita). Ausente = sem chat;
    * a config da IA continua nas Configurações.
@@ -530,6 +533,7 @@ export function MailClient(props: {
             gmailCredentialHref={props.gmailCredentialHref}
             templatesAction={props.templatesAction}
             aiSettings={props.isAdmin ? props.aiSettings : undefined}
+            aiAutoReply={props.aiAutoReply}
             callbacks={cb}
           />
         ) : (
@@ -576,6 +580,7 @@ function AiSettingsControls({
   setOrganize,
   autoReply,
   setAutoReply,
+  showAutoReply = true,
   onBackfill,
   pending,
   running,
@@ -584,6 +589,8 @@ function AiSettingsControls({
   setOrganize: (v: boolean) => void;
   autoReply: MailAiSettings["autoReply"];
   setAutoReply: (v: MailAiSettings["autoReply"]) => void;
+  /** false = a superfície não sabe auto-responder → esconde o bloco (não mente). */
+  showAutoReply?: boolean;
   onBackfill?: () => void;
   pending: boolean;
   running: boolean;
@@ -629,6 +636,8 @@ function AiSettingsControls({
         ) : null}
       </Stack>
 
+      {showAutoReply ? (
+        <>
       <Box h="1px" bg="var(--admin-border)" />
 
       {/* Respostas automáticas */}
@@ -670,17 +679,21 @@ function AiSettingsControls({
           </HStack>
         ) : null}
       </Stack>
+        </>
+      ) : null}
     </Stack>
   );
 }
 
 function AiSettingsPanel({
   settings,
+  showAutoReply,
   onSave,
   onBackfill,
   onRefresh,
 }: {
   settings: MailAiSettings;
+  showAutoReply?: boolean;
   onSave: (settings: MailAiSettings) => Promise<MailResult>;
   onBackfill?: () => Promise<MailResult<{ organized: number; spam?: number }>>;
   onRefresh: () => void;
@@ -740,6 +753,7 @@ function AiSettingsPanel({
         setOrganize={setOrganize}
         autoReply={autoReply}
         setAutoReply={setAutoReply}
+        showAutoReply={showAutoReply}
         onBackfill={onBackfill ? backfill : undefined}
         pending={pending}
         running={running}
@@ -773,6 +787,8 @@ function SettingsView(props: {
   templatesAction?: React.ReactNode;
   /** Config da IA da caixa — vira a aba "IA". Ausente = superfície sem IA. */
   aiSettings?: MailAiSettings;
+  /** false = superfície sem auto-resposta (tenant): some o bloco da config. */
+  aiAutoReply?: boolean;
   callbacks: MailCallbacks;
 }) {
   const domainOptions: MailDomainOption[] = props.domains.map((d) => ({
@@ -893,6 +909,7 @@ function SettingsView(props: {
       content: (
         <AiSettingsPanel
           settings={ai}
+          showAutoReply={props.aiAutoReply !== false}
           onSave={props.callbacks.onSaveAiSettings}
           onBackfill={props.callbacks.onBackfillOrganize}
           onRefresh={props.callbacks.onRefresh}

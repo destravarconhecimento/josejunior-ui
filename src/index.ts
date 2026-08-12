@@ -74,6 +74,7 @@ export {
   type MailAiSettings,
   type MailCallbacks,
 } from "./components/email/MailClient";
+export type { MailAiChatConfig } from "./components/email/MailAiPanel";
 export {
   WhatsAppInbox,
   type WaInboxApi,
