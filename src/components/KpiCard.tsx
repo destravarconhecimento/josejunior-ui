@@ -145,7 +145,7 @@ export type KpiRowItem = {
 export function KpiRow({ items }: { items: KpiRowItem[] }) {
   if (items.length === 0) return null;
   return (
-    <Box className="admin-card" px={3} py={2} overflowX="auto" overflowY="hidden">
+    <Box className="admin-card admin-scroll" px={3} py={2} overflowX="auto" overflowY="hidden">
       <HStack gap={0} align="center" minW="max-content">
         {items.map((item, i) => {
           const t = TONES[item.tone ?? "neutral"];
