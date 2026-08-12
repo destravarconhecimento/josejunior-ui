@@ -642,6 +642,8 @@ export function SiteIdentityEditor({
     setC((s) => ({ ...s, implantation: { ...s.implantation, ...patch } }));
   const setDiagnosticCta = (patch: Partial<SiteIdentityContent["diagnosticCta"]>) =>
     setC((s) => ({ ...s, diagnosticCta: { ...s.diagnosticCta, ...patch } }));
+  const setRepresentanteCta = (patch: Partial<SiteIdentityContent["representanteCta"]>) =>
+    setC((s) => ({ ...s, representanteCta: { ...s.representanteCta, ...patch } }));
   const setMkt = (patch: Partial<SiteMarketing>) => setM((s) => ({ ...s, ...patch }));
 
   const onSaveContentClick = async () => {
@@ -699,10 +701,17 @@ export function SiteIdentityEditor({
       content: (
         <Stack gap={5}>
           <TextField label="Eyebrow (linha de cima)" value={c.operationHero.eyebrow} onChange={(v) => setOperationHero({ eyebrow: v })} />
-          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-            <TextField label="Título (parte normal)" value={c.operationHero.titleLead} onChange={(v) => setOperationHero({ titleLead: v })} />
-            <TextField label="Título (parte em destaque)" value={c.operationHero.titleHighlight} onChange={(v) => setOperationHero({ titleHighlight: v })} />
-          </SimpleGrid>
+          <TextField label="Título (parte normal, parada)" value={c.operationHero.titleLead} onChange={(v) => setOperationHero({ titleLead: v })} />
+          <StringList
+            label="Título (parte em destaque) — frases que giram"
+            hint="Só a parte colorida troca sozinha, uma a cada ~4s. Uma frase só = título fixo. A 1ª também é o texto de compatibilidade."
+            items={c.operationHero.rotating.length ? c.operationHero.rotating : [c.operationHero.titleHighlight]}
+            rows={1}
+            max={6}
+            placeholder="mais uma ferramenta solta."
+            addLabel="Adicionar frase"
+            onChange={(rotating) => setOperationHero({ rotating, titleHighlight: rotating[0] ?? "" })}
+          />
           <TextField label="Subtítulo" value={c.operationHero.subtitle} onChange={(v) => setOperationHero({ subtitle: v })} textarea rows={3} />
           <TextField
             label="Botão (leva ao /diagnostico)"
@@ -765,7 +774,9 @@ export function SiteIdentityEditor({
             </Stack>
           </Box>
           <Text fontSize="xs" color="var(--admin-text-soft)">
-            A imagem do topo fica na aba <b>Marca &amp; imagens</b>.
+            O celular animado ao lado não tem campo próprio: ele se monta com as{" "}
+            <b>Portas de contexto</b>, a <b>Dor → o que muda</b>, a <b>Operação rodando</b> e os{" "}
+            <b>Serviços</b>. Editou lá, mudou aqui.
           </Text>
         </Stack>
       ),
@@ -950,6 +961,24 @@ export function SiteIdentityEditor({
           <TextField label="Título" value={c.diagnosticCta.title} onChange={(v) => setDiagnosticCta({ title: v })} />
           <TextField label="Texto" value={c.diagnosticCta.text} onChange={(v) => setDiagnosticCta({ text: v })} textarea rows={3} />
           <TextField label="Botão" value={c.diagnosticCta.ctaLabel} onChange={(v) => setDiagnosticCta({ ctaLabel: v })} />
+        </Stack>
+      ),
+    },
+    {
+      value: "representante",
+      title: groupTitle("Seja meu representante", "Última faixa da home — o convite para quem quer VENDER comigo"),
+      meta: <Tag>/representante</Tag>,
+      content: (
+        <Stack gap={5}>
+          <TextField label="Eyebrow (linha de cima)" value={c.representanteCta.eyebrow} onChange={(v) => setRepresentanteCta({ eyebrow: v })} />
+          <TextField label="Título" value={c.representanteCta.title} onChange={(v) => setRepresentanteCta({ title: v })} />
+          <TextField label="Texto" value={c.representanteCta.text} onChange={(v) => setRepresentanteCta({ text: v })} textarea rows={3} />
+          <TextField
+            label="Botão (leva ao /representante)"
+            value={c.representanteCta.ctaLabel}
+            onChange={(v) => setRepresentanteCta({ ctaLabel: v })}
+            helper="Botão secundário de propósito: quem vem comprar não pode se perder aqui."
+          />
         </Stack>
       ),
     },
@@ -1324,7 +1353,7 @@ export function SiteIdentityEditor({
         <Stack gap={5}>
           {contentHeader(
             "Marca & imagens",
-            "Nome, WhatsApp, as duas imagens do site, cores/fontes e os links das redes.",
+            "Nome, WhatsApp, a sua foto, cores/fontes e os links das redes.",
             "Salvar marca",
           )}
 
@@ -1345,21 +1374,11 @@ export function SiteIdentityEditor({
 
             <Card
               title="Imagens do site"
-              hint="Duas imagens diferentes: a do topo da home e a sua foto de perfil, no Sobre."
+              hint="Só uma: a sua foto. O topo da home é o celular animado — não tem mais imagem de fundo."
             >
               <ImageField
-                label="Imagem do topo da home"
-                hint="Aparece na primeira dobra (lado direito, fundida no escuro). Vazio = usa a foto de perfil. PNG/JPG/WebP até 8MB."
-                value={c.hero.image ?? ""}
-                fallback={c.hero.photo?.trim() || "/assets/perfil.png"}
-                folder="landing/hero"
-                onChange={(url) => setHero({ image: url })}
-                renderImageUpload={renderImageUpload}
-              />
-              <Box h="1px" bg="var(--admin-divider)" />
-              <ImageField
                 label="Foto de perfil (seção Sobre)"
-                hint="A foto redonda do “Sobre”. Vazio = /assets/perfil.png."
+                hint="A foto redonda do “Sobre” — o único lugar do site onde você aparece. Vazio = /assets/perfil.png. PNG/JPG/WebP até 8MB."
                 value={c.hero.photo ?? ""}
                 fallback="/assets/perfil.png"
                 folder="landing/perfil"

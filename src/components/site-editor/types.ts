@@ -112,7 +112,11 @@ export interface SiteIdentityContent {
     subtitle: string;
     /** Foto de PERFIL (seção "Sobre"). Vazio = /assets/perfil.png. */
     photo?: string;
-    /** Imagem do TOPO da home (hero de operação). Vazio = usa a foto de perfil. */
+    /**
+     * @deprecated Imagem de fundo do topo da home. O hero virou mockup de
+     * operação e não desenha mais foto — o campo só sobrevive para não
+     * invalidar a linha 'main' gravada. Sem controle no editor.
+     */
     image?: string;
     primaryCtaLabel: string;
     secondaryCtaLabel: string;
@@ -141,7 +145,10 @@ export interface SiteIdentityContent {
   operationHero: {
     eyebrow: string;
     titleLead: string;
+    /** Compatibilidade: 1ª frase quando `rotating` está vazio. */
     titleHighlight: string;
+    /** Frases que giram no fim do título (o `titleLead` fica parado). */
+    rotating: string[];
     subtitle: string;
     ctaLabel: string;
   };
@@ -163,6 +170,8 @@ export interface SiteIdentityContent {
   };
   /** Bloco 7 — a mesma conversão do topo, repetida no fim. */
   diagnosticCta: { title: string; text: string; ctaLabel: string };
+  /** Faixa final — convite para quem quer VENDER comigo (→ /representante). */
+  representanteCta: { eyebrow: string; title: string; text: string; ctaLabel: string };
   socials: SiteSocialItem[];
   seo: { title: string; description: string };
   theme?: SiteThemeContent;
