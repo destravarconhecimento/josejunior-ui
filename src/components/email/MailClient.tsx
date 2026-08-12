@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   AtSign,
   Check,
+  CircleDashed,
   Copy,
   Folder as FolderIcon,
   Globe,
@@ -157,7 +158,8 @@ export type MailMessage = {
   inReplyTo: string | null;
   date: string; // ISO
   attachments?: MailAttachment[];
-  /** Slug da pasta inteligente atribuída (IA/regras). Ausente = não classificado. */
+  /** Slug da categoria atribuída (triagem: regras + IA). Ausente/desconhecido =
+   *  "Sem categoria" — nunca some da caixa, só não recebe etiqueta. */
   category?: string | null;
   /** Rascunho de resposta gerado pela IA (pré-preenche o "Responder"). */
   aiDraft?: string | null;
@@ -165,8 +167,9 @@ export type MailMessage = {
   aiRepliedAt?: string | null;
 };
 
-/** Pasta inteligente (categoria). `slug` é a chave estável usada por IA/regras/filtro
- *  E como identificador nos callbacks; `name` é editável. `system` = uma das 5 padrão
+/** Categoria (etiqueta por assunto — NÃO é gaveta: o e-mail continua nos
+ *  Recebidos). `slug` é a chave estável usada por IA/regras/filtro E como
+ *  identificador nos callbacks; `name` é editável. `system` = uma das 5 padrão
  *  (renomeável, não removível). */
 export type MailFolder = {
   slug: string;
@@ -177,13 +180,13 @@ export type MailFolder = {
 
 /** Config da IA da caixa (por conta). `off` = IA parada. */
 export type MailAiSettings = {
-  /** Distribui os recebidos nas pastas automaticamente. */
+  /** Tria os recebidos sozinha: filtra spam e etiqueta por categoria. */
   organize: boolean;
   /** off = nada; draft = só rascunha; safe_auto = envia sozinha em casos seguros. */
   autoReply: "off" | "draft" | "safe_auto";
 };
 
-/** As 5 pastas inteligentes PADRÃO (slug canônico + rótulo pt-BR + cor). FONTE
+/** As 5 categorias PADRÃO (slug canônico + rótulo pt-BR + cor). FONTE
  *  ÚNICA: os apps semeiam a partir daqui e o classificador usa estes slugs como
  *  enum-alvo — nunca redefina os slugs em outro lugar. `nome` é editável depois. */
 export const DEFAULT_MAIL_CATEGORIES: { slug: string; label: string; color: string; hint: string }[] = [
@@ -266,17 +269,18 @@ export type MailCallbacks = {
   /** Busca na Resend os anexos de UM recebido que entrou na caixa sem eles (histórico
    *  antigo). Chamado ao ABRIR a mensagem, uma vez por sessão. Ausente = não tenta. */
   onFetchAttachments?: (messageId: string) => Promise<MailResult<{ attachments: MailAttachment[] }>>;
-  // pastas inteligentes (ausentes → some a affordance correspondente)
-  /** Cria uma pasta nova (nome livre; o app gera o slug). Ausente = "+ Nova pasta" some. */
+  // categorias (ausentes → some a affordance correspondente)
+  /** Cria uma categoria nova (nome livre; o app gera o slug). Ausente = "+ Nova categoria" some. */
   onCreateFolder?: (name: string) => Promise<MailResult>;
-  /** Renomeia uma pasta (o slug NÃO muda). */
+  /** Renomeia uma categoria (o slug NÃO muda). */
   onRenameFolder?: (slug: string, name: string) => Promise<MailResult>;
-  /** Remove uma pasta custom (as `system` não podem). */
+  /** Remove uma categoria custom (as `system` não podem). */
   onRemoveFolder?: (slug: string) => Promise<MailResult>;
-  /** Move UMA mensagem para a pasta `slug` (null = tira da pasta / volta pra caixa).
-   *  Mover manualmente também ENSINA uma regra ao classificador. */
+  /** Etiqueta UMA mensagem com a categoria `slug` (null = tira a categoria).
+   *  Etiquetar na mão também ENSINA uma regra ao classificador. */
   onMoveToFolder?: (messageId: string, slug: string | null) => Promise<MailResult>;
   /** Move UMA mensagem para uma caixa fixa: Recebidos (inbox), Spam ou Lixeira (trash).
+   *  Marcar spam/tirar do spam ENSINA o filtro (o remetente fica preso/liberado).
    *  Ausente → some as ações "Marcar como spam"/"Mover para Lixeira" na leitura. */
   onSetMailbox?: (messageId: string, mailbox: "inbox" | "spam" | "trash") => Promise<MailResult>;
   // IA da caixa (ausentes → o botão "IA" some)
@@ -545,8 +549,6 @@ export function MailClient(props: {
                 messages={props.messages}
                 defaultAccountId={props.defaultAccountId}
                 folders={props.folders ?? []}
-                aiSettings={props.aiSettings}
-                isAdmin={props.isAdmin}
                 callbacks={cb}
                 onGoSettings={props.isAdmin ? () => setView("settings") : undefined}
                 onRealtime={props.onRealtime}
@@ -2361,11 +2363,10 @@ function Mailbox({
   defaultAccountId,
   accountId,
   folders,
-  aiSettings,
-  isAdmin,
   callbacks,
   onGoSettings,
   onRealtime,
+  onEstado,
 }: {
   accounts: MailInboxAccount[];
   messages: MailMessage[];
@@ -2373,20 +2374,28 @@ function Mailbox({
   /** Conta ativa. O seletor mora no MailClient (ao lado do título); aqui é só leitura. */
   accountId: string;
   folders: MailFolder[];
-  aiSettings?: MailAiSettings;
-  isAdmin: boolean;
   callbacks: MailCallbacks;
   onGoSettings?: () => void;
   onRealtime?: UiRealtimeSubscribe;
+  /**
+   * O que a tela mostra AGORA, em texto — vai pra IA da lateral junto da
+   * pergunta. É o que faz o chat "saber onde está": sem isto ele responderia no
+   * escuro e o José teria que descrever a caixa e colar o e-mail toda vez.
+   */
+  onEstado?: (detalhe: string) => void;
 }) {
   const [pending, start] = useTransition();
   const ALL = ALL_ACCOUNTS;
   // Conta principal acessível (se houver) — é onde a caixa abre e o "De:" padrão.
   const primaryId =
     defaultAccountId && accounts.some((a) => a.id === defaultAccountId) ? defaultAccountId : null;
-  // Navegação: "inbox" | "sent" | "spam" | "c:<slug>" (pasta inteligente).
+  // Navegação: "inbox" | "sent" | "spam" | "trash" | "none" | "c:<slug>" (categoria).
   const [sel, setSel] = useState<string>("inbox");
   const catSlug = sel.startsWith("c:") ? sel.slice(2) : null;
+  // "Sem categoria": recebidos que a IA/regras não souberam classificar. Não é
+  // uma categoria de verdade (não tem slug) — é o resto, e é onde se olha pra
+  // ver o que escapou da triagem.
+  const semCat = sel === "none";
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [compose, setCompose] = useState<null | ComposeState>(null);
   // Anexos que fomos buscar na Resend ao abrir um recebido antigo (por mensagem;
@@ -2441,7 +2450,7 @@ function Mailbox({
       cbRef.current.onRefresh();
     });
   }, [onRealtime]);
-  // Modal de criar/renomear pasta (só admin com onCreateFolder).
+  // Modal de criar/renomear categoria (só admin com onCreateFolder).
   const [folderModal, setFolderModal] = useState<
     null | { mode: "create" } | { mode: "rename"; slug: string; name: string }
   >(null);
@@ -2472,12 +2481,12 @@ function Mailbox({
   const currentAccounts = isAll ? accounts : accounts.filter((a) => a.id === accountId);
   const hasGmail = currentAccounts.some((a) => a.provider === "gmail");
 
-  // Slugs de pasta conhecidos — separa "classificado" de "solto na caixa".
+  // Slugs de categoria conhecidos — separa "classificado" de "sem categoria".
   const knownSlugs = useMemo(() => new Set(folders.map((f) => f.slug)), [folders]);
   const isClassified = (m: MailMessage) => !!(m.category && knownSlugs.has(m.category));
 
   // Caixa fixa "em foco" (categoria = sempre dentro de Recebidos).
-  const activeFolder: Folder = catSlug
+  const activeFolder: Folder = catSlug || semCat
     ? "inbox"
     : sel === "sent"
       ? "sent"
@@ -2487,23 +2496,25 @@ function Mailbox({
           ? "trash"
           : "inbox";
   const currentFolder = catSlug ? (folders.find((f) => f.slug === catSlug) ?? null) : null;
-  // Se a pasta selecionada sumiu (removida), cai na caixa de entrada.
+  // Se a categoria selecionada sumiu (removida), cai na caixa de entrada.
   const catMissing = catSlug !== null && !currentFolder;
 
   const folderMessages = useMemo(() => {
     let list: MailMessage[];
     if (catSlug && !catMissing) {
       list = accountMessages.filter((m) => mailboxOf(m) === "inbox" && m.category === catSlug);
+    } else if (semCat) {
+      list = accountMessages.filter((m) => mailboxOf(m) === "inbox" && !isClassified(m));
     } else if (activeFolder === "inbox") {
-      // Caixa de entrada = TODOS os recebidos (modelo Gmail: as pastas inteligentes são
-      // vistas por cima, não gavetas — um e-mail classificado aparece aqui E na pasta dele).
+      // Caixa de entrada = TODOS os recebidos (modelo Gmail: as categorias são
+      // vistas por cima, não gavetas — um e-mail classificado aparece aqui E na categoria dele).
       list = accountMessages.filter((m) => mailboxOf(m) === "inbox");
     } else {
       list = accountMessages.filter((m) => mailboxOf(m) === activeFolder);
     }
     return list.sort((a, b) => +new Date(b.date) - +new Date(a.date));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountMessages, activeFolder, catSlug, catMissing, knownSlugs]);
+  }, [accountMessages, activeFolder, catSlug, catMissing, semCat, knownSlugs]);
 
   // Busca aplicada por cima da lista aberta (remetente, destinatário, assunto e corpo).
   const trimmedQuery = query.trim().toLowerCase();
@@ -2523,20 +2534,82 @@ function Mailbox({
     (m) => mailboxOf(m) === "inbox" && !m.read,
   ).length;
   const spamUnread = accountMessages.filter((m) => mailboxOf(m) === "spam" && !m.read).length;
-  // Contagem por pasta inteligente (não-lidas p/ o badge; total p/ o resumo).
+  // Contagem por categoria (não-lidas p/ o badge; total p/ o resumo). `sem` é o
+  // balde "Sem categoria" — o que a triagem não soube encaixar.
   const catCounts = useMemo(() => {
     const unread: Record<string, number> = {};
     const total: Record<string, number> = {};
+    let semUnread = 0;
+    let semTotal = 0;
     for (const m of accountMessages) {
-      if (mailboxOf(m) !== "inbox" || !isClassified(m)) continue;
+      if (mailboxOf(m) !== "inbox") continue;
+      if (!isClassified(m)) {
+        semTotal += 1;
+        if (!m.read) semUnread += 1;
+        continue;
+      }
       const s = m.category as string;
       total[s] = (total[s] ?? 0) + 1;
       if (!m.read) unread[s] = (unread[s] ?? 0) + 1;
     }
-    return { unread, total };
+    return { unread, total, semUnread, semTotal };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountMessages, knownSlugs]);
   const selected = folderMessages.find((m) => m.id === selectedId) ?? null;
+
+  // ── O que a tela mostra agora, em texto, pra IA da lateral ──────────────
+  // Só o que a IA não consegue adivinhar: caixa aberta, conta, volume e o
+  // e-mail aberto (com ID, pra ela poder agir nele). Recalcula só quando muda.
+  const estado = useMemo(() => {
+    if (!onEstado) return "";
+    const conta = isAll
+      ? `todas as contas (${accounts.map((a) => a.address).join(", ")})`
+      : (accounts.find((a) => a.id === accountId)?.address ?? accountId);
+    const caixa = currentFolder
+      ? `categoria "${currentFolder.name}"`
+      : semCat
+        ? "Sem categoria (recebidos que a triagem não classificou)"
+        : FOLDER_LABEL[activeFolder];
+    const linhas = [
+      `Tela: caixa de e-mail. Caixa aberta: ${caixa}.`,
+      `Conta em foco: ${conta}.`,
+      `Recebidos não lidos: ${unreadCount}. Nesta lista: ${visibleMessages.length} mensagem(ns).`,
+      folders.length
+        ? `Categorias existentes: ${folders.map((f) => `${f.name} (${f.slug})`).join(", ")}. Sem categoria: ${catCounts.semTotal}.`
+        : "",
+      trimmedQuery ? `Busca ativa: "${query.trim()}".` : "",
+    ];
+    if (selected) {
+      const cat = selected.category && knownSlugs.has(selected.category) ? selected.category : "sem categoria";
+      linhas.push(
+        [
+          `E-mail ABERTO agora (id ${selected.id}):`,
+          `de ${displayName(selected.fromAddress, selected.fromName)} <${selected.fromAddress}>`,
+          `para ${selected.toAddresses.join(", ")}`,
+          `assunto "${selected.subject || "(sem assunto)"}"`,
+          `em ${fmtDate(selected.date)}`,
+          `categoria: ${cat}`,
+          `trecho: ${snippet(selected).slice(0, 400)}`,
+        ].join("\n  "),
+      );
+    } else {
+      // Sem e-mail aberto, a IA precisa da lista pra "resuma os não lidos".
+      const topo = visibleMessages.slice(0, 12).map((m) => {
+        const marca = m.direction === "inbound" && !m.read ? "• " : "";
+        return `  ${marca}[${m.id}] ${displayName(m.fromAddress, m.fromName)} <${m.fromAddress}> — ${m.subject || "(sem assunto)"} (${fmtDate(m.date)})`;
+      });
+      if (topo.length) linhas.push(`Mensagens visíveis (mais recentes primeiro; • = não lida):\n${topo.join("\n")}`);
+    }
+    return linhas.filter(Boolean).join("\n");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    onEstado, isAll, accounts, accountId, currentFolder, semCat, activeFolder,
+    unreadCount, visibleMessages, folders, catCounts, trimmedQuery, query, selected, knownSlugs,
+  ]);
+
+  useEffect(() => {
+    onEstado?.(estado);
+  }, [estado, onEstado]);
 
   function openMessage(m: MailMessage) {
     setSelectedId(m.id);
@@ -2601,7 +2674,7 @@ function Mailbox({
     });
   }
 
-  // ── Pastas inteligentes: mover mensagem, criar/renomear/remover pasta ──
+  // ── Categorias: etiquetar mensagem, criar/renomear/remover categoria ──
   function moveTo(m: MailMessage, slug: string | null) {
     if (!callbacks.onMoveToFolder) return;
     start(async () => {
@@ -2641,7 +2714,7 @@ function Mailbox({
         setFolderModal(null);
         callbacks.onRefresh();
       } else {
-        setFolderErr(r?.error ?? "Não foi possível salvar a pasta.");
+        setFolderErr(r?.error ?? "Não foi possível salvar a categoria.");
       }
     });
   }
@@ -2738,8 +2811,9 @@ function Mailbox({
           />
         </Stack>
 
-        {/* Pastas inteligentes (categorias por assunto). Só aparecem quando a
-            superfície passa `folders` — a IA/regras distribuem os recebidos aqui. */}
+        {/* Categorias (por assunto). Só aparecem quando a superfície passa
+            `folders` — a triagem (regras + IA) etiqueta os recebidos aqui. Não
+            são gavetas: o e-mail continua nos Recebidos, só ganha a etiqueta. */}
         {folders.length ? (
           <Stack gap={1}>
             <Text
@@ -2750,7 +2824,7 @@ function Mailbox({
               textTransform="uppercase"
               color="var(--admin-text-soft)"
             >
-              Pastas
+              Categorias
             </Text>
             {folders.map((f) => (
               <FolderButton
@@ -2762,6 +2836,14 @@ function Mailbox({
                 count={catCounts.unread[f.slug] ?? 0}
               />
             ))}
+            {/* O resto: o que a triagem não soube encaixar cai AQUI, e não some. */}
+            <FolderButton
+              active={semCat}
+              onClick={() => { setSel("none"); setSelectedId(null); }}
+              icon={<CircleDashed size={16} />}
+              label="Sem categoria"
+              count={catCounts.semUnread}
+            />
             {callbacks.onCreateFolder ? (
               <HStack
                 as="button"
@@ -2777,7 +2859,7 @@ function Mailbox({
                 gap={2}
               >
                 <Plus size={16} />
-                <Text fontSize="sm">Nova pasta</Text>
+                <Text fontSize="sm">Nova categoria</Text>
               </HStack>
             ) : null}
           </Stack>
@@ -2794,7 +2876,7 @@ function Mailbox({
         maxH={{ base: "560px", md: "100%" }}
         overflowY="auto"
       >
-        {/* Topo da lista (nome da pasta + busca + atualizar) fica preso no scroll da lista */}
+        {/* Topo da lista (nome da caixa/categoria + busca + atualizar) fica preso no scroll da lista */}
         <HStack
           justify="space-between"
           px={4}
@@ -2809,11 +2891,15 @@ function Mailbox({
         >
           <HStack gap={2} minW={0} flexShrink={0} maxW="40%">
             <Text fontWeight="700" fontSize="sm" truncate>
-              {currentFolder ? currentFolder.name : FOLDER_LABEL[activeFolder]}
+              {currentFolder ? currentFolder.name : semCat ? "Sem categoria" : FOLDER_LABEL[activeFolder]}
             </Text>
             {currentFolder && (catCounts.total[currentFolder.slug] ?? 0) > 0 ? (
               <Text fontSize="2xs" color="var(--admin-text-soft)" flexShrink={0}>
                 {catCounts.total[currentFolder.slug]}
+              </Text>
+            ) : semCat && catCounts.semTotal > 0 ? (
+              <Text fontSize="2xs" color="var(--admin-text-soft)" flexShrink={0}>
+                {catCounts.semTotal}
               </Text>
             ) : null}
           </HStack>
@@ -2873,14 +2959,14 @@ function Mailbox({
                 items={[
                   ...(callbacks.onRenameFolder
                     ? [{
-                        label: "Renomear pasta",
+                        label: "Renomear categoria",
                         icon: <PenLine size={14} />,
                         onClick: () => { setFolderErr(null); setFolderModal({ mode: "rename", slug: currentFolder.slug, name: currentFolder.name }); },
                       }]
                     : []),
                   ...(callbacks.onRemoveFolder && !currentFolder.system
                     ? [{
-                        label: "Excluir pasta",
+                        label: "Excluir categoria",
                         icon: <Trash2 size={14} />,
                         danger: true,
                         onClick: () => removeFolder(currentFolder.slug),
@@ -2915,11 +3001,21 @@ function Mailbox({
           ) : currentFolder ? (
             <Stack p={6} gap={2} align="flex-start">
               <Text fontSize="sm" color="var(--admin-text-soft)">
-                Nenhum e-mail nesta pasta ainda.
+                Nenhum e-mail nesta categoria ainda.
               </Text>
               <Text fontSize="2xs" color="var(--admin-text-soft)" lineHeight="1.6">
-                A IA move pra cá os recebidos deste tema conforme chegam. Você também
-                pode mover manualmente pelo botão “Mover para” ao abrir um e-mail.
+                A triagem etiqueta com este tema os recebidos conforme chegam. Você também
+                pode etiquetar manualmente pelo botão “Mover” ao abrir um e-mail.
+              </Text>
+            </Stack>
+          ) : semCat ? (
+            <Stack p={6} gap={2} align="flex-start">
+              <Text fontSize="sm" color="var(--admin-text-soft)">
+                Tudo classificado — nada sem categoria.
+              </Text>
+              <Text fontSize="2xs" color="var(--admin-text-soft)" lineHeight="1.6">
+                Aqui cai o que a triagem não soube encaixar em nenhuma categoria. Quando
+                algo aparecer, etiquetar na mão ensina o filtro para as próximas.
               </Text>
             </Stack>
           ) : (
@@ -2956,7 +3052,7 @@ function Mailbox({
             const showAddr =
               !isSent && !!m.fromName?.trim() && m.fromName.trim().toLowerCase() !== m.fromAddress.toLowerCase();
             const unread = m.direction === "inbound" && !m.read;
-            // Etiqueta da pasta inteligente (some quando já se está DENTRO da pasta).
+            // Etiqueta da categoria (some quando já se está DENTRO da categoria).
             const cat = m.category && knownSlugs.has(m.category)
               ? folders.find((f) => f.slug === m.category)
               : null;
@@ -3024,7 +3120,7 @@ function Mailbox({
                       {snip}
                     </Text>
                   ) : null}
-                  {/* Meta: pasta + conta que recebeu (só aparece quando há algo) */}
+                  {/* Meta: categoria + conta que recebeu (só aparece quando há algo) */}
                   {(cat && !currentFolder) || inboxAcct ? (
                     <HStack gap={1.5} minW={0} pt="2px">
                       {cat && !currentFolder ? (
@@ -3099,7 +3195,7 @@ function Mailbox({
       </Box>
     </Flex>
 
-      {/* Modal criar/renomear pasta */}
+      {/* Modal criar/renomear categoria */}
       {folderModal ? (
         <FolderNameModal
           mode={folderModal.mode}
@@ -3114,7 +3210,7 @@ function Mailbox({
   );
 }
 
-/** Modalzinho de nome de pasta (criar/renomear). */
+/** Modalzinho de nome de categoria (criar/renomear). */
 function FolderNameModal({
   mode,
   initial,
@@ -3135,7 +3231,7 @@ function FolderNameModal({
     <Modal
       open
       onClose={onCancel}
-      title={mode === "create" ? "Nova pasta" : "Renomear pasta"}
+      title={mode === "create" ? "Nova categoria" : "Renomear categoria"}
       size="sm"
       footer={
         <>
@@ -3147,7 +3243,7 @@ function FolderNameModal({
       }
     >
       <FormInput
-        label="Nome da pasta"
+        label="Nome da categoria"
         value={name}
         autoFocus
         placeholder="Ex.: Parceiros"
@@ -3254,7 +3350,7 @@ function MessageView({
           onClick: () => onMove!(f.slug === curCat ? null : f.slug),
         })),
         ...(curCat
-          ? [{ label: "Tirar da pasta", icon: <Inbox size={14} />, onClick: () => onMove!(null) }]
+          ? [{ label: "Tirar da categoria", icon: <Inbox size={14} />, onClick: () => onMove!(null) }]
           : []),
       ];
   const menuItems = [...folderItems, ...mailboxItems];
