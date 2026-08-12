@@ -83,7 +83,17 @@ export function FunnelStagesBar({
   };
 
   return (
-    <HStack gap={1.5} align="stretch" overflowX="auto" flexShrink={0} pb={dense ? 0.5 : 1}>
+    // `admin-scroll`: quando a faixa não cabe e precisa rolar de lado, a barra
+    // é a fina do painel (8px, cor da borda) — a nativa do Windows é grossa e
+    // fica atravessada no meio da tela.
+    <HStack
+      className="admin-scroll"
+      gap={1.5}
+      align="stretch"
+      overflowX="auto"
+      flexShrink={0}
+      pb={dense ? 0.5 : 1}
+    >
       {stages.map((s, i) => (
         <Fragment key={s.key}>
           {i > 0 ? (
