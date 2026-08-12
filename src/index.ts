@@ -99,6 +99,11 @@ export {
 } from "./components/whatsapp/WhatsAppClient";
 export {
   WhatsAppFab,
+  abrirWhatsAppFab,
+  WA_FAB_OPEN_CHAT_EVENT,
+  WA_FAB_SENT_EVENT,
+  type WhatsAppFabOpenChat,
+  type WhatsAppFabSent,
   type WhatsAppFabProps,
   type WhatsAppFabCallbacks,
 } from "./components/whatsapp/WhatsAppFab";

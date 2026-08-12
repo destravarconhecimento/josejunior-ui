@@ -784,8 +784,9 @@ type Categoria = "conversas" | "grupos" | "favoritos" | "arquivados";
 /* ── Nova conversa ──────────────────────────────────────────────
  * No WhatsApp não se "abre" uma conversa: ela nasce da primeira mensagem. Por
  * isso o modal pede número E texto — pedir só o número criaria uma conversa
- * fantasma na lista que o telemóvel não conhece. */
-function NovaConversaModal({
+ * fantasma na lista que o telemóvel não conhece.
+ * Exportado: o `WhatsAppFab` usa o MESMO modal (uma implementação só). */
+export function NovaConversaModal({
   open,
   onClose,
   onEnviar,

@@ -4,15 +4,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Box, Flex, HStack, Spinner, Stack, Text, chakra } from "@chakra-ui/react";
-import { ArrowLeft, Maximize2, MessageCircle, RefreshCw, Search, Send, Users, X } from "lucide-react";
+import { ArrowLeft, Maximize2, MessageCircle, Plus, RefreshCw, Search, Send, Users, X } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa6";
 import { EntityAvatar } from "../EntityAvatar";
-import { Input } from "../controls";
+import { Textarea } from "../controls";
 import { useFabDock, setFabOpen, FAB_BASE, FAB_PANEL_BOTTOM } from "../fab/dock";
 import type { UiRealtimeSubscribe } from "../realtime";
 import {
   ChatRow,
   MessageBubble,
+  NovaConversaModal,
   WA_CREAM,
   WA_DOODLE,
   displayName,
@@ -50,7 +51,48 @@ export type WhatsAppFabCallbacks = {
   onResponder: (chatId: string, texto: string) => Promise<WhatsAppResult<{ messageId?: string }>>;
   /** Recarrega a lista de conversas (o dono é que sabe como). */
   onActualizar: () => void | Promise<void>;
+  /**
+   * Inicia conversa com um número NOVO (mesmo contrato da tela cheia): no
+   * WhatsApp a conversa nasce da primeira mensagem, então isto ENVIA e devolve
+   * o `chatId` pra janelinha abrir o fio. Sem a callback o botão "+" não aparece.
+   */
+  onNovaConversa?: (
+    numeroDigits: string,
+    texto: string,
+    nome?: string,
+  ) => Promise<WhatsAppResult<{ chatId: string }>>;
 };
+
+/**
+ * Pedido de "abrir o balão NESTA conversa", vindo de qualquer tela (ex.: o
+ * botão de WhatsApp no card do lead do funil). `phone` pode vir formatado —
+ * só os dígitos contam. `nome` é como o painel chama o contato enquanto o
+ * WhatsApp não disser o verdadeiro; `rascunho` pré-preenche o campo de
+ * mensagem (NÃO envia — quem envia é a pessoa, depois de ler).
+ */
+export type WhatsAppFabOpenChat = {
+  chatId?: string;
+  phone?: string;
+  nome?: string;
+  rascunho?: string;
+};
+
+export const WA_FAB_OPEN_CHAT_EVENT = "wa-fab:open-chat";
+
+/** Atalho pra qualquer tela abrir o balão numa conversa (sem prop drilling). */
+export function abrirWhatsAppFab(detail: WhatsAppFabOpenChat) {
+  window.dispatchEvent(new CustomEvent<WhatsAppFabOpenChat>(WA_FAB_OPEN_CHAT_EVENT, { detail }));
+}
+
+/**
+ * Aviso de "mensagem ENVIADA pelo balão" (confirmada pelo servidor) — quem
+ * abriu a conversa (ex.: o botão do lead no funil) escuta isto pra registrar
+ * o contato no lugar certo, em vez de registrar no clique (que não é envio).
+ */
+export type WhatsAppFabSent = { chatId: string };
+export const WA_FAB_SENT_EVENT = "wa-fab:sent";
+
+const soDigitos = (s: string) => (s || "").replace(/\D/g, "");
 
 export type WhatsAppFabProps = {
   /** Desligado = o FAB nem existe (é o "se tiver conectado" do pedido). */
@@ -96,6 +138,10 @@ export function WhatsAppFab({
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [novaOpen, setNovaOpen] = useState(false);
+  // Conversa "virtual": aberta por evento (lead do funil) antes de existir na
+  // lista — só serve pro cabeçalho ter nome/número enquanto o fio carrega.
+  const [virtualChat, setVirtualChat] = useState<WhatsAppChat | null>(null);
   const fioRef = useRef<HTMLDivElement>(null);
 
   // Dock partilhado: empilha os FABs (WhatsApp em baixo) e garante que só um
@@ -125,6 +171,9 @@ export function WhatsAppFab({
       setChatId(id);
       setMsgs([]);
       setErro(null);
+      // Troca de conversa não pode herdar rascunho da anterior (quem abre com
+      // rascunho — evento — repõe o texto DEPOIS desta limpeza síncrona).
+      setTexto("");
       setCarregando(true);
       const r = await callbacks.onSelecionar(id);
       setCarregando(false);
@@ -133,6 +182,39 @@ export function WhatsAppFab({
     },
     [callbacks],
   );
+
+  // Abrir NUMA conversa por evento (ex.: botão de WhatsApp no lead do funil).
+  // Se a conversa ainda não existe na lista, monta um chat "virtual" só pro
+  // cabeçalho — o envio segue o caminho normal (a conversa nasce da mensagem).
+  useEffect(() => {
+    const abrirEm = (e: Event) => {
+      const detail = (e as CustomEvent<WhatsAppFabOpenChat>).detail;
+      if (!detail) return;
+      const digits = soDigitos(detail.phone ?? detail.chatId ?? "");
+      const id = detail.chatId ?? (digits ? `${digits}@s.whatsapp.net` : null);
+      setOpen(true);
+      if (!id) return;
+      setVista("conversas");
+      setVirtualChat({
+        chatId: id,
+        peer: digits || id,
+        isGroup: id.endsWith("@g.us"),
+        contactName: detail.nome?.trim() || null,
+        savedName: null,
+        lastBody: "",
+        lastDirection: "out",
+        lastType: "text",
+        lastAt: null,
+        lastSentBy: null,
+        lastSentByName: null,
+        total: 0,
+      });
+      void abrirConversa(id);
+      if (detail.rascunho) setTexto(detail.rascunho);
+    };
+    window.addEventListener(WA_FAB_OPEN_CHAT_EVENT, abrirEm);
+    return () => window.removeEventListener(WA_FAB_OPEN_CHAT_EVENT, abrirEm);
+  }, [abrirConversa]);
 
   // TEMPO REAL: recarrega o fio aberto SEM piscar (não limpa as mensagens nem
   // acende o spinner — a bolha nova entra e pronto).
@@ -181,6 +263,7 @@ export function WhatsAppFab({
       setTexto(t);
       return;
     }
+    window.dispatchEvent(new CustomEvent<WhatsAppFabSent>(WA_FAB_SENT_EVENT, { detail: { chatId } }));
     const fresco = await callbacks.onSelecionar(chatId);
     if (fresco.ok) setMsgs(fresco.data ?? []);
     void callbacks.onActualizar();
@@ -193,7 +276,13 @@ export function WhatsAppFab({
     if (el) el.scrollTop = el.scrollHeight;
   }, [open, chatId, msgs]);
 
-  const chatAberto = useMemo(() => chats.find((c) => c.chatId === chatId) ?? null, [chats, chatId]);
+  const chatAberto = useMemo(() => {
+    if (!chatId) return null;
+    const daLista = chats.find((c) => c.chatId === chatId);
+    if (daLista) return daLista;
+    // Conversa que ainda não existe na lista (aberta por evento): usa o virtual.
+    return virtualChat && virtualChat.chatId === chatId ? virtualChat : null;
+  }, [chats, chatId, virtualChat]);
 
   const { conversas, grupos } = useMemo(() => {
     const naoArquivados = chats.filter((c) => !c.arquivado);
@@ -215,7 +304,11 @@ export function WhatsAppFab({
 
   const naoLidas = useMemo(() => chats.reduce((acc, c) => acc + (c.unreadCount ?? 0), 0), [chats]);
 
-  if (!wantShow || othersOpen) return null;
+  if (othersOpen || hideOnPaths.includes(pathname)) return null;
+  // Desconectado: o botão redondo não existe, mas se alguma tela pediu pra
+  // abrir (evento), o painel aparece com o aviso — melhor do que clicar no
+  // WhatsApp do lead e "não acontecer nada".
+  if (!connected && !open) return null;
 
   const botao = (
     <chakra.button
@@ -263,11 +356,11 @@ export function WhatsAppFab({
     </chakra.button>
   );
 
-  if (!open) return botao;
+  if (!open) return connected ? botao : null;
 
   return (
     <>
-      {botao}
+      {connected ? botao : null}
       <Flex
         position="fixed"
         bottom={`${FAB_PANEL_BOTTOM}px`}
@@ -300,6 +393,8 @@ export function WhatsAppFab({
                   setChatId(null);
                   setMsgs([]);
                   setErro(null);
+                  setTexto("");
+                  setVirtualChat(null);
                 }}
                 aria-label="Voltar"
                 display="inline-flex"
@@ -326,9 +421,22 @@ export function WhatsAppFab({
                   WhatsApp
                 </Text>
                 <Text fontSize="10px" opacity={0.85} lineClamp={1}>
-                  {phone ? `Conectado — ${phone}` : "Conectado"}
+                  {!connected ? "Não conectado" : phone ? `Conectado — ${phone}` : "Conectado"}
                 </Text>
               </Stack>
+              {connected && callbacks.onNovaConversa ? (
+                <chakra.button
+                  type="button"
+                  onClick={() => setNovaOpen(true)}
+                  aria-label="Nova conversa"
+                  title="Nova conversa"
+                  opacity={0.85}
+                  _hover={{ opacity: 1 }}
+                  flexShrink={0}
+                >
+                  <Plus size={17} />
+                </chakra.button>
+              ) : null}
               <chakra.button
                 type="button"
                 onClick={() => void callbacks.onActualizar()}
@@ -369,7 +477,29 @@ export function WhatsAppFab({
           </chakra.button>
         </HStack>
 
-        {chatAberto ? (
+        {!connected ? (
+          /* ── Sem número conectado (painel aberto por evento) ── */
+          <Stack flex={1} align="center" justify="center" gap={2.5} px={6} textAlign="center">
+            <FaWhatsapp size={34} color="var(--admin-text-soft)" />
+            <Text fontSize="sm" fontWeight="700" color="var(--admin-text)">
+              WhatsApp não conectado
+            </Text>
+            <Text fontSize="xs" color="var(--admin-text-soft)">
+              Conecte o número da plataforma pra conversar por aqui.
+            </Text>
+            {expandHref ? (
+              <ChakraLink
+                href={expandHref}
+                fontSize="sm"
+                fontWeight="700"
+                color="var(--admin-primary)"
+                _hover={{ textDecoration: "underline" }}
+              >
+                Conectar agora
+              </ChakraLink>
+            ) : null}
+          </Stack>
+        ) : chatAberto ? (
           /* ── Conversa ──────────────────────────────────── */
           <>
             <Box
@@ -429,7 +559,9 @@ export function WhatsAppFab({
               borderColor="var(--admin-border)"
               bg="var(--admin-surface, white)"
             >
-              <Input
+              {/* Textarea (e não Input): rascunho de proposta tem quebra de
+                  linha, e o <input> do browser as descarta em silêncio. */}
+              <Textarea
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 onKeyDown={(e) => {
@@ -440,6 +572,8 @@ export function WhatsAppFab({
                 }}
                 placeholder="Escreva uma mensagem…"
                 size="sm"
+                rows={texto.includes("\n") ? 3 : 1}
+                resize="none"
                 borderRadius="18px"
               />
               <chakra.button
@@ -534,6 +668,21 @@ export function WhatsAppFab({
           </>
         )}
       </Flex>
+      {callbacks.onNovaConversa ? (
+        <NovaConversaModal
+          open={novaOpen}
+          onClose={() => setNovaOpen(false)}
+          onEnviar={callbacks.onNovaConversa}
+          onCriada={(id) => {
+            setNovaOpen(false);
+            setVirtualChat(null);
+            // Nova conversa = a 1ª mensagem JÁ saiu (é assim que ela nasce).
+            window.dispatchEvent(new CustomEvent<WhatsAppFabSent>(WA_FAB_SENT_EVENT, { detail: { chatId: id } }));
+            void abrirConversa(id);
+            void callbacks.onActualizar();
+          }}
+        />
+      ) : null}
     </>
   );
 }
