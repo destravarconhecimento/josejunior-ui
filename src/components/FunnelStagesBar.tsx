@@ -24,17 +24,22 @@ export type FunnelBarStage = {
  *
  * `out` é quem SAIU do funil (descadastro): entra à direita, separado por um
  * divisor em vez de seta — não é uma etapa depois de "Ganho", é a porta de saída.
+ *
+ * `dense` encolhe os cartões (padding/fonte) pra régua virar KPI de canto e
+ * sobrar espaço pra lista — a tela de trabalho diário usa assim.
  */
 export function FunnelStagesBar({
   stages,
   out,
   selected,
   onSelect,
+  dense = false,
 }: {
   stages: FunnelBarStage[];
   out?: FunnelBarStage;
   selected: string | null;
   onSelect: (key: string | null) => void;
+  dense?: boolean;
 }) {
   const card = (s: FunnelBarStage, danger: boolean): ReactNode => {
     const active = selected === s.key;
@@ -45,10 +50,10 @@ export function FunnelStagesBar({
         onClick={() => onSelect(active ? null : s.key)}
         aria-pressed={active}
         flex="1 0 auto"
-        minW="118px"
+        minW={dense ? "104px" : "118px"}
         textAlign="left"
-        px={3}
-        py={2}
+        px={dense ? 2.5 : 3}
+        py={dense ? 1 : 2}
         borderWidth="1px"
         borderColor={active ? accent : "var(--admin-border)"}
         borderRadius="12px"
@@ -57,14 +62,19 @@ export function FunnelStagesBar({
         transition="border-color .15s, background .15s"
         _hover={{ borderColor: accent }}
       >
-        <Text fontSize="xs" fontWeight="600" color={danger ? "#b91c1c" : "var(--admin-text-soft)"}>
+        <Text fontSize={dense ? "11px" : "xs"} fontWeight="600" color={danger ? "#b91c1c" : "var(--admin-text-soft)"}>
           {s.label}
         </Text>
-        <Text fontSize="xl" fontWeight="800" lineHeight="1.2" color={danger ? "#b91c1c" : accent}>
+        <Text
+          fontSize={dense ? "lg" : "xl"}
+          fontWeight={dense ? "700" : "800"}
+          lineHeight={dense ? "1.1" : "1.2"}
+          color={danger ? "#b91c1c" : accent}
+        >
           {s.count}
         </Text>
         {s.hint ? (
-          <Text fontSize="11px" color="var(--admin-text-soft)" whiteSpace="nowrap">
+          <Text fontSize={dense ? "10px" : "11px"} color="var(--admin-text-soft)" whiteSpace="nowrap">
             {s.hint}
           </Text>
         ) : null}
@@ -73,7 +83,7 @@ export function FunnelStagesBar({
   };
 
   return (
-    <HStack gap={1.5} align="stretch" overflowX="auto" flexShrink={0} pb={1}>
+    <HStack gap={1.5} align="stretch" overflowX="auto" flexShrink={0} pb={dense ? 0.5 : 1}>
       {stages.map((s, i) => (
         <Fragment key={s.key}>
           {i > 0 ? (
