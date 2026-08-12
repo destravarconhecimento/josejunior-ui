@@ -10,6 +10,8 @@ export type FunnelBarStage = {
   count: number;
   /** Linha pequena sob a contagem (ex.: "62 abriram · 25 clicaram"). */
   hint?: string;
+  /** "danger" pinta o cartão como alerta (ex.: bloco "Sem próxima ação"). */
+  tone?: "default" | "danger";
 };
 
 /**
@@ -79,7 +81,7 @@ export function FunnelStagesBar({
               <ChevronRight size={14} />
             </Box>
           ) : null}
-          {card(s, false)}
+          {card(s, s.tone === "danger")}
         </Fragment>
       ))}
       {out ? (
