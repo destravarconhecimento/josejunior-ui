@@ -4,10 +4,26 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Box, HStack, Image, Spinner, Stack, Text, Textarea, chakra } from "@chakra-ui/react";
-import { Sparkles, X, Send, Paperclip, Loader2, Maximize2 } from "lucide-react";
+import {
+  Sparkles,
+  X,
+  Send,
+  Paperclip,
+  Loader2,
+  Maximize2,
+  PanelRight,
+  PictureInPicture2,
+} from "lucide-react";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { useAiChat } from "./ai/useAiChat";
-import { useFabDock, setFabOpen, FAB_BASE, FAB_PANEL_BOTTOM } from "./fab/dock";
+import {
+  useFabDock,
+  useFabModo,
+  setFabOpen,
+  FAB_BASE,
+  FAB_LATERAL_W,
+  FAB_PANEL_BOTTOM,
+} from "./fab/dock";
 
 /** Link do Next com as props de estilo do Chakra (o botão de expandir). */
 const ChakraLink = chakra(Link);
@@ -63,6 +79,11 @@ export function AiAssistantFab({
   const wantShow = !hideOnPaths.includes(pathname);
   const { bottom, othersOpen } = useFabDock("ai", wantShow);
 
+  // Flutuante (janelinha no canto) × lateral (encostado na direita, altura
+  // inteira). A escolha fica guardada — ver `useFabModo`.
+  const [modo, setModo] = useFabModo("ai");
+  const lateral = modo === "lateral";
+
   // Espelha o estado de aberto no dock e recua se o irmão (WhatsApp) abrir.
   useEffect(() => setFabOpen("ai", open), [open]);
   useEffect(() => {
@@ -99,14 +120,16 @@ export function AiAssistantFab({
 
   if (hidden) return null;
 
-  return (
-    <>
+  // O botão redondo só existe com o painel FECHADO: quem abriu fecha pelo X do
+  // topo. Antes ele virava um "X" por cima da janela e disputava o canto com ela.
+  if (!open) {
+    return (
       <chakra.button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(true)}
         position="fixed"
         style={{ background: accent, boxShadow: "0 12px 34px rgba(7,26,51,0.35)" }}
-        bottom={`${open ? FAB_BASE : bottom}px`}
+        bottom={`${bottom}px`}
         right={`${FAB_BASE}px`}
         zIndex={1400}
         w="56px"
@@ -120,169 +143,158 @@ export function AiAssistantFab({
         transition="transform .15s, bottom .18s ease"
         aria-label={`Falar com ${title}`}
       >
-        {open ? <X size={22} /> : <Sparkles size={22} />}
+        <Sparkles size={22} />
       </chakra.button>
+    );
+  }
 
-      {open && (
-        <Box
-          position="fixed"
-          bottom={`${FAB_PANEL_BOTTOM}px`}
-          right={`${FAB_BASE}px`}
-          zIndex={1400}
-          w={{ base: "calc(100vw - 32px)", sm: "400px" }}
-          h={{ base: "70vh", sm: "560px" }}
-          maxH="calc(100vh - 120px)"
-          borderRadius="18px"
-          bg="white"
-          border="1px solid var(--admin-border)"
-          boxShadow="0 24px 60px rgba(17,12,40,0.22)"
-          overflow="hidden"
-          display="flex"
-          flexDirection="column"
-        >
-          <Box px={5} py={3.5} style={{ background: accent }} color="white" flexShrink={0}>
-            <HStack gap={2} justify="space-between" align="flex-start">
-              <Box>
-                <HStack gap={2}>
-                  <Sparkles size={18} />
-                  <Text fontWeight="700">{title}</Text>
-                </HStack>
-                <Text fontSize="xs" opacity={0.9} mt={0.5}>{subtitle}</Text>
-              </Box>
-              {expandHref && (
-                <ChakraLink
-                  href={expandHref}
-                  aria-label="Abrir em tela cheia"
-                  title="Abrir em tela cheia"
-                  flexShrink={0}
-                  w="30px"
-                  h="30px"
-                  mt={-1}
-                  mr={-1.5}
-                  borderRadius="8px"
-                  display="inline-flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  color="white"
-                  opacity={0.85}
-                  _hover={{ opacity: 1, bg: "rgba(255,255,255,0.18)" }}
-                  transition="opacity .15s, background .15s"
-                >
-                  <Maximize2 size={15} />
-                </ChakraLink>
-              )}
+  // Uma moldura, dois formatos. As MESMAS chaves nos dois ramos — assim o objeto
+  // tem um tipo só e entra no `Box` sem ginástica de tipos.
+  const moldura = {
+    top: lateral ? "0px" : undefined,
+    bottom: lateral ? "0px" : `${FAB_PANEL_BOTTOM}px`,
+    right: lateral ? "0px" : `${FAB_BASE}px`,
+    w: lateral
+      ? { base: "100vw", sm: `min(${FAB_LATERAL_W}px, 100vw)` }
+      : { base: "calc(100vw - 32px)", sm: "400px" },
+    h: lateral ? undefined : { base: "70vh", sm: "560px" },
+    maxH: lateral ? undefined : "calc(100vh - 120px)",
+    borderRadius: lateral ? "0" : "18px",
+    boxShadow: lateral ? "-18px 0 44px rgba(17,12,40,0.16)" : "0 24px 60px rgba(17,12,40,0.22)",
+  };
+
+  /** Os três botõezinhos do cabeçalho (encostar · tela cheia · fechar). */
+  const botaoTopo = {
+    flexShrink: 0,
+    w: "30px",
+    h: "30px",
+    borderRadius: "8px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "white",
+    opacity: 0.85,
+    _hover: { opacity: 1, bg: "rgba(255,255,255,0.18)" },
+    transition: "opacity .15s, background .15s",
+  } as const;
+
+  return (
+    <Box
+      position="fixed"
+      {...moldura}
+      zIndex={1400}
+      bg="white"
+      border="1px solid var(--admin-border)"
+      overflow="hidden"
+      display="flex"
+      flexDirection="column"
+    >
+      <Box px={5} py={3.5} style={{ background: accent }} color="white" flexShrink={0}>
+        <HStack gap={2} justify="space-between" align="flex-start">
+          <Box>
+            <HStack gap={2}>
+              <Sparkles size={18} />
+              <Text fontWeight="700">{title}</Text>
             </HStack>
+            <Text fontSize="xs" opacity={0.9} mt={0.5}>{subtitle}</Text>
           </Box>
-
-          <Stack ref={scrollRef} flex={1} overflowY="auto" p={4} gap={3} bg="var(--admin-surface-2, #f7f8fa)">
-            {messages.length === 0 && !loading && capabilities.length > 0 && (
-              <Box bg="white" border="1px solid var(--admin-border)" borderRadius="14px" p={4}>
-                <Text fontSize="sm" fontWeight="700" color="var(--admin-primary)" mb={2}>O que posso fazer?</Text>
-                <Stack gap={1.5}>
-                  {capabilities.map((c) => (
-                    <Text key={c} fontSize="sm" color="var(--admin-text)">• {c}</Text>
-                  ))}
-                </Stack>
-                <Text fontSize="xs" color="var(--admin-text-soft)" mt={2}>É só pedir em linguagem natural que eu executo.</Text>
-              </Box>
-            )}
-            {messages.map((m, i) => (
-              <Box
-                key={i}
-                alignSelf={m.role === "user" ? "flex-end" : "flex-start"}
-                maxW="88%"
-                px={3.5}
-                py={2}
-                borderRadius="14px"
-                fontSize="sm"
-                bg={m.role === "user" ? "var(--admin-primary)" : "white"}
-                color={m.role === "user" ? "white" : "var(--admin-text)"}
-                border={m.role === "user" ? "none" : "1px solid var(--admin-border)"}
-                css={{ "& img": { maxWidth: "100%", borderRadius: 8, marginTop: 6 } }}
+          <HStack gap={0.5} flexShrink={0} mt={-1} mr={-1.5}>
+            <chakra.button
+              type="button"
+              onClick={() => setModo(lateral ? "flutuante" : "lateral")}
+              aria-label={lateral ? "Voltar pro balão" : "Encostar na lateral"}
+              title={lateral ? "Voltar pro balão" : "Encostar na lateral"}
+              {...botaoTopo}
+            >
+              {lateral ? <PictureInPicture2 size={15} /> : <PanelRight size={15} />}
+            </chakra.button>
+            {expandHref && (
+              <ChakraLink
+                href={expandHref}
+                aria-label="Abrir em tela cheia"
+                title="Abrir em tela cheia"
+                {...botaoTopo}
               >
-                <ChatMarkdown>{m.content}</ChatMarkdown>
-              </Box>
-            ))}
-            {loading && (
-              <HStack alignSelf="flex-start" gap={2} color="var(--admin-text-soft)" fontSize="sm">
-                <Spinner size="sm" /> <Text>{title} está pensando…</Text>
-              </HStack>
+                <Maximize2 size={15} />
+              </ChakraLink>
             )}
-          </Stack>
+            <chakra.button type="button" onClick={() => setOpen(false)} aria-label="Fechar" title="Fechar" {...botaoTopo}>
+              <X size={16} />
+            </chakra.button>
+          </HStack>
+        </HStack>
+      </Box>
 
-          {error && (
-            <Box bg="rgba(220,38,38,0.06)" borderTop="1px solid rgba(220,38,38,0.2)" px={4} py={2} flexShrink={0}>
-              <Text color="red.700" fontSize="xs">{error}</Text>
-            </Box>
-          )}
+      <Stack ref={scrollRef} flex={1} overflowY="auto" p={4} gap={3} bg="var(--admin-surface-2, #f7f8fa)">
+        {messages.length === 0 && !loading && capabilities.length > 0 && (
+          <Box bg="white" border="1px solid var(--admin-border)" borderRadius="14px" p={4}>
+            <Text fontSize="sm" fontWeight="700" color="var(--admin-primary)" mb={2}>O que posso fazer?</Text>
+            <Stack gap={1.5}>
+              {capabilities.map((c) => (
+                <Text key={c} fontSize="sm" color="var(--admin-text)">• {c}</Text>
+              ))}
+            </Stack>
+            <Text fontSize="xs" color="var(--admin-text-soft)" mt={2}>É só pedir em linguagem natural que eu executo.</Text>
+          </Box>
+        )}
+        {messages.map((m, i) => (
+          <Box
+            key={i}
+            alignSelf={m.role === "user" ? "flex-end" : "flex-start"}
+            maxW="88%"
+            px={3.5}
+            py={2}
+            borderRadius="14px"
+            fontSize="sm"
+            bg={m.role === "user" ? "var(--admin-primary)" : "white"}
+            color={m.role === "user" ? "white" : "var(--admin-text)"}
+            border={m.role === "user" ? "none" : "1px solid var(--admin-border)"}
+            css={{ "& img": { maxWidth: "100%", borderRadius: 8, marginTop: 6 } }}
+          >
+            <ChatMarkdown>{m.content}</ChatMarkdown>
+          </Box>
+        ))}
+        {loading && (
+          <HStack alignSelf="flex-start" gap={2} color="var(--admin-text-soft)" fontSize="sm">
+            <Spinner size="sm" /> <Text>{title} está pensando…</Text>
+          </HStack>
+        )}
+      </Stack>
 
-          <Box borderTop="1px solid var(--admin-border)" p={3} flexShrink={0} bg="white">
-            {attachment && (
-              <HStack mb={2} gap={2} bg="var(--admin-surface-2, #f3f4f6)" borderRadius="10px" p={1.5} pr={2.5} w="fit-content">
-                <Image src={attachment} alt="anexo" h="40px" w="40px" objectFit="cover" borderRadius="8px" />
-                <Text fontSize="xs" color="var(--admin-text-soft)">imagem anexada</Text>
-                <chakra.button type="button" onClick={() => setAttachment(null)} aria-label="Remover anexo" color="var(--admin-text-soft)" _hover={{ color: "red.500" }}>
-                  <X size={14} />
-                </chakra.button>
-              </HStack>
-            )}
-            <HStack gap={2} align="flex-end">
-              {uploadEndpoint && (
-                <>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: "none" }}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) void pickImage(f);
-                      e.target.value = "";
-                    }}
-                  />
-                  <chakra.button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={uploading}
-                    w="42px"
-                    h="42px"
-                    flexShrink={0}
-                    borderRadius="10px"
-                    display="inline-flex"
-                    alignItems="center"
-                    justifyContent="center"
-                    color="var(--admin-text-soft)"
-                    border="1px solid var(--admin-border)"
-                    _hover={{ bg: "var(--admin-nav-hover)", color: "var(--admin-primary)" }}
-                    aria-label="Anexar imagem"
-                  >
-                    {uploading ? <Box css={{ animation: "spin 1s linear infinite", "@keyframes spin": { to: { transform: "rotate(360deg)" } } }}><Loader2 size={18} /></Box> : <Paperclip size={18} />}
-                  </chakra.button>
-                </>
-              )}
-              <Textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void send();
-                  }
+      {error && (
+        <Box bg="rgba(220,38,38,0.06)" borderTop="1px solid rgba(220,38,38,0.2)" px={4} py={2} flexShrink={0}>
+          <Text color="red.700" fontSize="xs">{error}</Text>
+        </Box>
+      )}
+
+      <Box borderTop="1px solid var(--admin-border)" p={3} flexShrink={0} bg="white">
+        {attachment && (
+          <HStack mb={2} gap={2} bg="var(--admin-surface-2, #f3f4f6)" borderRadius="10px" p={1.5} pr={2.5} w="fit-content">
+            <Image src={attachment} alt="anexo" h="40px" w="40px" objectFit="cover" borderRadius="8px" />
+            <Text fontSize="xs" color="var(--admin-text-soft)">imagem anexada</Text>
+            <chakra.button type="button" onClick={() => setAttachment(null)} aria-label="Remover anexo" color="var(--admin-text-soft)" _hover={{ color: "red.500" }}>
+              <X size={14} />
+            </chakra.button>
+          </HStack>
+        )}
+        <HStack gap={2} align="flex-end">
+          {uploadEndpoint && (
+            <>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void pickImage(f);
+                  e.target.value = "";
                 }}
-                placeholder="Peça algo…"
-                rows={2}
-                resize="none"
-                bg="white"
-                borderColor="var(--admin-border)"
-                _focus={{ borderColor: "var(--admin-primary)", boxShadow: "0 0 0 3px var(--admin-nav-active)" }}
-                borderRadius="10px"
-                fontSize="sm"
-                css={{ "&::placeholder": { fontSize: "13px" } }}
               />
               <chakra.button
                 type="button"
-                onClick={() => void send()}
-                disabled={loading || !canSend}
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
                 w="42px"
                 h="42px"
                 flexShrink={0}
@@ -290,17 +302,54 @@ export function AiAssistantFab({
                 display="inline-flex"
                 alignItems="center"
                 justifyContent="center"
-                color="white"
-                style={{ background: accent, opacity: loading || !canSend ? 0.5 : 1 }}
-                _hover={{ opacity: 0.92 }}
-                aria-label="Enviar"
+                color="var(--admin-text-soft)"
+                border="1px solid var(--admin-border)"
+                _hover={{ bg: "var(--admin-nav-hover)", color: "var(--admin-primary)" }}
+                aria-label="Anexar imagem"
               >
-                <Send size={18} />
+                {uploading ? <Box css={{ animation: "spin 1s linear infinite", "@keyframes spin": { to: { transform: "rotate(360deg)" } } }}><Loader2 size={18} /></Box> : <Paperclip size={18} />}
               </chakra.button>
-            </HStack>
-          </Box>
-        </Box>
-      )}
-    </>
+            </>
+          )}
+          <Textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            placeholder="Peça algo…"
+            rows={2}
+            resize="none"
+            bg="white"
+            borderColor="var(--admin-border)"
+            _focus={{ borderColor: "var(--admin-primary)", boxShadow: "0 0 0 3px var(--admin-nav-active)" }}
+            borderRadius="10px"
+            fontSize="sm"
+            css={{ "&::placeholder": { fontSize: "13px" } }}
+          />
+          <chakra.button
+            type="button"
+            onClick={() => void send()}
+            disabled={loading || !canSend}
+            w="42px"
+            h="42px"
+            flexShrink={0}
+            borderRadius="10px"
+            display="inline-flex"
+            alignItems="center"
+            justifyContent="center"
+            color="white"
+            style={{ background: accent, opacity: loading || !canSend ? 0.5 : 1 }}
+            _hover={{ opacity: 0.92 }}
+            aria-label="Enviar"
+          >
+            <Send size={18} />
+          </chakra.button>
+        </HStack>
+      </Box>
+    </Box>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   Box,
   chakra,
@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { AccountSelector } from "../AccountSelector";
 import { ActionMenu } from "../ActionMenu";
+import { MailAiPanel, type MailAiChatConfig } from "./MailAiPanel";
 import { Tag } from "../Badge";
 import { Button } from "../Button";
 import { Card } from "../Card";
@@ -281,8 +282,9 @@ export type MailCallbacks = {
   // IA da caixa (ausentes → o botão "IA" some)
   /** Salva a config da IA da caixa (organizar / respostas). */
   onSaveAiSettings?: (settings: MailAiSettings) => Promise<MailResult>;
-  /** Classifica em lote os e-mails já existentes ("Organizar caixa agora"). */
-  onBackfillOrganize?: () => Promise<MailResult<{ organized: number }>>;
+  /** Tria em lote os recebidos já existentes ("Triar caixa agora"): classifica
+   *  em categoria e manda pro Spam o que for spam. */
+  onBackfillOrganize?: () => Promise<MailResult<{ organized: number; spam?: number }>>;
   /** Inicia o OAuth do Gmail (redireciona pro Google). Ausente = "em breve". */
   onConnectGmail?: () => void;
   /** Salva a credencial OAuth do Google (Client ID/Secret) — compartilhada Gmail+Drive.
@@ -392,10 +394,15 @@ export function MailClient(props: {
   /** Link/ação p/ os modelos de e-mail (ex.: "Templates" no sistema). Vira uma
    *  ABA "Templates" dentro das Configurações — não fica mais no topo. */
   templatesAction?: React.ReactNode;
-  /** Pastas inteligentes (categorias). Ausente/vazio = só as caixas fixas. */
+  /** Categorias inteligentes. Ausente/vazio = só as caixas fixas. */
   folders?: MailFolder[];
-  /** Config da IA da caixa. Ausente = botão "IA" some (superfície sem IA). */
+  /** Config da IA da caixa (vira a aba "IA" das Configurações). */
   aiSettings?: MailAiSettings;
+  /**
+   * Chat da IA da caixa (botão "IA" → painel na direita). Ausente = sem chat;
+   * a config da IA continua nas Configurações.
+   */
+  aiChat?: MailAiChatConfig;
   /**
    * TEMPO REAL por injeção (opcional): `(aviso) => cancelar`. Com ela, o e-mail
    * que o webhook grava aparece na hora e o ciclo de 60s afrouxa pra 5 min.
@@ -404,10 +411,14 @@ export function MailClient(props: {
 }) {
   const [view, setView] = useState<"inbox" | "settings">(props.initialView);
   const [aiOpen, setAiOpen] = useState(false);
+  // O que a caixa está mostrando agora — vira contexto pro chat da IA.
+  const [estadoCaixa, setEstadoCaixa] = useState("");
+  const onEstadoCaixa = useCallback((s: string) => setEstadoCaixa(s), []);
   const hasAccounts = props.inboxAccounts.length > 0;
   const cb = props.callbacks;
-  // Botão "IA" só aparece quando a superfície oferece IA (config + admin).
-  const aiEnabled = Boolean(props.aiSettings && cb.onSaveAiSettings && props.isAdmin);
+  // Botão "IA" = chat lateral. Só onde a superfície passou o endpoint do assistente.
+  const aiChat = props.isAdmin ? props.aiChat : undefined;
+  const chatOpen = Boolean(aiChat) && aiOpen && view === "inbox";
 
   // ── Conta ativa (mora AQUI p/ o seletor ir no topo, ao lado do título) ──
   const inboxAccounts = props.inboxAccounts;
@@ -475,8 +486,12 @@ export function MailClient(props: {
             >
               {providerLabel}
             </Tag>
-            {aiEnabled && view === "inbox" ? (
-              <Button tone="outline" onClick={() => setAiOpen(true)}>
+            {aiChat && view === "inbox" ? (
+              <Button
+                tone={chatOpen ? "primary" : "outline"}
+                onClick={() => setAiOpen((v) => !v)}
+                aria-pressed={chatOpen}
+              >
                 <Sparkles size={16} /> IA
               </Button>
             ) : null}
@@ -495,17 +510,6 @@ export function MailClient(props: {
         }
       />
 
-      {aiEnabled && props.aiSettings ? (
-        <AiSettingsModal
-          open={aiOpen}
-          onClose={() => setAiOpen(false)}
-          settings={props.aiSettings}
-          onSave={cb.onSaveAiSettings!}
-          onBackfill={cb.onBackfillOrganize}
-          onRefresh={cb.onRefresh}
-        />
-      ) : null}
-
       <PageBody fill={view !== "settings"}>
         {view === "settings" ? (
           <SettingsView
@@ -521,21 +525,38 @@ export function MailClient(props: {
             gmailRedirectUri={props.gmailRedirectUri}
             gmailCredentialHref={props.gmailCredentialHref}
             templatesAction={props.templatesAction}
+            aiSettings={props.isAdmin ? props.aiSettings : undefined}
             callbacks={cb}
           />
         ) : (
-          <Mailbox
-            accounts={props.inboxAccounts}
-            accountId={accountId}
-            messages={props.messages}
-            defaultAccountId={props.defaultAccountId}
-            folders={props.folders ?? []}
-            aiSettings={props.aiSettings}
-            isAdmin={props.isAdmin}
-            callbacks={cb}
-            onGoSettings={props.isAdmin ? () => setView("settings") : undefined}
-            onRealtime={props.onRealtime}
-          />
+          // Caixa + (opcional) chat da IA encostado na direita. A moldura é a
+          // MESMA com ou sem chat: assim abrir/fechar o painel não remonta a
+          // caixa (perderia a mensagem aberta e a busca).
+          <Flex
+            direction={{ base: "column", md: "row" }}
+            gap={4}
+            flex={{ md: "1" }}
+            minH={{ md: 0 }}
+          >
+            <Box display="flex" flexDirection="column" flex="1" minW={0} minH={{ md: 0 }}>
+              <Mailbox
+                accounts={props.inboxAccounts}
+                accountId={accountId}
+                messages={props.messages}
+                defaultAccountId={props.defaultAccountId}
+                folders={props.folders ?? []}
+                aiSettings={props.aiSettings}
+                isAdmin={props.isAdmin}
+                callbacks={cb}
+                onGoSettings={props.isAdmin ? () => setView("settings") : undefined}
+                onRealtime={props.onRealtime}
+                onEstado={aiChat ? onEstadoCaixa : undefined}
+              />
+            </Box>
+            {chatOpen && aiChat ? (
+              <MailAiPanel config={aiChat} detalhe={estadoCaixa} onClose={() => setAiOpen(false)} />
+            ) : null}
+          </Flex>
         )}
       </PageBody>
     </Box>
@@ -543,11 +564,11 @@ export function MailClient(props: {
 }
 
 // ============================================================
-// Modal "IA da caixa" — organizar em pastas + modo de resposta
+// Config da IA da caixa — vive nas CONFIGURAÇÕES (aba "IA").
+// O botão "IA" do topo é o CHAT (painel da direita), não a config.
 // ============================================================
 
-/** Card com os controles da IA da caixa (organizar + respostas). Reusado no
- *  modal "IA" (topo) e — se algum dia quisermos — dentro das Configurações. */
+/** Controles da IA da caixa (triagem + respostas). */
 function AiSettingsControls({
   organize,
   setOrganize,
@@ -567,15 +588,17 @@ function AiSettingsControls({
 }) {
   return (
     <Stack gap={5}>
-      {/* Organizar em pastas */}
+      {/* Triagem: spam + categoria */}
       <Stack gap={2}>
         <HStack justify="space-between" align="flex-start" gap={4}>
           <Stack gap={0.5} flex="1" minW={0}>
-            <Text fontWeight="700" fontSize="sm">Organizar e-mails em pastas</Text>
+            <Text fontWeight="700" fontSize="sm">Filtrar spam e classificar por categoria</Text>
             <Text fontSize="xs" color="var(--admin-text-soft)" lineHeight="1.5">
-              A IA lê o assunto de cada recebido e o guarda na pasta certa (Clientes,
-              Financeiro, Fornecedores, Marketing, Sistema). Vai aprendendo os remetentes
-              e, com o tempo, passa a acertar sozinha — quase sem chamar a IA.
+              Cada recebido passa por uma triagem: o que é spam vai direto pra caixa de Spam
+              (e nunca ganha resposta automática); o resto entra na categoria certa (Clientes,
+              Financeiro, Fornecedores, Marketing, Sistema) ou fica em <b>Sem categoria</b>.
+              Marcar um e-mail como spam — ou tirá-lo de lá — ENSINA o filtro: o próximo do
+              mesmo remetente já cai sozinho, sem gastar IA.
             </Text>
           </Stack>
           <Switch.Root
@@ -599,7 +622,7 @@ function AiSettingsControls({
             loading={running}
             disabled={pending && !running}
           >
-            <Sparkles size={14} /> Organizar caixa agora
+            <Sparkles size={14} /> Triar caixa agora
           </Button>
         ) : null}
       </Stack>
@@ -649,19 +672,15 @@ function AiSettingsControls({
   );
 }
 
-function AiSettingsModal({
-  open,
-  onClose,
+function AiSettingsPanel({
   settings,
   onSave,
   onBackfill,
   onRefresh,
 }: {
-  open: boolean;
-  onClose: () => void;
   settings: MailAiSettings;
   onSave: (settings: MailAiSettings) => Promise<MailResult>;
-  onBackfill?: () => Promise<MailResult<{ organized: number }>>;
+  onBackfill?: () => Promise<MailResult<{ organized: number; spam?: number }>>;
   onRefresh: () => void;
 }) {
   const [organize, setOrganize] = useState(settings.organize);
@@ -671,15 +690,11 @@ function AiSettingsModal({
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  // Reabriu → re-sincroniza com o que veio do servidor (pode ter mudado no refresh).
+  // O servidor mandou config nova (refresh) → acompanha, sem apagar edição em curso.
   useEffect(() => {
-    if (open) {
-      setOrganize(settings.organize);
-      setAutoReply(settings.autoReply);
-      setMsg(null);
-      setErr(null);
-    }
-  }, [open, settings.organize, settings.autoReply]);
+    setOrganize(settings.organize);
+    setAutoReply(settings.autoReply);
+  }, [settings.organize, settings.autoReply]);
 
   function save() {
     start(async () => {
@@ -704,7 +719,11 @@ function AiSettingsModal({
       const r = await onBackfill();
       setRunning(false);
       if (r.ok) {
-        setMsg(`Caixa organizada: ${r.data?.organized ?? 0} e-mail(s) classificado(s).`);
+        const spam = r.data?.spam ?? 0;
+        setMsg(
+          `Triagem concluída: ${r.data?.organized ?? 0} classificado(s)` +
+            (spam ? ` e ${spam} movido(s) para Spam.` : "."),
+        );
         onRefresh();
       } else {
         setErr(r.error);
@@ -713,19 +732,7 @@ function AiSettingsModal({
   }
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="IA da caixa de e-mail"
-      footer={
-        <>
-          {msg ? <Text fontSize="xs" color="#15803d" mr="auto">{msg}</Text> : null}
-          {err ? <Text fontSize="xs" color="#dc2626" mr="auto">{err}</Text> : null}
-          <Button tone="ghost" onClick={onClose} disabled={pending}>Fechar</Button>
-          <Button tone="primary" onClick={save} loading={pending && !running}>Salvar</Button>
-        </>
-      }
-    >
+    <Stack gap={4}>
       <AiSettingsControls
         organize={organize}
         setOrganize={setOrganize}
@@ -735,7 +742,12 @@ function AiSettingsModal({
         pending={pending}
         running={running}
       />
-    </Modal>
+      <HStack gap={3} align="center">
+        <Button tone="primary" onClick={save} loading={pending && !running}>Salvar</Button>
+        {msg ? <Text fontSize="xs" color="#15803d">{msg}</Text> : null}
+        {err ? <Text fontSize="xs" color="#dc2626">{err}</Text> : null}
+      </HStack>
+    </Stack>
   );
 }
 
@@ -757,6 +769,8 @@ function SettingsView(props: {
   gmailCredentialHref?: string;
   /** Ação p/ os modelos de e-mail — vira a aba "Templates". */
   templatesAction?: React.ReactNode;
+  /** Config da IA da caixa — vira a aba "IA". Ausente = superfície sem IA. */
+  aiSettings?: MailAiSettings;
   callbacks: MailCallbacks;
 }) {
   const domainOptions: MailDomainOption[] = props.domains.map((d) => ({
@@ -855,6 +869,31 @@ function SettingsView(props: {
           domains={domainOptions}
           users={props.users}
           callbacks={props.callbacks}
+        />
+      ),
+    });
+  }
+  // IA da caixa: a config mora AQUI (era um modal solto no topo). O botão "IA"
+  // da caixa passou a ser o chat — configurar é coisa de Configurações.
+  if (props.aiSettings && props.callbacks.onSaveAiSettings) {
+    const ai = props.aiSettings;
+    sections.push({
+      value: "ia",
+      label: "IA",
+      meta: (
+        <Tag
+          bg={ai.organize ? "rgba(34,197,94,0.12)" : "rgba(100,116,139,0.14)"}
+          color={ai.organize ? "#15803d" : "#475569"}
+        >
+          {ai.organize ? "triagem ligada" : "triagem desligada"}
+        </Tag>
+      ),
+      content: (
+        <AiSettingsPanel
+          settings={ai}
+          onSave={props.callbacks.onSaveAiSettings}
+          onBackfill={props.callbacks.onBackfillOrganize}
+          onRefresh={props.callbacks.onRefresh}
         />
       ),
     });

@@ -4,11 +4,30 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Box, Flex, HStack, Spinner, Stack, Text, chakra } from "@chakra-ui/react";
-import { ArrowLeft, Maximize2, MessageCircle, Plus, RefreshCw, Search, Send, Users, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Maximize2,
+  MessageCircle,
+  PanelRight,
+  PictureInPicture2,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  Users,
+  X,
+} from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa6";
 import { EntityAvatar } from "../EntityAvatar";
 import { Textarea } from "../controls";
-import { useFabDock, setFabOpen, FAB_BASE, FAB_PANEL_BOTTOM } from "../fab/dock";
+import {
+  useFabDock,
+  useFabModo,
+  setFabOpen,
+  FAB_BASE,
+  FAB_LATERAL_W,
+  FAB_PANEL_BOTTOM,
+} from "../fab/dock";
 import type { UiRealtimeSubscribe } from "../realtime";
 import {
   ChatRow,
@@ -149,6 +168,10 @@ export function WhatsAppFab({
   // painel abre de cada vez — abrir a IA some com este, e vice-versa.
   const wantShow = connected && !hideOnPaths.includes(pathname);
   const { bottom, othersOpen } = useFabDock("whatsapp", wantShow);
+  // Flutuante (janelinha no canto) × lateral (encostado na direita, altura
+  // inteira). A escolha fica guardada — ver `useFabModo`.
+  const [modo, setModo] = useFabModo("whatsapp");
+  const lateral = modo === "lateral";
 
   useEffect(() => {
     onOpenChange?.(open);
@@ -325,13 +348,16 @@ export function WhatsAppFab({
   // WhatsApp do lead e "não acontecer nada".
   if (!connected && !open) return null;
 
+  // O botão redondo só existe com o painel FECHADO: aberto, quem fecha é o ×
+  // do cabeçalho. O botão-que-vira-× ficava escondido atrás da janelinha (e no
+  // modo lateral nem apareceria) — era um "fechar" que ninguém achava.
   const botao = (
     <chakra.button
       type="button"
-      onClick={() => setOpen((v) => !v)}
+      onClick={() => setOpen(true)}
       position="fixed"
       style={{ background: "#25d366", boxShadow: "0 12px 34px rgba(7,26,51,0.35)" }}
-      bottom={`${open ? FAB_BASE : bottom}px`}
+      bottom={`${bottom}px`}
       right={`${FAB_BASE}px`}
       zIndex={1400}
       w="56px"
@@ -346,8 +372,8 @@ export function WhatsAppFab({
       aria-label="WhatsApp"
       title="WhatsApp"
     >
-      {open ? <X size={22} /> : <FaWhatsapp size={26} />}
-      {!open && naoLidas > 0 ? (
+      <FaWhatsapp size={26} />
+      {naoLidas > 0 ? (
         <Box
           position="absolute"
           top="-2px"
@@ -373,21 +399,29 @@ export function WhatsAppFab({
 
   if (!open) return connected ? botao : null;
 
+  // Uma moldura, dois formatos. As MESMAS chaves nos dois ramos — assim o
+  // objeto tem um tipo só e entra no `Flex` sem ginástica de tipos.
+  const moldura = {
+    top: lateral ? "0px" : undefined,
+    bottom: lateral ? "0px" : `${FAB_PANEL_BOTTOM}px`,
+    right: lateral ? "0px" : `${FAB_BASE}px`,
+    w: lateral
+      ? { base: "100vw", sm: `min(${FAB_LATERAL_W}px, 100vw)` }
+      : { base: "calc(100vw - 32px)", sm: "380px" },
+    h: lateral ? undefined : { base: "72vh", sm: "580px" },
+    maxH: lateral ? undefined : "calc(100vh - 120px)",
+    borderRadius: lateral ? "0" : "18px",
+    boxShadow: lateral ? "-18px 0 44px rgba(17,12,40,0.16)" : "0 24px 60px rgba(17,12,40,0.22)",
+  };
+
   return (
     <>
-      {connected ? botao : null}
       <Flex
         position="fixed"
-        bottom={`${FAB_PANEL_BOTTOM}px`}
-        right={`${FAB_BASE}px`}
         zIndex={1400}
-        w={{ base: "calc(100vw - 32px)", sm: "380px" }}
-        h={{ base: "72vh", sm: "580px" }}
-        maxH="calc(100vh - 120px)"
-        borderRadius="18px"
+        {...moldura}
         bg="var(--admin-surface, white)"
         border="1px solid var(--admin-border)"
-        boxShadow="0 24px 60px rgba(17,12,40,0.22)"
         overflow="hidden"
         direction="column"
       >
@@ -465,11 +499,27 @@ export function WhatsAppFab({
               </chakra.button>
             </>
           )}
+          {/* Encostar na lateral × voltar pro balão: o mesmo painel, só que
+              colado na direita e do tamanho da janela. Quem trabalha o dia todo
+              aqui deixa encostado; quem só espia volta pro balão. */}
+          <chakra.button
+            type="button"
+            onClick={() => setModo(lateral ? "flutuante" : "lateral")}
+            aria-label={lateral ? "Voltar pro balão" : "Encostar na lateral"}
+            title={lateral ? "Voltar pro balão" : "Encostar na lateral"}
+            display="inline-flex"
+            alignItems="center"
+            opacity={0.85}
+            _hover={{ opacity: 1 }}
+            flexShrink={0}
+          >
+            {lateral ? <PictureInPicture2 size={15} /> : <PanelRight size={15} />}
+          </chakra.button>
           {expandHref ? (
             <ChakraLink
               href={expandHref}
-              aria-label="Abrir em tela cheia"
-              title="Abrir em tela cheia"
+              aria-label="Abrir na tela cheia"
+              title="Abrir na tela cheia"
               display="inline-flex"
               alignItems="center"
               color="white"
@@ -484,6 +534,9 @@ export function WhatsAppFab({
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Fechar"
+            title="Fechar"
+            display="inline-flex"
+            alignItems="center"
             opacity={0.85}
             _hover={{ opacity: 1 }}
             flexShrink={0}

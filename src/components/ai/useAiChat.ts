@@ -25,6 +25,7 @@ export function useAiChat({
   sendHistory = false,
   storageKey,
   path,
+  detail,
 }: {
   chatEndpoint: string;
   uploadEndpoint?: string;
@@ -32,6 +33,12 @@ export function useAiChat({
   sendHistory?: boolean;
   storageKey?: string;
   path?: string;
+  /**
+   * O que a TELA está mostrando agora (caixa aberta, e-mail selecionado, filtro).
+   * Vai junto do `path` e o servidor cola na ÚLTIMA mensagem do usuário — nunca
+   * num `system` novo, senão o prompt cache do Gateway quebra a cada frase.
+   */
+  detail?: string;
 }) {
   const [messages, setMessages] = useState<AiChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -118,7 +125,11 @@ export function useAiChat({
         const res = await fetch(chatEndpoint, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ text, context: { path }, ...(sendHistory ? { history: historico } : {}) }),
+          body: JSON.stringify({
+            text,
+            context: { path, ...(detail ? { detail } : {}) },
+            ...(sendHistory ? { history: historico } : {}),
+          }),
         });
         const data = (await res.json()) as {
           ok?: boolean;
@@ -136,7 +147,7 @@ export function useAiChat({
         setLoading(false);
       }
     },
-    [input, attachment, loading, messages, chatEndpoint, sendHistory, path],
+    [input, attachment, loading, messages, chatEndpoint, sendHistory, path, detail],
   );
 
   const clear = useCallback(() => {

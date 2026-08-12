@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
 /**
  * Dock dos FABs flutuantes do painel (canto inferior-direito).
@@ -35,8 +35,52 @@ const FAB_GAP = 12; // px — respiro entre botões empilhados
 /** `bottom` (px) do PAINEL aberto: sempre logo acima do botão do canto. */
 export const FAB_PANEL_BOTTOM = FAB_BASE + FAB_SIZE + FAB_GAP; // 92
 
-type State = { mounted: readonly FabId[]; openId: FabId | null };
-let state: State = { mounted: [], openId: null };
+/**
+ * Como o painel aberto se apresenta:
+ *   • `flutuante` — a janelinha de sempre, no canto (some ao fechar);
+ *   • `lateral`   — encostado na direita, ocupando a altura inteira da janela.
+ *
+ * É PREFERÊNCIA da pessoa, não estado da sessão: fica no `localStorage` por FAB
+ * (quem trabalha o dia todo no WhatsApp deixa lateral; quem só espia, flutuante).
+ */
+export type FabModo = "flutuante" | "lateral";
+
+const MODO_KEY = "jj:fab-modo";
+
+/** Largura do painel encostado (px) — a mesma nos dois FABs. */
+export const FAB_LATERAL_W = 420;
+
+export function useFabModo(id: FabId): [FabModo, (m: FabModo) => void] {
+  // Começa SEMPRE flutuante e lê a preferência no efeito: ler o localStorage no
+  // primeiro render faria o HTML do servidor divergir do cliente (hidratação).
+  const [modo, setModoState] = useState<FabModo>("flutuante");
+
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem(`${MODO_KEY}:${id}`);
+      if (v === "lateral" || v === "flutuante") setModoState(v);
+    } catch {
+      /* localStorage bloqueado (modo anónimo/iframe): fica no padrão */
+    }
+  }, [id]);
+
+  const setModo = useCallback(
+    (m: FabModo) => {
+      setModoState(m);
+      try {
+        window.localStorage.setItem(`${MODO_KEY}:${id}`, m);
+      } catch {
+        /* idem — a escolha vale pra esta sessão */
+      }
+    },
+    [id],
+  );
+
+  return [modo, setModo];
+}
+
+type State = { mounted: readonly FabId[]; openId: FabId | null; suppress: number };
+let state: State = { mounted: [], openId: null, suppress: 0 };
 const subs = new Set<() => void>();
 
 function emit() {
@@ -56,6 +100,7 @@ function setMounted(id: FabId, present: boolean) {
   const has = state.mounted.includes(id);
   if (present === has) return;
   state = {
+    ...state,
     mounted: present ? [...state.mounted, id] : state.mounted.filter((x) => x !== id),
     // Se o FAB aberto sumiu, ninguém fica "aberto".
     openId: !present && state.openId === id ? null : state.openId,
@@ -69,6 +114,25 @@ export function setFabOpen(id: FabId, open: boolean) {
   if (next === state.openId) return;
   state = { ...state, openId: next };
   emit();
+}
+
+/**
+ * SILENCIA todos os FABs enquanto uma TELA abre o chat dela na lateral direita
+ * (ex.: a IA da caixa de e-mail). Sem isto, o painel da tela e o balão do
+ * assistente disputariam o mesmo canto — dois chats abertos, um por cima do
+ * outro. Contador (e não booleano) porque duas telas podem montar no mesmo
+ * instante durante uma navegação.
+ */
+export function useFabSuppress(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    state = { ...state, suppress: state.suppress + 1, openId: null };
+    emit();
+    return () => {
+      state = { ...state, suppress: Math.max(0, state.suppress - 1) };
+      emit();
+    };
+  }, [active]);
 }
 
 /**
@@ -93,6 +157,8 @@ export function useFabDock(id: FabId, present: boolean) {
     /** `bottom` (px) do BOTÃO quando o painel deste FAB está fechado. */
     bottom: FAB_BASE + slot * (FAB_SIZE + FAB_GAP),
     selfOpen: snap.openId === id,
-    othersOpen: snap.openId != null && snap.openId !== id,
+    // Uma tela com chat próprio aberto (useFabSuppress) conta como "outro aberto":
+    // o FAB some pelo caminho que já existia, sem tocar em quem o usa.
+    othersOpen: snap.suppress > 0 || (snap.openId != null && snap.openId !== id),
   };
 }
