@@ -47,14 +47,98 @@ function CopyLink({ value }: { value: string }) {
 }
 
 /**
- * CATÁLOGO DE VENDA — a lista única do que se manda pro cliente, IGUAL nos dois
- * painéis: o do representante (`/painel/catalogo`) e o do sistema (Segmentos →
- * "Catálogo de venda"), onde trabalha quem vende direto com o José.
+ * O LINK DE VENDA de um segmento: o endereço que se manda pro cliente, as línguas
+ * em que ele abre e o roteiro de apresentação.
  *
- * Cada card é um segmento com o SEU link. Os que já têm o site de demonstração no
- * ar abrem nas quatro línguas (o seletor fica no topo do site) e trazem o roteiro
- * de apresentação. Os itens vêm prontos de `montarCatalogo` — o componente não
- * sabe de domínio nem de atribuição.
+ * É componente à parte porque a MESMA coisa aparece em dois lugares: no card da
+ * lista (aqui embaixo) e DENTRO do segmento, no detalhe do painel do José. Enquanto
+ * isso só existia no card, quem abria um segmento não achava o link que ia mandar —
+ * tinha de voltar pra lista pra copiar.
+ */
+export function LinkDeVenda({
+  link,
+  idiomas,
+  apresentacao,
+  aviso,
+}: {
+  /** Endereço público. Vazio = não há página no ar (mostra o `aviso`). */
+  link: string;
+  idiomas?: { code: string; label: string; url: string }[];
+  apresentacao?: string;
+  /** O que dizer quando não há link. */
+  aviso?: ReactNode;
+}) {
+  if (!link) {
+    return aviso ? (
+      <Text fontSize="xs" color="var(--admin-text-soft)">
+        {aviso}
+      </Text>
+    ) : null;
+  }
+  return (
+    <Stack gap={2.5}>
+      <CopyLink value={link} />
+
+      {idiomas?.length ? (
+        <HStack gap={1.5} flexWrap="wrap" align="center">
+          <Text fontSize="xs" color="var(--admin-text-soft)">Abre em:</Text>
+          {idiomas.map((i) => (
+            <chakra.a
+              key={i.code}
+              href={i.url}
+              target="_blank"
+              rel="noopener"
+              px={2}
+              py="2px"
+              borderRadius="999px"
+              borderWidth="1px"
+              borderColor="var(--admin-border)"
+              fontSize="xs"
+              fontWeight="600"
+              color="var(--admin-text-soft)"
+              _hover={{ bg: "var(--admin-surface-2)", color: "var(--admin-text)" }}
+            >
+              {i.label}
+            </chakra.a>
+          ))}
+          <Text fontSize="xs" color="var(--admin-text-soft)">
+            (é o mesmo link — o seletor fica no topo do site)
+          </Text>
+        </HStack>
+      ) : null}
+
+      <HStack gap={2} flexWrap="wrap">
+        <Button tone="primary" size="sm" asChild>
+          <a href={link} target="_blank" rel="noopener">
+            <ExternalLink size={14} style={{ marginRight: 6 }} /> Abrir página
+          </a>
+        </Button>
+        {apresentacao ? (
+          <Button tone="outline" size="sm" asChild>
+            <a href={apresentacao} target="_blank" rel="noopener">
+              <BookOpen size={14} style={{ marginRight: 6 }} /> Como apresentar
+            </a>
+          </Button>
+        ) : null}
+      </HStack>
+    </Stack>
+  );
+}
+
+/**
+ * CATÁLOGO DE VENDA — a lista única dos SEGMENTOS, IGUAL nos dois painéis: o do
+ * representante (`/painel/catalogo`) e o do sistema (Segmentos & Catálogo), onde
+ * trabalha quem vende direto com o José.
+ *
+ * Cada card é um segmento com o SEU link. Os que já têm o site no ar abrem nas
+ * quatro línguas (o seletor fica no topo do site) e trazem o roteiro de
+ * apresentação. Os itens vêm prontos de `montarCatalogo` — o componente não sabe
+ * de domínio nem de atribuição.
+ *
+ * No painel do José o MESMO card carrega a configuração do segmento: os fatos vêm
+ * em `item.meta` e os botões de abrir/excluir em `acoes`. Antes eram duas abas
+ * sobre a mesma lista ("Configuração" × "Catálogo de venda") — o segmento parecia
+ * duas coisas diferentes e o link de venda não existia dentro dele.
  */
 export function CatalogoVenda({
   itens = [],
@@ -62,6 +146,7 @@ export function CatalogoVenda({
   materialLinks,
   customDomain = "",
   nota,
+  acoes,
 }: {
   itens?: CatalogoItem[];
   /** `/apresentar` — o material que ensina a apresentar. */
@@ -72,6 +157,8 @@ export function CatalogoVenda({
   customDomain?: string;
   /** Linha de contexto do painel (o público de cada um é diferente). */
   nota?: ReactNode;
+  /** Ações de quem ADMINISTRA o segmento (abrir/excluir). Vazio no painel do rep. */
+  acoes?: (item: CatalogoItem) => ReactNode;
 }) {
   return (
     <>
@@ -151,6 +238,14 @@ export function CatalogoVenda({
                   {it.subtitle}
                 </Text>
 
+                {it.meta?.length ? (
+                  <HStack gap={2} flexWrap="wrap" fontSize="xs" color="var(--admin-text-soft)">
+                    {it.meta.map((m, i) => (
+                      <Text key={m}>{i ? `· ${m}` : m}</Text>
+                    ))}
+                  </HStack>
+                ) : null}
+
                 {it.modulos.length ? (
                   <HStack gap={1.5} flexWrap="wrap">
                     {it.modulos.slice(0, 6).map((m) => (
@@ -159,51 +254,16 @@ export function CatalogoVenda({
                   </HStack>
                 ) : null}
 
-                <CopyLink value={it.link} />
-
-                {it.idiomas ? (
-                  <HStack gap={1.5} flexWrap="wrap" align="center">
-                    <Text fontSize="xs" color="var(--admin-text-soft)">Abre em:</Text>
-                    {it.idiomas.map((i) => (
-                      <chakra.a
-                        key={i.code}
-                        href={i.url}
-                        target="_blank"
-                        rel="noopener"
-                        px={2}
-                        py="2px"
-                        borderRadius="999px"
-                        borderWidth="1px"
-                        borderColor="var(--admin-border)"
-                        fontSize="xs"
-                        fontWeight="600"
-                        color="var(--admin-text-soft)"
-                        _hover={{ bg: "var(--admin-surface-2)", color: "var(--admin-text)" }}
-                      >
-                        {i.label}
-                      </chakra.a>
-                    ))}
-                    <Text fontSize="xs" color="var(--admin-text-soft)">
-                      (é o mesmo link — o seletor fica no topo do site)
-                    </Text>
-                  </HStack>
-                ) : null}
-
                 <Box mt="auto">
-                  <HStack gap={2} flexWrap="wrap">
-                    <Button tone="primary" size="sm" asChild>
-                      <a href={it.link} target="_blank" rel="noopener">
-                        <ExternalLink size={14} style={{ marginRight: 6 }} /> Abrir página
-                      </a>
-                    </Button>
-                    {it.apresentacao ? (
-                      <Button tone="outline" size="sm" asChild>
-                        <a href={it.apresentacao} target="_blank" rel="noopener">
-                          <BookOpen size={14} style={{ marginRight: 6 }} /> Como apresentar
-                        </a>
-                      </Button>
-                    ) : null}
-                  </HStack>
+                  <Stack gap={3}>
+                    <LinkDeVenda
+                      link={it.link}
+                      idiomas={it.idiomas}
+                      apresentacao={it.apresentacao}
+                      aviso={it.aviso}
+                    />
+                    {acoes ? <HStack gap={2} flexWrap="wrap">{acoes(it)}</HStack> : null}
+                  </Stack>
                 </Box>
               </Stack>
             </Card>

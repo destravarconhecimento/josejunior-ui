@@ -55,10 +55,20 @@ export type CatalogoItem = {
   badge: string;
   subtitle: string;
   modulos: string[];
+  /** Endereço público do segmento. **Vazio** = ainda não há página no ar. */
   link: string;
   cor?: string;
   idiomas?: { code: string; label: string; url: string }[];
   apresentacao?: string;
+  /**
+   * Fatos curtos do segmento, em uma linha ("8 módulos · tema v2 · 3 propostas").
+   * O painel do José usa pra mostrar a CONFIGURAÇÃO no mesmo card da venda — eram
+   * duas listas da mesma coisa. No painel do representante fica vazio: ele não
+   * configura segmento, só manda.
+   */
+  meta?: string[];
+  /** O que dizer no lugar do link quando `link` está vazio (não há página no ar). */
+  aviso?: string;
 };
 
 /**

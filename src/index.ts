@@ -271,7 +271,7 @@ export { DonutChart, type DonutItem } from "./components/DonutChart";
 export { LineChart, type LineSeries } from "./components/LineChart";
 
 // Catálogo de venda (mesma lista no painel do representante e no do sistema)
-export { CatalogoVenda } from "./components/CatalogoVenda";
+export { CatalogoVenda, LinkDeVenda } from "./components/CatalogoVenda";
 export {
   montarCatalogo,
   linksDoMaterial,
