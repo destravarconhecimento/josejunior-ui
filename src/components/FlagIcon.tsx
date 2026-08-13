@@ -3,9 +3,10 @@ import { Box, chakra } from "@chakra-ui/react";
 /**
  * Bandeira de país em SVG INLINE (sem lib, sem emoji). Emoji de bandeira não
  * renderiza no Windows; este componente desenha a bandeira igual em qualquer SO.
- * Suporta os países do catálogo de idiomas (br/gb/es/jp/fr/de/it/cn) e cai num globo neutro
+ * Suporta os países do catálogo de idiomas (pt/gb/es/jp/fr/de/it/cn) e cai num globo neutro
  * pra qualquer outro código. Aspecto fixo 4:3, cantinho arredondado + hairline.
- * `en` usa a bandeira do REINO UNIDO (gb) — o inglês da plataforma é o britânico.
+ * `en` usa a bandeira do REINO UNIDO (gb) — o inglês da plataforma é o britânico —
+ * e `pt` usa a de PORTUGAL (o português da casa é o de Portugal, não o do Brasil).
  */
 export function FlagIcon({ code, size = 18 }: { code: string; size?: number }) {
   const h = Math.round((size * 3) / 4);
@@ -30,6 +31,17 @@ export function FlagIcon({ code, size = 18 }: { code: string; size?: number }) {
 
 /** Bandeiras conhecidas. Cada valor é o CONTEÚDO do <svg viewBox="0 0 24 18">. */
 const FLAGS: Record<string, React.ReactNode> = {
+  // Portugal: 2/5 verde + 3/5 vermelho, esfera armilar amarela na divisa com o
+  // escudo branco por cima (simplificado — o resto some neste tamanho).
+  pt: (
+    <>
+      <rect width={24} height={18} fill="#DA291C" />
+      <rect width={9.6} height={18} fill="#046A38" />
+      <circle cx={9.6} cy={9} r={4} fill="#FFE900" stroke="#046A38" strokeWidth={0.5} />
+      <circle cx={9.6} cy={9} r={2.4} fill="#fff" stroke="#DA291C" strokeWidth={0.6} />
+      <rect x={8.9} y={7.6} width={1.4} height={2.8} rx={0.3} fill="#002D62" />
+    </>
+  ),
   // Brasil: campo verde, losango amarelo, círculo azul.
   br: (
     <>
