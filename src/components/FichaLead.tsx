@@ -72,6 +72,13 @@ export type FichaLeadDados = {
   proximaAcao?: string | null;
   /** ISO. */
   proximaAcaoEm?: string | null;
+  /**
+   * O que ELE escreveu ao procurar você (assunto + mensagem do formulário). Só
+   * existe em quem chegou sozinho — base fria não escreveu nada. É o bloco que
+   * veio da tela de Atendimentos: sem ele, aposentá-la perderia o pedido em si,
+   * que é a única coisa do contato que não dá pra deduzir do resto da ficha.
+   */
+  pedido?: { assunto?: string | null; texto?: string | null } | null;
   /** Diário do lead, mais recente primeiro. */
   notas?: string[];
   emails?: FichaEmail[];
@@ -250,6 +257,27 @@ export function FichaLead({
           </Text>
         )}
       </Box>
+
+      {/* O pedido vem ANTES do contato de propósito: quando a pessoa escreveu
+          alguma coisa, é ela que decide o que responder — o telefone só importa
+          depois de saber o que ela quer. */}
+      {dados.pedido && (dados.pedido.assunto || dados.pedido.texto) ? (
+        <Box className="admin-card" p={3} maxH="220px" overflowY="auto">
+          <Text {...ROTULO_BLOCO} mb={1}>
+            O que ele escreveu
+          </Text>
+          {dados.pedido.assunto ? (
+            <Text fontSize="sm" fontWeight="600" color="var(--admin-text)" mb={1}>
+              {dados.pedido.assunto}
+            </Text>
+          ) : null}
+          {dados.pedido.texto ? (
+            <Text fontSize="sm" color="var(--admin-text)" whiteSpace="pre-wrap">
+              {dados.pedido.texto}
+            </Text>
+          ) : null}
+        </Box>
+      ) : null}
 
       <SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
         <Stack gap={0.5} minW={0}>
