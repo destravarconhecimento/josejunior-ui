@@ -20,15 +20,17 @@ export function classifyLead(input: { source?: string | null; origin?: string | 
   if (source === "manual" || origin.startsWith("cadastro manual")) return "adicionado";
   // Base importada (planilha/CSV/CRM de tenant).
   if (source === "import") return "importado";
-  // Landing de IA de cotação: a pessoa PEDIU um orçamento.
-  if (source === "site_cotacao") return "orcamento";
+  // Pediu ORÇAMENTO: pela landing de IA de cotação ou pelo formulário que mora
+  // DENTRO da proposta (`origin = proposta:<código>`) — nos dois casos a pessoa
+  // não só falou com a gente, ela pediu preço.
+  if (source === "site_cotacao" || source === "proposta" || origin.startsWith("proposta:")) return "orcamento";
   // Formulário do site (nosso ou do rep) e o resto: a pessoa ENTROU EM CONTATO.
   return "contato";
 }
 
 export const LEAD_KIND_META: Record<LeadKindKey, { label: string; hint: string; bg: string; color: string }> = {
   contato: { label: "Entrou em contato", hint: "Te procurou — preencheu um formulário do site.", bg: "rgba(16,185,129,0.14)", color: "#047857" },
-  orcamento: { label: "Pediu orçamento", hint: "Pediu um orçamento pela landing de IA.", bg: "rgba(59,130,246,0.14)", color: "#1d4ed8" },
+  orcamento: { label: "Pediu orçamento", hint: "Pediu preço — pela landing de IA ou dentro da proposta que você mandou.", bg: "rgba(59,130,246,0.14)", color: "#1d4ed8" },
   prospectado: { label: "Prospectado", hint: "Você foi atrás — esta pessoa não pediu contato.", bg: "rgba(234,179,8,0.18)", color: "#b45309" },
   adicionado: { label: "Adicionado", hint: "Cadastrado manualmente.", bg: "rgba(100,116,139,0.14)", color: "#475569" },
   importado: { label: "Importado", hint: "Veio de uma planilha ou importação de base.", bg: "rgba(148,163,184,0.16)", color: "#64748b" },

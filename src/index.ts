@@ -65,6 +65,23 @@ export {
   type FichaPeca,
 } from "./components/FichaLead";
 export { LeadKindBadge, classifyLead, LEAD_KIND_META, type LeadKindKey } from "./components/LeadKind";
+// Atendimento — quem procurou você (site ou orçamento da proposta), a MESMA tela nos dois painéis.
+// A tela é client; as regras (canal, carimbo de contato, "procurou você") são puras e o SERVIDOR
+// dos dois painéis chama — por isso moram em ./atendimento, fora do componente.
+export { Atendimentos, type AtendimentoItem } from "./components/Atendimentos";
+export {
+  type AtendimentoCanal,
+  type ContatoCarimbado,
+  carimbosDeContato,
+  ultimoContato,
+  ultimoContatoDeFormulario,
+  procurouVoce,
+  canalDoContato,
+  origemDoContato,
+  tokenDaProposta,
+  ORIGEM_PROPOSTA,
+  PROPOSTA_BASE_URL,
+} from "./atendimento";
 export { EmptyState } from "./components/EmptyState";
 // Tempo real por INJEÇÃO (o ui não conhece transporte — ver components/realtime.ts)
 export type { UiRealtimeEvent, UiRealtimeSubscribe } from "./components/realtime";
