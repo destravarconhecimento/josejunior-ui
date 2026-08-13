@@ -51,6 +51,8 @@ export { Card } from "./components/Card";
 export { Button, type ButtonTone } from "./components/Button";
 // Botão de ícone COM significado (a cor diz o que a ação faz) — listas de trabalho
 export { AcaoIcone, type AcaoTone } from "./components/AcaoIcone";
+// Dado que se copia no próprio clique (e-mail, telefone) — poupa botão na linha
+export { TextoCopiavel } from "./components/TextoCopiavel";
 export { Tag, StatusBadge, DeliveryBadge } from "./components/Badge";
 export { LeadKindBadge, classifyLead, LEAD_KIND_META, type LeadKindKey } from "./components/LeadKind";
 export { EmptyState } from "./components/EmptyState";
