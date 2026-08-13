@@ -246,6 +246,8 @@ export { CatalogoVenda } from "./components/CatalogoVenda";
 export {
   montarCatalogo,
   linksDoMaterial,
+  mensagemDeAtivacao,
+  type MensagemAtivacaoInput,
   type CatalogoItem,
   type CatalogoVertical,
   type CatalogoSegmentoPronto,

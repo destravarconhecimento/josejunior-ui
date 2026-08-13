@@ -149,3 +149,97 @@ export function linksDoMaterial(rootDomain: string, repSlug = ""): { material: s
   const q = repSlug ? `?rep=${encodeURIComponent(repSlug)}` : "";
   return { material: `${web}/apresentar${q}`, materialLinks: `${web}/apresentar/links${q}` };
 }
+
+/** "a, b e c" — lista em português, sem vírgula antes do "e". */
+function listar(xs: string[]): string {
+  const l = xs.filter(Boolean);
+  if (l.length <= 1) return l[0] ?? "";
+  return `${l.slice(0, -1).join(", ")} e ${l[l.length - 1]}`;
+}
+
+/** "Petshop (banho, tosa e loja)" → "Petshop": numa lista corrida o parêntese atrapalha. */
+function nomeCurto(nome: string): string {
+  return nome.replace(/\s*\([^)]*\)\s*$/, "").trim();
+}
+
+/** O que a mensagem precisa saber do representante. */
+export type MensagemAtivacaoInput = {
+  /** Como você o chama (primeiro nome). */
+  primeiroNome: string;
+  slug: string;
+  rootDomain: string;
+  /** Domínio próprio, se tiver (sem `www.`) — muda o painel e os links. */
+  customDomain?: string;
+  email?: string;
+  /** Já criou senha? Muda o parágrafo do acesso (o e-mail de senha não sai sozinho). */
+  temSenha?: boolean;
+  /** Os cards do catálogo DELE (saída de `montarCatalogo` com o slug/domínio dele). */
+  itens: CatalogoItem[];
+  /** `linksDoMaterial(rootDomain, slug).material`. */
+  material: string;
+};
+
+/**
+ * Texto pronto pra mandar ao representante quando o painel dele entra no ar:
+ * onde entrar, como criar a senha, o que tem lá dentro e o link do material que
+ * ensina a apresentar. Sai dos MESMOS dados dos cards, então nunca cita segmento
+ * que não existe nem link que não bate com o do painel — o José escrevia isso à
+ * mão, um por um, e a lista envelhecia a cada segmento novo.
+ *
+ * Texto puro (sem markdown): vai por WhatsApp ou e-mail.
+ */
+export function mensagemDeAtivacao({
+  primeiroNome,
+  slug,
+  rootDomain,
+  customDomain = "",
+  email = "",
+  temSenha = false,
+  itens,
+  material,
+}: MensagemAtivacaoInput): string {
+  const painel = `https://${customDomain || `${slug}.${rootDomain}`}/painel`;
+  const nome = primeiroNome.trim() || "Olá";
+  // Com domínio próprio, o material também é na marca dele: `apresentacao.<domínio>`
+  // resolve o representante pelo HOST, então nem precisa do `?rep=` no fim.
+  const roteiro = customDomain ? `https://apresentacao.${customDomain}` : material;
+
+  // Exemplo de link = os que já têm página no ar (com as línguas); se não houver,
+  // qualquer segmento serve pra mostrar o formato.
+  const comPagina = itens.filter((i) => i.idiomas?.length);
+  const exemplos = (comPagina.length ? comPagina : itens)
+    .slice(0, 2)
+    .map((i) => i.link.replace(/^https?:\/\//, ""));
+  const linguas = listar((comPagina[0]?.idiomas ?? []).map((i) => i.label));
+  const lista = listar(itens.map((i) => nomeCurto(i.nome)));
+
+  const acesso = temSenha
+    ? `Você entra com o seu e-mail${email ? ` (${email})` : ""} e a senha que já criou. Esqueceu? Me avisa que eu mando o link pra criar outra.`
+    : email
+      ? `Mandei no seu e-mail (${email}) o link pra você criar a sua senha — é só clicar, escolher a senha e entrar. O link vale 48h; se já tiver expirado, me avisa que eu disparo outro.`
+      : `Me confirma o seu melhor e-mail que eu mando o link pra você criar a sua senha.`;
+
+  const links = exemplos.length
+    ? `Cada um já tem o SEU link${customDomain ? ", na sua marca" : ""}: ${exemplos.join(" e ")}${
+        linguas ? ` — e abrem em ${linguas} no mesmo endereço, o cliente troca a língua no topo` : ""
+      }. ${
+        customDomain
+          ? "Todo cliente que chegar por esses links entra atribuído a você."
+          : "Copie sempre do painel: é o ?rep= no fim do link que faz o cliente entrar atribuído a você."
+      }`
+    : "";
+
+  return [
+    `${nome}, seu painel de representante está no ar: ${painel}`,
+    acesso,
+    lista
+      ? `Entrando, vá direto na aba "Segmentos & Catálogo". Lá estão TODOS os segmentos que já entregamos prontos — site + sistema no ar, não é promessa: ${lista}. Você pode levar qualquer um pro seu cliente.`
+      : `Entrando, vá direto na aba "Segmentos & Catálogo": é de lá que você copia o que manda pro cliente.`,
+    links,
+    "No painel você ainda tem os seus leads e o funil, o atendimento (WhatsApp e e-mail), as campanhas e o seu site pra editar.",
+    `E aqui é a página que te ensina a apresentar (o roteiro do que falar em cada tela + mensagens prontas pra copiar):\n${roteiro}`,
+    "Dá uma olhada e me diz qual cliente você ataca essa semana.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
