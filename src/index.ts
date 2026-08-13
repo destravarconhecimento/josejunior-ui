@@ -53,6 +53,8 @@ export { Button, type ButtonTone } from "./components/Button";
 export { AcaoIcone, type AcaoTone } from "./components/AcaoIcone";
 // Dado que se copia no próprio clique (e-mail, telefone) — poupa botão na linha
 export { TextoCopiavel } from "./components/TextoCopiavel";
+// Telefone de linha de lista: selo "tem WhatsApp?" + o número clicável pra copiar
+export { NumeroWhats, type SituacaoWhats } from "./components/NumeroWhats";
 export { Tag, StatusBadge, DeliveryBadge } from "./components/Badge";
 export { LeadKindBadge, classifyLead, LEAD_KIND_META, type LeadKindKey } from "./components/LeadKind";
 export { EmptyState } from "./components/EmptyState";
