@@ -258,6 +258,19 @@ export {
   type CatalogoIdioma,
 } from "./catalogo";
 
+// Proposta: a peça por EMPRESA (o catálogo acima é o que se vende, isto é o
+// que se manda pra uma empresa). Mesmo gerador no sistema e no representante.
+export {
+  PropostaGenerator,
+  SegmentoTag,
+  type PropostaGeneratorProps,
+  type PropostaSegmentoOpcao,
+  type PropostaDossie,
+  type PropostaAlvo,
+  type PropostaGerarInput,
+  type PropostaLinks,
+} from "./components/PropostaGenerator";
+
 // Central Operacional (status, fila, funil, atendimento, ações)
 export {
   IntegrationStatusRow,
