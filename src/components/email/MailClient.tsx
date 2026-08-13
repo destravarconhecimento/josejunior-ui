@@ -417,6 +417,12 @@ export function MailClient(props: {
    * que o webhook grava aparece na hora e o ciclo de 60s afrouxa pra 5 min.
    */
   onRealtime?: UiRealtimeSubscribe;
+  /**
+   * "Escrever pra esta pessoa" vindo de OUTRA tela (o funil manda `?para=`): a
+   * caixa abre já com o compositor endereçado, em vez de largar o vendedor na
+   * lista tendo que achar o botão e recopiar o e-mail que ele acabou de clicar.
+   */
+  composeTo?: string;
 }) {
   const [view, setView] = useState<"inbox" | "settings">(props.initialView);
   const [aiOpen, setAiOpen] = useState(false);
@@ -559,6 +565,7 @@ export function MailClient(props: {
                 onGoSettings={props.isAdmin ? () => setView("settings") : undefined}
                 onRealtime={props.onRealtime}
                 onEstado={aiChat ? onEstadoCaixa : undefined}
+                composeTo={props.composeTo}
               />
             </Box>
             {chatOpen && aiChat ? (
@@ -2386,6 +2393,7 @@ function Mailbox({
   onGoSettings,
   onRealtime,
   onEstado,
+  composeTo,
 }: {
   accounts: MailInboxAccount[];
   messages: MailMessage[];
@@ -2402,6 +2410,8 @@ function Mailbox({
    * escuro e o José teria que descrever a caixa e colar o e-mail toda vez.
    */
   onEstado?: (detalhe: string) => void;
+  /** E-mail que já vem endereçado no compositor (ver a prop do `MailClient`). */
+  composeTo?: string;
 }) {
   const [pending, start] = useTransition();
 
@@ -2723,6 +2733,24 @@ function Mailbox({
       to: "", cc: "", subject: "", html: "", inReplyTo: null, threadId: null, attachments: [],
     });
   }
+
+  /**
+   * Chegou de outra tela com destinatário na mão (`composeTo`): abre o
+   * compositor endereçado. Guardamos o endereço JÁ ATENDIDO num ref em vez de
+   * disparar só na montagem, porque quem vem do funil não remonta a caixa — é a
+   * mesma rota com outra query, e sem isto o segundo contato não abriria nada.
+   */
+  const paraAtendido = useRef<string | null>(null);
+  useEffect(() => {
+    const para = (composeTo ?? "").trim();
+    if (!para || paraAtendido.current === para) return;
+    paraAtendido.current = para;
+    setSelectedId(null);
+    setCompose({
+      fromAccountId: composeDefaultId,
+      to: para, cc: "", subject: "", html: "", inReplyTo: null, threadId: null, attachments: [],
+    });
+  }, [composeTo, composeDefaultId]);
 
   function startReply(m: MailMessage) {
     const replyTo = m.direction === "inbound" ? m.fromAddress : m.toAddresses[0] ?? "";

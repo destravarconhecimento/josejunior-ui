@@ -56,6 +56,14 @@ export { TextoCopiavel } from "./components/TextoCopiavel";
 // Telefone de linha de lista: selo "tem WhatsApp?" + o número clicável pra copiar
 export { NumeroWhats, type SituacaoWhats } from "./components/NumeroWhats";
 export { Tag, StatusBadge, DeliveryBadge } from "./components/Badge";
+// A ficha do lead — a MESMA nos dois painéis (José e representante)
+export {
+  FichaLead,
+  type FichaLeadDados,
+  type FichaEtapaOpcao,
+  type FichaEmail,
+  type FichaPeca,
+} from "./components/FichaLead";
 export { LeadKindBadge, classifyLead, LEAD_KIND_META, type LeadKindKey } from "./components/LeadKind";
 export { EmptyState } from "./components/EmptyState";
 // Tempo real por INJEÇÃO (o ui não conhece transporte — ver components/realtime.ts)
