@@ -49,6 +49,8 @@ export { PageBody } from "./components/PageBody";
 export { ScrollArea } from "./components/ScrollArea";
 export { Card } from "./components/Card";
 export { Button, type ButtonTone } from "./components/Button";
+// Botão de ícone COM significado (a cor diz o que a ação faz) — listas de trabalho
+export { AcaoIcone, type AcaoTone } from "./components/AcaoIcone";
 export { Tag, StatusBadge, DeliveryBadge } from "./components/Badge";
 export { LeadKindBadge, classifyLead, LEAD_KIND_META, type LeadKindKey } from "./components/LeadKind";
 export { EmptyState } from "./components/EmptyState";
@@ -148,7 +150,7 @@ export {
   type EvolucaoItem,
   type EvolucaoSaveData,
 } from "./components/EvolucoesManager";
-export { Toaster, toaster, toast } from "./components/Toast";
+export { Toaster, toaster, toast, type ToastOpts } from "./components/Toast";
 export { Accordion, type AccordionItemDef } from "./components/Accordion";
 export { SidePanel } from "./components/SidePanel";
 export { ConfirmDialog } from "./components/ConfirmDialog";

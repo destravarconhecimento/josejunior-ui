@@ -55,17 +55,38 @@ export function Toaster() {
   );
 }
 
+/**
+ * Extras do toast. `action` vira o botão à direita (o <Toaster/> já renderiza o
+ * `ActionTrigger`) — é o que permite "desfazer" um clique errado sem sair da tela.
+ */
+export type ToastOpts = {
+  action?: { label: string; onClick: () => void };
+  duration?: number;
+};
+
 /** Helpers — use em client components: `toast.success("Salvo!")`, `toast.error(...)`. */
 export const toast = {
-  success: (title: string, description?: string) =>
-    toaster.create({ type: "success", title, description }),
-  error: (title: string, description?: string) =>
-    toaster.create({ type: "error", title, description, duration: 6000 }),
-  info: (title: string, description?: string) =>
-    toaster.create({ type: "info", title, description }),
-  warning: (title: string, description?: string) =>
-    toaster.create({ type: "warning", title, description }),
+  success: (title: string, description?: string, opts?: ToastOpts) =>
+    toaster.create({ type: "success", title, description, ...opts }),
+  error: (title: string, description?: string, opts?: ToastOpts) =>
+    toaster.create({ type: "error", title, description, duration: 6000, ...opts }),
+  info: (title: string, description?: string, opts?: ToastOpts) =>
+    toaster.create({ type: "info", title, description, ...opts }),
+  warning: (title: string, description?: string, opts?: ToastOpts) =>
+    toaster.create({ type: "warning", title, description, ...opts }),
   loading: (title: string, description?: string) =>
     toaster.create({ type: "loading", title, description }),
+  /**
+   * Ação feita COM saída: fica 12s na tela com o botão "Desfazer". Use em toda
+   * ação de um clique que muda estado — clique errado é a regra, não a exceção.
+   */
+  desfazivel: (title: string, description: string | undefined, onDesfazer: () => void) =>
+    toaster.create({
+      type: "success",
+      title,
+      description,
+      duration: 12000,
+      action: { label: "Desfazer", onClick: onDesfazer },
+    }),
   dismiss: (id?: string) => toaster.dismiss(id),
 };
