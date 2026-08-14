@@ -1,8 +1,8 @@
 "use client";
 /**
- * "Baixar arte" da evolução: prévia 9:16 ao vivo + os poucos campos que mudam
- * (chamada, rodapé e o FUNDO). O desenho é o mesmo `arteEvolucaoTree` que o
- * servidor rasteriza — a prévia aqui é o PNG que vai sair, na escala reduzida.
+ * "Baixar arte" da evolução: prévia ao vivo + os poucos campos que mudam
+ * (formato, chamada, rodapé e o FUNDO). O desenho é o mesmo `arteEvolucaoTree`
+ * que o servidor rasteriza — a prévia aqui é o PNG que vai sair, reduzido.
  *
  * O componente não conhece rota nem action: quem chama monta o link do PNG
  * (`buildDownloadHref`) e persiste a configuração (`onSaveConfig`).
@@ -14,7 +14,7 @@ import { Button } from "../components/Button";
 import { Modal } from "../components/Modal";
 import { FormInput } from "../components/form";
 import { toaster } from "../components/Toast";
-import { arteEvolucaoTree, ARTE_H, ARTE_W } from "./arte";
+import { arteDimensoes, arteEvolucaoTree, ARTE_ASSINATURA, ARTE_FORMATO_PADRAO, type ArteFormato } from "./arte";
 import type { EvolucaoFoto } from "./types";
 
 export type ArteEvolucaoConfig = {
@@ -24,6 +24,8 @@ export type ArteEvolucaoConfig = {
   rodape: string;
   /** Fundo próprio; null = fundo sólido da marca. */
   fundoUrl: string | null;
+  /** Feed 4:5 (padrão, o que rende no Instagram) ou story 9:16. */
+  formato: ArteFormato;
 };
 
 export type ArteEvolucaoAlvo = {
@@ -49,7 +51,12 @@ export type ArteEvolucaoModalProps = {
   fundosSugeridos?: { url: string; label: string }[];
 };
 
-const PREVIEW_W = 300;
+const PREVIEW_W = 320;
+
+const FORMATOS: { id: ArteFormato; label: string }[] = [
+  { id: "feed", label: "Feed 4:5" },
+  { id: "story", label: "Story 9:16" },
+];
 
 export function ArteEvolucaoModal({
   open,
@@ -68,7 +75,13 @@ export function ArteEvolucaoModal({
 
   // Reabrir com outro item mantém a configuração da sessão anterior — só
   // ressincroniza quando o modal está fechado (evita pisar no que ele digitou).
-  if (!open && (cfg.chamada !== config.chamada || cfg.rodape !== config.rodape || cfg.fundoUrl !== config.fundoUrl)) {
+  if (
+    !open &&
+    (cfg.chamada !== config.chamada ||
+      cfg.rodape !== config.rodape ||
+      cfg.fundoUrl !== config.fundoUrl ||
+      cfg.formato !== config.formato)
+  ) {
     setCfg(config);
   }
 
@@ -91,13 +104,15 @@ export function ArteEvolucaoModal({
     window.location.href = buildDownloadHref(alvo.id, cfg);
   };
 
-  const escala = PREVIEW_W / ARTE_W;
+  const formato = cfg.formato ?? ARTE_FORMATO_PADRAO;
+  const dim = arteDimensoes(formato);
+  const escala = PREVIEW_W / dim.w;
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="Baixar arte (9:16)"
+      title="Baixar arte para o Instagram"
       size="xl"
       footer={
         <>
@@ -116,7 +131,7 @@ export function ArteEvolucaoModal({
           flexShrink={0}
           mx="auto"
           width={`${PREVIEW_W}px`}
-          height={`${Math.round(ARTE_H * escala)}px`}
+          height={`${Math.round(dim.h * escala)}px`}
           borderRadius="12px"
           overflow="hidden"
           borderWidth="1px"
@@ -125,8 +140,8 @@ export function ArteEvolucaoModal({
         >
           <Box
             style={{
-              width: ARTE_W,
-              height: ARTE_H,
+              width: dim.w,
+              height: dim.h,
               transform: `scale(${escala})`,
               transformOrigin: "top left",
             }}
@@ -142,12 +157,31 @@ export function ArteEvolucaoModal({
                   rodape: cfg.rodape,
                   cor: brand?.cor ?? null,
                   fundoCor: brand?.fundoCor ?? null,
+                  formato,
                 })
               : null}
           </Box>
         </Box>
 
         <Stack gap={4} flex="1" minW="0" w="100%">
+          <Stack gap={2}>
+            <Text fontSize="sm" fontWeight="600">
+              Formato
+            </Text>
+            <HStack gap={2} flexWrap="wrap">
+              {FORMATOS.map((f) => (
+                <Button
+                  key={f.id}
+                  tone={formato === f.id ? "primary" : "outline"}
+                  size="sm"
+                  onClick={() => setCfg((c) => ({ ...c, formato: f.id }))}
+                >
+                  {f.label}
+                </Button>
+              ))}
+            </HStack>
+          </Stack>
+
           <FormInput
             label="Chamada (topo)"
             value={cfg.chamada}
@@ -155,10 +189,10 @@ export function ArteEvolucaoModal({
             placeholder="Transformação real"
           />
           <FormInput
-            label="Rodapé (site, @perfil ou telefone)"
+            label="Rodapé (frase, site ou @perfil)"
             value={cfg.rodape}
             onChange={(e) => setCfg((c) => ({ ...c, rodape: e.target.value }))}
-            placeholder="@seuperfil"
+            placeholder={ARTE_ASSINATURA}
           />
 
           <Stack gap={2}>
@@ -191,7 +225,7 @@ export function ArteEvolucaoModal({
                     onClick={() => setCfg((c) => ({ ...c, fundoUrl: f.url }))}
                     title={f.label}
                     w="54px"
-                    h="96px"
+                    h={`${Math.round((54 * dim.h) / dim.w)}px`}
                     borderRadius="8px"
                     overflow="hidden"
                     borderWidth="2px"

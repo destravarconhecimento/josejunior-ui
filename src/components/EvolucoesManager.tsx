@@ -58,7 +58,7 @@ export type EvolucoesManagerProps = {
   onToggleFeatured: (id: number, featured: boolean) => Promise<void> | void;
   /** Sobe o arquivo pro Blob e devolve a URL pública. */
   onUpload: (file: File) => Promise<string>;
-  /** Quando definido, cada card ganha o botão de baixar a arte 9:16. */
+  /** Quando definido, cada card ganha o botão de baixar a arte de Instagram. */
   onArte?: (item: EvolucaoItem) => void;
 };
 
@@ -258,7 +258,7 @@ export function EvolucoesManager({
                         size="xs"
                         onClick={() => onArte(it)}
                         disabled={it.photos.length === 0}
-                        title="Baixar arte 9:16"
+                        title="Baixar arte para o Instagram"
                       >
                         <Download size={14} />
                       </Button>

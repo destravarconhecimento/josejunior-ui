@@ -47,8 +47,8 @@ export type FlyerEditorProps = {
   /** Comparações antes/depois (módulo Evoluções) — só chega quando o módulo está ligado. */
   comparisons?: FlyerComparison[];
   /**
-   * Abre a arte 9:16 (story/reels) da evolução. Quando não vem, o editor só
-   * insere a comparação na página — o botão "9:16" some.
+   * Abre a arte de Instagram da evolução (feed 4:5 ou story). Quando não vem, o
+   * editor só insere a comparação na página — o botão "Arte" some.
    */
   onArteEvolucao?: (cmp: FlyerComparison) => void;
 };
@@ -781,9 +781,9 @@ export function FlyerEditor(props: FlyerEditorProps) {
                         setCompareOpen(false);
                         onArteEvolucao(c);
                       }}
-                      title="Baixar como arte 9:16 (story/reels)"
+                      title="Baixar como arte de Instagram (feed 4:5 ou story)"
                     >
-                      <Download size={12} /> 9:16
+                      <Download size={12} /> Arte
                     </Button>
                   ) : null}
                 </HStack>

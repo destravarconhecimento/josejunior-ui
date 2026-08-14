@@ -187,7 +187,20 @@ export {
   normalizeEvolucaoFotos,
   linhasDaEvolucao,
 } from "./evolucao/types";
-export { arteEvolucaoTree, ARTE_W, ARTE_H, ARTE_DOURADO, ARTE_FUNDO, type ArteEvolucaoInput } from "./evolucao/arte";
+export {
+  arteEvolucaoTree,
+  arteDimensoes,
+  ARTE_DIMENSOES,
+  ARTE_FORMATO_PADRAO,
+  ARTE_W,
+  ARTE_H,
+  ARTE_DOURADO,
+  ARTE_FUNDO,
+  ARTE_ASSINATURA,
+  ARTE_DESTAQUES,
+  type ArteFormato,
+  type ArteEvolucaoInput,
+} from "./evolucao/arte";
 export {
   ArteEvolucaoModal,
   type ArteEvolucaoModalProps,
