@@ -229,8 +229,11 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
   const yChamada = yLogo + logoH + (input.logoUrl ? 18 : 0);
 
   // Chamada: fonte fina e ampla (o template dourado pede leveza, não paredão).
+  // Teto baixo de propósito e `alvo` folgado: assim UMA linha ganha da quebra
+  // sempre que a frase couber — "TRANSFORMAÇÃO REAL" virava duas linhas gigantes
+  // só porque cabia maior partida ao meio. Sobra largura pra frase mais longa.
   const ch = chamada
-    ? encaixar(chamada, larguraUtil - 20, { max: 104, min: 44, maxLinhas: 2, fator: 0.68, capMultilinha: 88, entrelinha: 1.18 })
+    ? encaixar(chamada, larguraUtil - 20, { max: 72, min: 40, maxLinhas: 2, fator: 0.68, capMultilinha: 64, alvo: 0.6, entrelinha: 1.2 })
     : null;
   const chamadaH = ch?.altura ?? 0;
 
@@ -265,7 +268,7 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
   // é recorte lateral, nunca deformação. O teto é menor com 3 por linha (célula
   // estreita esticada vira uma fresta) e maior no story, que tem altura de sobra.
   const esticaMax =
-    maxPorLinha >= 3 ? 1.45 : input.formato === "story" ? 1.85 : 1.7;
+    input.formato === "story" && maxPorLinha <= 2 ? 2.2 : maxPorLinha >= 3 ? 1.8 : 1.7;
   let cellW = (larguraUtil - GAP * (maxPorLinha - 1)) / maxPorLinha;
   let cellH = (cellW * 4) / 3;
   const alturaPorLinha =
@@ -414,6 +417,7 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
 
       {/* Fotos + plaquinha da legenda em cima de cada uma */}
       {grupos.map((grupo, gi) => {
+        if (!grupo.length) return null; // arte sem foto (todas ilegíveis) não pode virar largura negativa
         const larguraLinha = grupo.length * cellW + (grupo.length - 1) * GAP;
         const x0 = Math.round((W - larguraLinha) / 2);
         const yLinha = yBloco + gi * (LABEL_H + 10 + cellH + GAP);
