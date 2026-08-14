@@ -206,6 +206,7 @@ export {
   type ArteEvolucaoModalProps,
   type ArteEvolucaoConfig,
   type ArteEvolucaoAlvo,
+  type ArteEvolucaoTextos,
 } from "./evolucao/ArteEvolucaoModal";
 export { Toaster, toaster, toast, type ToastOpts } from "./components/Toast";
 export { Accordion, type AccordionItemDef } from "./components/Accordion";

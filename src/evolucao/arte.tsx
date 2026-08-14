@@ -6,15 +6,18 @@
  *
  * O molde é o template dourado que o personal já usa nos flyers: fundo quase
  * preto com faixas diagonais douradas nos cantos, moldura + cantoneiras, logo no
- * topo, a chamada gigante, as fotos emolduradas com a plaquinha da legenda em
- * cima, a pílula do resultado, a régua de diferenciais e a assinatura em itálico.
+ * topo, a chamada grande, as fotos emolduradas com a plaquinha da legenda em
+ * cima, a pílula do resultado, a régua de diferenciais, a assinatura em itálico
+ * e o site do cliente fechando o rodapé.
  *
  * Limites do Satori respeitados de propósito:
  *  - nada de `textTransform` (o caixa-alta é feito no JS);
  *  - todo nó com mais de um filho leva `display: flex` explícito;
  *  - sem `gap` (margens explícitas) e sem `inset` (left/top/width/height);
  *  - dourado em texto é COR SÓLIDA (gradiente com `background-clip` não rasteriza);
- *  - fundo é `<img>` posicionada, não `background-image`.
+ *  - fundo é `<img>` posicionada, não `background-image`;
+ *  - TODA `<img>` leva width e height — sem os dois o Satori aborta o PNG com
+ *    "Image size cannot be determined" (foi o que derrubou o download da logo).
  */
 import type { CSSProperties, ReactElement } from "react";
 import { legendaDaFoto, linhasDaEvolucao, type EvolucaoFoto } from "./types";
@@ -49,7 +52,7 @@ export const ARTE_DESTAQUES = [
 ];
 
 export type ArteEvolucaoInput = {
-  /** Chamada do topo (ex.: "Resultado real") — vai em caixa-alta. */
+  /** Chamada do topo (ex.: "Transformação real") — vai em caixa-alta. */
   chamada: string;
   titulo: string;
   subtitulo?: string | null;
@@ -57,8 +60,15 @@ export type ArteEvolucaoInput = {
   /** Imagem de fundo (opcional) — sem ela, fica o fundo do template. */
   fundoUrl?: string | null;
   logoUrl?: string | null;
+  /**
+   * Proporção (largura ÷ altura) da logo. O navegador mede a imagem sozinho, o
+   * Satori NÃO — quem rasteriza mede antes e manda o número aqui.
+   */
+  logoRatio?: number | null;
   /** Assinatura do rodapé; vazia usa a do template. */
   rodape?: string | null;
+  /** Site do cliente, impresso na última linha (ex.: "luandavyson.com.br"). */
+  site?: string | null;
   /** Cor de destaque (moldura/legendas/chamada). */
   cor?: string | null;
   /** Cor do fundo sólido. */
@@ -78,6 +88,83 @@ const centro = (style: CSSProperties): CSSProperties => ({
   textAlign: "center",
   ...style,
 });
+
+/** Quebra o texto em `k` linhas equilibradas (aproximação por nº de caracteres). */
+function quebrar(palavras: string[], k: number): string[] {
+  if (k <= 1) return [palavras.join(" ")];
+  const alvo = palavras.join(" ").length / k;
+  const linhas: string[] = [];
+  let atual = "";
+  for (const p of palavras) {
+    const cand = atual ? `${atual} ${p}` : p;
+    if (atual && cand.length > alvo && linhas.length < k - 1) {
+      linhas.push(atual);
+      atual = p;
+    } else {
+      atual = cand;
+    }
+  }
+  if (atual) linhas.push(atual);
+  return linhas;
+}
+
+type Encaixe = { linhas: string[]; font: number; alturaLinha: number; altura: number };
+
+/**
+ * Escolhe a quebra + o corpo da fonte que CABEM na largura dada, e devolve a
+ * altura que o bloco vai ocupar. É o que acabou com a linha estourando a caixa
+ * (e caindo em cima da de baixo): a régua vertical passa a ser calculada com a
+ * altura real do texto, não com um número chutado.
+ *
+ * A medida é uma estimativa por caractere (`fator` × corpo da fonte) porque nem
+ * o Satori nem o React medem texto aqui — por isso os fatores são conservadores:
+ * caixa-alta é mais larga que caixa-baixa.
+ */
+function encaixar(
+  texto: string,
+  largura: number,
+  o: {
+    max: number;
+    min: number;
+    maxLinhas: number;
+    /** Largura média do caractere em frações do corpo da fonte. */
+    fator?: number;
+    entrelinha?: number;
+    /** Teto menor quando o texto quebra (2+ linhas grandes viram um paredão). */
+    capMultilinha?: number;
+    /** Fração do teto que já se considera "grande o bastante" (evita quebrar à toa). */
+    alvo?: number;
+  },
+): Encaixe {
+  const fator = o.fator ?? 0.62;
+  const entrelinha = o.entrelinha ?? 1.2;
+  const alvo = o.alvo ?? 0.78;
+  const palavras = texto.split(/\s+/).filter(Boolean);
+  let linhas = [texto];
+  let font = o.min;
+  const maxK = Math.max(1, Math.min(o.maxLinhas, palavras.length));
+  for (let k = 1; k <= maxK; k++) {
+    linhas = quebrar(palavras, k);
+    const maior = Math.max(1, ...linhas.map((l) => l.length));
+    const teto = k > 1 && o.capMultilinha ? Math.min(o.max, o.capMultilinha) : o.max;
+    font = Math.max(o.min, Math.min(teto, Math.floor(largura / (maior * fator))));
+    if (font >= teto * alvo) break;
+  }
+  const alturaLinha = Math.round(font * entrelinha);
+  return { linhas, font, alturaLinha, altura: alturaLinha * linhas.length };
+}
+
+/** Bloco de texto de N linhas (uma `div` por linha: o espaçamento é meu, não do engine). */
+function linhasTexto(linhas: string[], alturaLinha: number, style: CSSProperties) {
+  return linhas.map((linha, i) => (
+    <div
+      key={`${i}-${linha}`}
+      style={centro({ width: "100%", height: alturaLinha, ...style })}
+    >
+      {linha}
+    </div>
+  ));
+}
 
 /** Faixa diagonal dourada dos cantos (a assinatura visual do template). */
 function faixa(key: string, left: number, top: number, w: number, h: number, cor: string, op: number, giro: number) {
@@ -108,6 +195,15 @@ function cantoneira(key: string, x: number, y: number, lados: CSSProperties, cor
   );
 }
 
+/** Site do rodapé sem enfeite de protocolo/barra (o que o cliente digita no anúncio). */
+function limparSite(v: string): string {
+  return v
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .replace(/\/+$/, "");
+}
+
 export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
   const { w: W, h: H } = arteDimensoes(input.formato);
   const cor = (input.cor || "").trim() || ARTE_DOURADO;
@@ -116,6 +212,9 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
   const titulo = (input.titulo || "").trim().toUpperCase();
   const subtitulo = (input.subtitulo || "").trim();
   const assinatura = (input.rodape || "").trim() || ARTE_ASSINATURA;
+  const site = limparSite(input.site || "");
+  // Não repete o endereço se ele já escreveu o site na própria assinatura.
+  const mostraSite = !!site && !assinatura.toLowerCase().includes(site.toLowerCase());
   const fotos = input.fotos.slice(0, 5);
   const total = fotos.length;
   const rows = linhasDaEvolucao(total);
@@ -123,28 +222,50 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
   // ---- Régua vertical (âncoras absolutas: previsível no Satori e no browser).
   const PAD = 68;
   const GAP = 22;
-  const LABEL_H = 58;
   const larguraUtil = W - PAD * 2;
 
-  const yLogo = 46;
-  const logoH = input.logoUrl ? 112 : 0;
-  const yChamada = yLogo + logoH + (input.logoUrl ? 22 : 0);
-  const chamadaH = chamada ? 118 : 0;
+  const yLogo = 44;
+  const logoH = input.logoUrl ? 104 : 0;
+  const yChamada = yLogo + logoH + (input.logoUrl ? 18 : 0);
 
-  const yAssinatura = H - 78;
-  const featuresH = 74;
-  const yFeatures = yAssinatura - 26 - featuresH;
-  const pillH = titulo ? 78 : 0;
-  const subH = subtitulo ? 46 : 0;
+  // Chamada: fonte fina e ampla (o template dourado pede leveza, não paredão).
+  const ch = chamada
+    ? encaixar(chamada, larguraUtil - 20, { max: 104, min: 44, maxLinhas: 2, fator: 0.68, capMultilinha: 88, entrelinha: 1.18 })
+    : null;
+  const chamadaH = ch?.altura ?? 0;
 
-  const topoBloco = yChamada + chamadaH + 30;
-  const fimBloco = yFeatures - 30 - subH - (subtitulo ? 12 : 0) - pillH - (titulo ? 26 : 0);
+  // ---- Rodapé, de baixo para cima.
+  const siteH = mostraSite ? 38 : 0;
+  const ySite = H - 72;
+  const assinaturaH = 36;
+  const yAssinatura = mostraSite ? ySite - 4 - assinaturaH : H - 74;
+  const featuresH = 66;
+  const yFeatures = yAssinatura - 20 - featuresH;
+
+  // Título (pílula) e subtítulo, com a altura REAL do texto quebrado.
+  const tt = titulo
+    ? encaixar(titulo, larguraUtil - 160, { max: 34, min: 20, maxLinhas: 2, fator: 0.64, alvo: 0.62, entrelinha: 1.25 })
+    : null;
+  const pillH = tt ? Math.max(74, tt.altura + 30) : 0;
+  const st = subtitulo
+    ? encaixar(subtitulo, larguraUtil - 40, { max: 27, min: 18, maxLinhas: 3, fator: 0.52, entrelinha: 1.34 })
+    : null;
+  const subH = st?.altura ?? 0;
+
+  const topoBloco = yChamada + chamadaH + 26;
+  const fimBloco = yFeatures - 26 - subH - (subtitulo ? 12 : 0) - pillH - (titulo ? 24 : 0);
   const alturaDisponivel = Math.max(220, fimBloco - topoBloco);
 
-  // Célula 3:4 de partida. Faltando altura, encolhe junto (mantém a proporção);
-  // sobrando (é o caso do story), estica até 1:1,7 — a foto é `cover`, então o
-  // que acontece é recorte, nunca deformação.
+  // Plaquinha da legenda: acompanha a largura da célula (legenda longa não estoura).
   const maxPorLinha = Math.max(...rows, 1);
+  const LABEL_H = maxPorLinha >= 3 ? 48 : 54;
+
+  // Célula 3:4 de partida. Faltando altura, encolhe junto (mantém a proporção);
+  // sobrando (é o caso do story), estica — a foto é `cover`, então o que acontece
+  // é recorte lateral, nunca deformação. O teto é menor com 3 por linha (célula
+  // estreita esticada vira uma fresta) e maior no story, que tem altura de sobra.
+  const esticaMax =
+    maxPorLinha >= 3 ? 1.45 : input.formato === "story" ? 1.85 : 1.7;
   let cellW = (larguraUtil - GAP * (maxPorLinha - 1)) / maxPorLinha;
   let cellH = (cellW * 4) / 3;
   const alturaPorLinha =
@@ -153,20 +274,26 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
     cellH = alturaPorLinha;
     cellW = (cellH * 3) / 4;
   } else {
-    cellH = Math.min(alturaPorLinha, cellW * 1.7);
+    cellH = Math.min(alturaPorLinha, cellW * esticaMax);
   }
   cellW = Math.max(90, Math.round(cellW));
   cellH = Math.max(120, Math.round(cellH));
 
+  // Régua de diferenciais: um corpo de fonte só, escolhido pelo rótulo MAIS LONGO,
+  // para os quatro caberem em UMA linha cada. Sem isso, dois deles quebravam e a
+  // fileira ficava com os losangos em alturas diferentes, encostando nos fios.
+  const colDestaque = Math.floor(larguraUtil / 4) - 8;
+  const LS_DESTAQUE = 1;
+  const maiorDestaque = Math.max(...ARTE_DESTAQUES.map((d) => d.length));
+  const fontDestaque = Math.max(
+    11,
+    Math.min(17, Math.floor(((colDestaque * 0.96) / maiorDestaque - LS_DESTAQUE) / 0.62)),
+  );
+
   const blocoH = rows.length * (LABEL_H + 10 + cellH) + GAP * (rows.length - 1);
   const yBloco = topoBloco + Math.max(0, Math.round((alturaDisponivel - blocoH) / 2));
-  const yPill = yBloco + blocoH + 26;
+  const yPill = yBloco + blocoH + 24;
   const ySub = yPill + pillH + 12;
-
-  // Chamada: encolhe pela quantidade de letras para nunca estourar a largura.
-  const fontChamada = Math.max(48, Math.min(104, Math.floor(larguraUtil / Math.max(6, chamada.length * 0.58))));
-  const fontTitulo = Math.max(24, Math.min(38, Math.floor((larguraUtil - 120) / Math.max(8, titulo.length * 0.6))));
-  const fontLabel = maxPorLinha >= 3 ? 26 : 32;
 
   // Fatia as fotos nas linhas calculadas (4 → 2+2, 5 → 3+2).
   const grupos: EvolucaoFoto[][] = [];
@@ -177,6 +304,10 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
   }
 
   const preto = "rgba(6,9,16,0.92)";
+  // Sem width a `<img>` da logo quebra o raster; a proporção vem medida de fora.
+  const logoW = input.logoRatio && input.logoRatio > 0
+    ? Math.min(larguraUtil, Math.round(logoH * input.logoRatio))
+    : null;
 
   return (
     <div
@@ -244,12 +375,20 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
       {/* Logo do topo */}
       {input.logoUrl ? (
         <div style={{ position: "absolute", left: PAD, top: yLogo, width: larguraUtil, height: logoH, ...centro({}) }}>
-          <img src={input.logoUrl} height={logoH} style={{ height: logoH, objectFit: "contain" }} />
+          <img
+            src={input.logoUrl}
+            {...(logoW ? { width: logoW, height: logoH } : { height: logoH })}
+            style={
+              logoW
+                ? { width: logoW, height: logoH, objectFit: "contain" }
+                : { height: logoH, objectFit: "contain" }
+            }
+          />
         </div>
       ) : null}
 
-      {/* Chamada gigante */}
-      {chamada ? (
+      {/* Chamada: traço fino, letra espaçada — o peso quem dá é o dourado. */}
+      {ch ? (
         <div
           style={{
             position: "absolute",
@@ -257,19 +396,19 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
             top: yChamada,
             width: larguraUtil,
             height: chamadaH,
-            ...centro({
-              fontSize: fontChamada,
-              fontWeight: 900,
-              color: cor,
-              letterSpacing: 0,
-              lineHeight: 1.05,
-              // O raster só tem a fonte regular do `next/og` — o "negrito" da
-              // headline é feito à mão, engrossando o traço com sombras coladas.
-              textShadow: `2px 0 0 ${cor}, -2px 0 0 ${cor}, 0 2px 0 ${cor}, 0 -2px 0 ${cor}, 0 8px 18px rgba(0,0,0,0.55)`,
-            }),
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {chamada}
+          {linhasTexto(ch.linhas, ch.alturaLinha, {
+            fontSize: ch.font,
+            fontWeight: 500,
+            color: cor,
+            letterSpacing: 3,
+            textShadow: "0 6px 18px rgba(0,0,0,0.55)",
+          })}
         </div>
       ) : null}
 
@@ -293,6 +432,11 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
           >
             {grupo.map((foto, fi) => {
               const indice = grupos.slice(0, gi).reduce((n, g) => n + g.length, 0) + fi;
+              const legenda = legendaDaFoto(foto, indice, total).toUpperCase();
+              const fontLabel = Math.max(
+                16,
+                Math.min(30, Math.floor((cellW - 30) / Math.max(4, legenda.length * 0.78))),
+              );
               return (
                 <div
                   key={indice}
@@ -312,12 +456,12 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
                       border: `2px solid ${cor}`,
                       borderRadius: 8,
                       fontSize: fontLabel,
-                      fontWeight: 900,
+                      fontWeight: 600,
                       color: cor,
                       letterSpacing: 4,
                     })}
                   >
-                    {legendaDaFoto(foto, indice, total).toUpperCase()}
+                    {legenda}
                   </div>
                   <img
                     src={foto.url}
@@ -339,8 +483,8 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
         );
       })}
 
-      {/* Pílula do resultado (o título da evolução) */}
-      {titulo ? (
+      {/* Pílula do resultado (o título da evolução, editável na hora de baixar) */}
+      {tt ? (
         <div
           style={{
             position: "absolute",
@@ -352,26 +496,32 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
           }}
         >
           <div
-            style={centro({
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              maxWidth: larguraUtil - 20,
               height: pillH,
-              paddingLeft: 42,
-              paddingRight: 42,
+              paddingLeft: 46,
+              paddingRight: 46,
               backgroundColor: preto,
               border: `2px solid ${cor}`,
               borderRadius: 999,
-              fontSize: fontTitulo,
-              fontWeight: 900,
+            }}
+          >
+            {linhasTexto(tt.linhas, tt.alturaLinha, {
+              fontSize: tt.font,
+              fontWeight: 600,
               color: cor,
               letterSpacing: 2,
             })}
-          >
-            {titulo}
           </div>
         </div>
       ) : null}
 
-      {/* Subtítulo */}
-      {subtitulo ? (
+      {/* Subtítulo (a linha de detalhe, também editável antes de baixar) */}
+      {st ? (
         <div
           style={{
             position: "absolute",
@@ -379,10 +529,17 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
             top: ySub,
             width: larguraUtil,
             height: subH,
-            ...centro({ fontSize: 28, fontWeight: 600, color: "rgba(255,255,255,0.82)" }),
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {subtitulo}
+          {linhasTexto(st.linhas, st.alturaLinha, {
+            fontSize: st.font,
+            fontWeight: 500,
+            color: "rgba(255,255,255,0.84)",
+          })}
         </div>
       ) : null}
 
@@ -409,27 +566,27 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              width: Math.floor(larguraUtil / 4) - 8,
+              width: colDestaque,
               marginLeft: i === 0 ? 0 : 8,
             }}
           >
             <div
               style={{
-                width: 12,
-                height: 12,
+                width: 11,
+                height: 11,
                 backgroundColor: cor,
                 transform: "rotate(45deg)",
-                marginBottom: 10,
+                marginBottom: 9,
               }}
             />
             <div
               style={centro({
                 width: "100%",
-                fontSize: 17,
-                fontWeight: 800,
+                height: fontDestaque + 6,
+                fontSize: fontDestaque,
+                fontWeight: 600,
                 color: "rgba(255,255,255,0.9)",
-                letterSpacing: 1,
-                lineHeight: 1.15,
+                letterSpacing: LS_DESTAQUE,
               })}
             >
               {d}
@@ -445,9 +602,9 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
           left: PAD,
           top: yAssinatura,
           width: larguraUtil,
-          height: 46,
+          height: assinaturaH,
           ...centro({
-            fontSize: 22,
+            fontSize: 21,
             fontStyle: "italic",
             fontWeight: 500,
             color: "rgba(255,255,255,0.7)",
@@ -456,6 +613,27 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
       >
         {assinatura}
       </div>
+
+      {/* Site do cliente — a chamada para ação do rodapé */}
+      {mostraSite ? (
+        <div
+          style={{
+            position: "absolute",
+            left: PAD,
+            top: ySite,
+            width: larguraUtil,
+            height: siteH,
+            ...centro({
+              fontSize: 24,
+              fontWeight: 600,
+              color: cor,
+              letterSpacing: 3,
+            }),
+          }}
+        >
+          {site.toUpperCase()}
+        </div>
+      ) : null}
     </div>
   );
 }

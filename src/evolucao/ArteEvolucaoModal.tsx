@@ -1,8 +1,12 @@
 "use client";
 /**
- * "Baixar arte" da evolução: prévia ao vivo + os poucos campos que mudam
- * (formato, chamada, rodapé e o FUNDO). O desenho é o mesmo `arteEvolucaoTree`
- * que o servidor rasteriza — a prévia aqui é o PNG que vai sair, reduzido.
+ * "Baixar arte" da evolução: prévia ao vivo + os campos que mudam na hora de
+ * publicar (formato, chamada, TÍTULO e DESCRIÇÃO da arte, rodapé e o FUNDO). O
+ * desenho é o mesmo `arteEvolucaoTree` que o servidor rasteriza — a prévia aqui
+ * é o PNG que vai sair, reduzido.
+ *
+ * Título e descrição nascem do cadastro da evolução e são editáveis SÓ para a
+ * arte: mexer aqui não reescreve o cadastro (cada post pede uma chamada).
  *
  * O componente não conhece rota nem action: quem chama monta o link do PNG
  * (`buildDownloadHref`) e persiste a configuração (`onSaveConfig`).
@@ -12,7 +16,7 @@ import { Download, ImagePlus, Loader2 } from "lucide-react";
 import { Box, HStack, Stack, Text } from "../primitives";
 import { Button } from "../components/Button";
 import { Modal } from "../components/Modal";
-import { FormInput } from "../components/form";
+import { FormInput, FormTextarea } from "../components/form";
 import { toaster } from "../components/Toast";
 import { arteDimensoes, arteEvolucaoTree, ARTE_ASSINATURA, ARTE_FORMATO_PADRAO, type ArteFormato } from "./arte";
 import type { EvolucaoFoto } from "./types";
@@ -35,18 +39,27 @@ export type ArteEvolucaoAlvo = {
   photos: EvolucaoFoto[];
 };
 
+/** Textos desta arte (partem do cadastro, valem só para o PNG). */
+export type ArteEvolucaoTextos = { titulo: string; subtitulo: string };
+
 export type ArteEvolucaoModalProps = {
   open: boolean;
   onClose: () => void;
   alvo: ArteEvolucaoAlvo | null;
-  brand?: { logoUrl?: string | null; cor?: string | null; fundoCor?: string | null };
+  brand?: {
+    logoUrl?: string | null;
+    cor?: string | null;
+    fundoCor?: string | null;
+    /** Endereço impresso no rodapé da arte. */
+    site?: string | null;
+  };
   config: ArteEvolucaoConfig;
   /** Sobe o fundo pro Blob e devolve a URL pública. */
   onUpload: (file: File) => Promise<string>;
   /** Guarda a configuração para a próxima arte (opcional). */
   onSaveConfig?: (cfg: ArteEvolucaoConfig) => Promise<void> | void;
   /** Link do PNG (o servidor rasteriza com a mesma configuração). */
-  buildDownloadHref: (id: number, cfg: ArteEvolucaoConfig) => string;
+  buildDownloadHref: (id: number, cfg: ArteEvolucaoConfig, textos: ArteEvolucaoTextos) => string;
   /** Fundos já disponíveis (ex.: os do editor de flyer) para escolher num clique. */
   fundosSugeridos?: { url: string; label: string }[];
 };
@@ -71,6 +84,11 @@ export function ArteEvolucaoModal({
 }: ArteEvolucaoModalProps) {
   const [cfg, setCfg] = useState<ArteEvolucaoConfig>(config);
   const [enviando, setEnviando] = useState(false);
+  const [alvoId, setAlvoId] = useState<number | null>(alvo?.id ?? null);
+  const [textos, setTextos] = useState<ArteEvolucaoTextos>({
+    titulo: alvo?.title ?? "",
+    subtitulo: alvo?.subtitle ?? "",
+  });
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Reabrir com outro item mantém a configuração da sessão anterior — só
@@ -83,6 +101,12 @@ export function ArteEvolucaoModal({
       cfg.formato !== config.formato)
   ) {
     setCfg(config);
+  }
+
+  // Trocou de evolução: os textos voltam a ser os do cadastro dela.
+  if (alvo && alvo.id !== alvoId) {
+    setAlvoId(alvo.id);
+    setTextos({ titulo: alvo.title, subtitulo: alvo.subtitle ?? "" });
   }
 
   const escolherFundo = async (file: File) => {
@@ -101,7 +125,7 @@ export function ArteEvolucaoModal({
     if (!alvo) return;
     void onSaveConfig?.(cfg);
     // `content-disposition: attachment` no servidor → o navegador baixa sem sair da tela.
-    window.location.href = buildDownloadHref(alvo.id, cfg);
+    window.location.href = buildDownloadHref(alvo.id, cfg, textos);
   };
 
   const formato = cfg.formato ?? ARTE_FORMATO_PADRAO;
@@ -149,12 +173,13 @@ export function ArteEvolucaoModal({
             {alvo
               ? arteEvolucaoTree({
                   chamada: cfg.chamada,
-                  titulo: alvo.title,
-                  subtitulo: alvo.subtitle,
+                  titulo: textos.titulo,
+                  subtitulo: textos.subtitulo,
                   fotos: alvo.photos,
                   fundoUrl: cfg.fundoUrl,
                   logoUrl: brand?.logoUrl ?? null,
                   rodape: cfg.rodape,
+                  site: brand?.site ?? null,
                   cor: brand?.cor ?? null,
                   fundoCor: brand?.fundoCor ?? null,
                   formato,
@@ -189,10 +214,25 @@ export function ArteEvolucaoModal({
             placeholder="Transformação real"
           />
           <FormInput
+            label="Título (faixa embaixo das fotos)"
+            value={textos.titulo}
+            onChange={(e) => setTextos((t) => ({ ...t, titulo: e.target.value }))}
+            placeholder={alvo?.title || "Nome — 3 meses de treino"}
+          />
+          <FormTextarea
+            label="Descrição (linha abaixo do título)"
+            rows={2}
+            value={textos.subtitulo}
+            onChange={(e) => setTextos((t) => ({ ...t, subtitulo: e.target.value }))}
+            placeholder="-17kg, ganho de massa magra e mais disposição"
+            help="Título e descrição valem só para esta arte — o cadastro da evolução não muda."
+          />
+          <FormInput
             label="Rodapé (frase, site ou @perfil)"
             value={cfg.rodape}
             onChange={(e) => setCfg((c) => ({ ...c, rodape: e.target.value }))}
             placeholder={ARTE_ASSINATURA}
+            help={brand?.site ? `O site ${brand.site} entra na última linha da arte.` : undefined}
           />
 
           <Stack gap={2}>
