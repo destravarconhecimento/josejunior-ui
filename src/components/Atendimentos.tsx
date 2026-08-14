@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { Box, chakra, HStack, Stack, Text } from "@chakra-ui/react";
-import { ExternalLink, FileText, Globe, Headset, Inbox, Mail, MessageCircle, Sparkles } from "lucide-react";
+import { ExternalLink, FileText, Globe, Inbox, Mail, Megaphone, MessageCircle, MessageSquareText, Sparkles } from "lucide-react";
 import { Screen } from "./Screen";
+import { AcaoIcone } from "./AcaoIcone";
 import { DataTable, type Column } from "./DataTable";
 import { FilterBar } from "./FilterBar";
 import { Tag } from "./Badge";
@@ -33,6 +34,13 @@ import type { AtendimentoCanal } from "../atendimento";
  * painel por conta de quem chama. É literalmente a MESMA tela no sistema e no
  * representante — o que muda entre eles é o ícone do menu, e ele mora no menu.
  * Escrever a segunda seria garantir que as duas divergissem no primeiro ajuste.
+ *
+ * ⚠️ Aqui NÃO se escreve `mailto:` nem `wa.me`: falar com quem chegou é trabalho
+ * do painel (a conversa abre no FAB do WhatsApp, o e-mail abre no compositor da
+ * caixa) e o registro do contato depende disso. Link externo joga a pessoa pra
+ * fora e o painel nunca fica sabendo que houve conversa. Por isso as três ações
+ * são CALLBACKS injetados (`onWhats`/`onEmail`/`onIa`) — quem não passa, não
+ * mostra o botão.
  */
 
 export type AtendimentoItem = {
@@ -40,7 +48,7 @@ export type AtendimentoItem = {
   nome: string;
   empresa?: string | null;
   email: string | null;
-  /** Só os dígitos — é o que vira `wa.me`. */
+  /** Só os dígitos, prontos pra enviar (é o que o `onWhats` recebe). */
   telefone: string | null;
   canal: AtendimentoCanal;
   /** Onde exatamente ("josejunior.dev", "Impex Serviços", "petshop"). */
@@ -77,7 +85,8 @@ const CANAL_META: Record<AtendimentoCanal, { label: string; hint: string; bg: st
     hint: "Veio de uma página de segmento ou de anúncio.",
     bg: "rgba(168,85,247,0.14)",
     color: "#7e22ce",
-    Icon: Sparkles,
+    // Megafone, não faísca: nesta tela a faísca é a AÇÃO da IA (roxo, na linha).
+    Icon: Megaphone,
   },
   outro: {
     label: "Contato",
@@ -109,12 +118,21 @@ export function Atendimentos({
   itens,
   linkFunil,
   acoes,
+  onWhats,
+  onEmail,
+  onIa,
 }: {
   itens: AtendimentoItem[];
   /** Pra onde vai o "Trabalhar no funil" (a rota muda de painel pra painel). */
   linkFunil: (item: AtendimentoItem) => string;
   /** Botões extras no rodapé da ficha — cada painel tem os seus. */
   acoes?: (item: AtendimentoItem) => React.ReactNode;
+  /** Falar no WhatsApp (só aparece com telefone). O painel abre a conversa DELE. */
+  onWhats?: (item: AtendimentoItem) => void;
+  /** Responder por e-mail (só com e-mail): abre o compositor da caixa do painel. */
+  onEmail?: (item: AtendimentoItem) => void;
+  /** Entregar à IA: ela responde e o lead segue no funil (só com e-mail). */
+  onIa?: (item: AtendimentoItem) => void;
 }) {
   const [busca, setBusca] = useState("");
   const [canal, setCanal] = useState("todos");
@@ -247,6 +265,17 @@ export function Atendimentos({
 
   const semResposta = itens.filter((i) => !i.atendido).length;
 
+  /**
+   * As três ações de falar com a pessoa, já resolvidas — a LINHA e a FICHA
+   * mostram exatamente as mesmas, e cada uma só existe se o painel passou o
+   * callback E a pessoa deixou o contato correspondente.
+   */
+  const falarCom = (i: AtendimentoItem) => ({
+    whats: onWhats && i.telefone ? () => onWhats(i) : null,
+    email: onEmail && i.email ? () => onEmail(i) : null,
+    ia: onIa && i.email ? () => onIa(i) : null,
+  });
+
   return (
     <Screen
       title="Atendimento"
@@ -285,7 +314,7 @@ export function Atendimentos({
       <Stack gap={3}>
         <KpiRow
           items={[
-            { label: "Chegaram (7 dias)", value: itens.filter((i) => diasAtras(i.quando) <= 7).length, icon: <Headset size={14} /> },
+            { label: "Chegaram (7 dias)", value: itens.filter((i) => diasAtras(i.quando) <= 7).length, icon: <MessageSquareText size={14} /> },
             { label: "Aguardando resposta", value: semResposta, tone: semResposta ? "warning" : "success" },
             { label: "Pela proposta", value: itens.filter((i) => i.canal === "proposta").length },
           ]}
@@ -299,7 +328,7 @@ export function Atendimentos({
           selectedKey={aberto ?? undefined}
           empty={
             <EmptyState
-              icon={Headset}
+              icon={MessageSquareText}
               title={itens.length ? "Nada com esse filtro" : "Ninguém procurou você ainda"}
               description={
                 itens.length
@@ -308,32 +337,44 @@ export function Atendimentos({
               }
             />
           }
-          actions={(i) => (
-            <HStack gap={1} justify="flex-end" onClick={(e) => e.stopPropagation()}>
-              {i.telefone ? (
-                <Button size="xs" tone="ghost" asChild>
-                  <a
-                    href={`https://wa.me/${i.telefone}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    title="Chamar no WhatsApp"
+          actions={(i) => {
+            const a = falarCom(i);
+            if (!a.whats && !a.email && !a.ia) return null;
+            return (
+              <HStack gap={1} justify="flex-end" onClick={(e) => e.stopPropagation()}>
+                {a.whats ? (
+                  <AcaoIcone
+                    tone="whatsapp"
+                    title="Chamar no WhatsApp — a conversa abre aqui no painel"
+                    ariaLabel="Chamar no WhatsApp"
+                    onClick={a.whats}
                   >
                     <MessageCircle size={14} />
-                  </a>
-                </Button>
-              ) : null}
-              {i.email ? (
-                <Button size="xs" tone="ghost" asChild>
-                  <a
-                    href={`mailto:${i.email}?subject=${encodeURIComponent(`Re: ${i.assunto || "seu contato"}`)}`}
-                    title="Responder por e-mail"
+                  </AcaoIcone>
+                ) : null}
+                {a.email ? (
+                  <AcaoIcone
+                    tone="ligar"
+                    title="Responder por e-mail — abre o compositor da caixa já endereçado"
+                    ariaLabel="Responder por e-mail"
+                    onClick={a.email}
                   >
                     <Mail size={14} />
-                  </a>
-                </Button>
-              ) : null}
-            </HStack>
-          )}
+                  </AcaoIcone>
+                ) : null}
+                {a.ia ? (
+                  <AcaoIcone
+                    tone="ia"
+                    title="A IA responde e continua no funil por e-mail"
+                    ariaLabel="Entregar à IA"
+                    onClick={a.ia}
+                  >
+                    <Sparkles size={14} />
+                  </AcaoIcone>
+                ) : null}
+              </HStack>
+            );
+          }}
         />
       </Stack>
 
@@ -342,14 +383,34 @@ export function Atendimentos({
           open
           onClose={() => setAberto(null)}
           dados={item.ficha}
-          footer={
-            <HStack gap={2} flexWrap="wrap" justify="flex-end">
-              {acoes?.(item)}
-              <Button size="sm" asChild>
-                <a href={linkFunil(item)}>Trabalhar no funil</a>
-              </Button>
-            </HStack>
-          }
+          footer={(() => {
+            // Na ficha as MESMAS três ações ganham legenda: aqui a pessoa está
+            // lendo o que o cliente escreveu, e é aqui que ela decide responder.
+            const a = falarCom(item);
+            return (
+              <HStack gap={2} flexWrap="wrap" justify="flex-end">
+                {a.whats ? (
+                  <Button size="sm" tone="ghost" onClick={a.whats}>
+                    <MessageCircle size={14} /> WhatsApp
+                  </Button>
+                ) : null}
+                {a.email ? (
+                  <Button size="sm" tone="ghost" onClick={a.email}>
+                    <Mail size={14} /> Responder
+                  </Button>
+                ) : null}
+                {a.ia ? (
+                  <Button size="sm" tone="ghost" onClick={a.ia}>
+                    <Sparkles size={14} /> IA responde
+                  </Button>
+                ) : null}
+                {acoes?.(item)}
+                <Button size="sm" asChild>
+                  <a href={linkFunil(item)}>Trabalhar no funil</a>
+                </Button>
+              </HStack>
+            );
+          })()}
         />
       ) : null}
     </Screen>

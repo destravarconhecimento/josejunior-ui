@@ -423,6 +423,8 @@ export function MailClient(props: {
    * lista tendo que achar o botão e recopiar o e-mail que ele acabou de clicar.
    */
   composeTo?: string;
+  /** Assunto que vem junto do `composeTo` (o "Re: …" de quem escreveu pra você). */
+  composeSubject?: string;
 }) {
   const [view, setView] = useState<"inbox" | "settings">(props.initialView);
   const [aiOpen, setAiOpen] = useState(false);
@@ -566,6 +568,7 @@ export function MailClient(props: {
                 onRealtime={props.onRealtime}
                 onEstado={aiChat ? onEstadoCaixa : undefined}
                 composeTo={props.composeTo}
+                composeSubject={props.composeSubject}
               />
             </Box>
             {chatOpen && aiChat ? (
@@ -2394,6 +2397,7 @@ function Mailbox({
   onRealtime,
   onEstado,
   composeTo,
+  composeSubject,
 }: {
   accounts: MailInboxAccount[];
   messages: MailMessage[];
@@ -2412,6 +2416,8 @@ function Mailbox({
   onEstado?: (detalhe: string) => void;
   /** E-mail que já vem endereçado no compositor (ver a prop do `MailClient`). */
   composeTo?: string;
+  /** Assunto que acompanha o `composeTo`. */
+  composeSubject?: string;
 }) {
   const [pending, start] = useTransition();
 
@@ -2748,8 +2754,17 @@ function Mailbox({
     setSelectedId(null);
     setCompose({
       fromAccountId: composeDefaultId,
-      to: para, cc: "", subject: "", html: "", inReplyTo: null, threadId: null, attachments: [],
+      to: para,
+      cc: "",
+      subject: (composeSubject ?? "").trim(),
+      html: "",
+      inReplyTo: null,
+      threadId: null,
+      attachments: [],
     });
+    // `composeSubject` fica FORA das deps de propósito: ele viaja junto do
+    // `composeTo` (mesma navegação) e sozinho não deve reabrir o compositor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [composeTo, composeDefaultId]);
 
   function startReply(m: MailMessage) {
