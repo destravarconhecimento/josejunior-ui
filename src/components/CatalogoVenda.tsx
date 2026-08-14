@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ExternalLink, Copy, Check, Store, MonitorPlay, BookOpen, Link2 } from "lucide-react";
+import { ExternalLink, Copy, Check, Store, MonitorPlay, BookOpen, Link2, KeyRound } from "lucide-react";
 import { Box, HStack, Stack, Text, chakra } from "@chakra-ui/react";
 import { Button } from "./Button";
 import { Card } from "./Card";
 import { InsightCard } from "./InsightCard";
 import { Tag } from "./Badge";
-import type { CatalogoItem } from "../catalogo";
+import type { CatalogoItem, CatalogoDemo } from "../catalogo";
 
 /** Campo com o link + botão de copiar (padrão das landings do rep). */
 function CopyLink({ value }: { value: string }) {
@@ -122,6 +122,63 @@ export function LinkDeVenda({
         ) : null}
       </HStack>
     </Stack>
+  );
+}
+
+/** Uma credencial do demo: e-mail e senha lado a lado, copiáveis um a um. */
+function ParDeAcesso({ rotulo, email, senha }: { rotulo: string; email: string; senha: string }) {
+  return (
+    <Stack gap={1}>
+      <Text fontSize="xs" fontWeight="700" color="var(--admin-text)">
+        {rotulo}
+      </Text>
+      <CopyLink value={email} />
+      <CopyLink value={senha} />
+    </Stack>
+  );
+}
+
+/**
+ * ENTRAR NO DEMO — o sistema por dentro, com os dois logins.
+ *
+ * Fica no MESMO card do link de venda porque é a segunda metade da apresentação:
+ * o link mostra o site que o cliente vai ter, o demo mostra o painel em que ele
+ * vai trabalhar. Quem apresenta não deveria ter de procurar a senha em outro
+ * lugar — nem pedir ao José, que era o que acontecia.
+ *
+ * A senha aparece em texto de propósito: é credencial de test-drive, igual pra
+ * todo mundo, num tenant que se limpa sozinho todo dia.
+ */
+export function AcessoDemo({ demo }: { demo: CatalogoDemo }) {
+  return (
+    <Box
+      borderTopWidth="1px"
+      borderColor="var(--admin-border)"
+      pt={3}
+      mt={1}
+    >
+      <Stack gap={2.5}>
+        <HStack gap={2} align="center">
+          <Box color="var(--admin-accent)" display="flex">
+            <KeyRound size={14} />
+          </Box>
+          <Text fontSize="xs" fontWeight="700" color="var(--admin-text)">
+            Ver por dentro (demo)
+          </Text>
+        </HStack>
+        <Text fontSize="xs" color="var(--admin-text-soft)">
+          O sistema de verdade, com dados de exemplo. Pode mexer à vontade: o demo se
+          refaz sozinho todo dia.
+        </Text>
+        <Button tone="outline" size="sm" asChild>
+          <a href={demo.loginUrl} target="_blank" rel="noopener">
+            <ExternalLink size={14} style={{ marginRight: 6 }} /> Abrir o demo
+          </a>
+        </Button>
+        <ParDeAcesso rotulo="Admin (dono do negócio)" email={demo.adminEmail} senha={demo.adminSenha} />
+        <ParDeAcesso rotulo={demo.userRotulo} email={demo.userEmail} senha={demo.userSenha} />
+      </Stack>
+    </Box>
   );
 }
 
@@ -262,6 +319,7 @@ export function CatalogoVenda({
                       apresentacao={it.apresentacao}
                       aviso={it.aviso}
                     />
+                    {it.demo ? <AcessoDemo demo={it.demo} /> : null}
                     {acoes ? <HStack gap={2} flexWrap="wrap">{acoes(it)}</HStack> : null}
                   </Stack>
                 </Box>

@@ -20,6 +20,23 @@
  * e só entrega prontos ao componente.
  */
 
+/**
+ * ACESSO DEMO do segmento — o sistema por DENTRO, com dois logins públicos.
+ *
+ * Vem junto do segmento porque é material de venda: quem apresenta precisa
+ * mostrar o painel funcionando, e a credencial é a mesma pra todo mundo (o demo
+ * se limpa sozinho todo dia). Só aparece quando o José liga a divulgação.
+ */
+export type CatalogoDemo = {
+  loginUrl: string;
+  adminEmail: string;
+  adminSenha: string;
+  userEmail: string;
+  userSenha: string;
+  /** Como chamar o 2º login ("Paciente (portal)", "Recepção (equipe)"). */
+  userRotulo: string;
+};
+
 /** Um segmento como o sistema publica (`GET /api/marketing/vertical`). */
 export type CatalogoVertical = {
   slug: string;
@@ -32,6 +49,8 @@ export type CatalogoVertical = {
   sub?: string;
   /** Módulos do pacote entregues na hora (rótulos humanos). */
   modulos?: string[];
+  /** Credenciais do demo, quando o segmento tem um no ar e divulgado. */
+  demo?: CatalogoDemo;
 };
 
 /** Segmento com a página já no ar nas quatro línguas + roteiro de apresentação. */
@@ -69,6 +88,12 @@ export type CatalogoItem = {
   meta?: string[];
   /** O que dizer no lugar do link quando `link` está vazio (não há página no ar). */
   aviso?: string;
+  /**
+   * O demo do segmento (sistema por dentro). Não passa por `?rep=` nem por
+   * domínio próprio: o endereço é o do tenant de demonstração, igual pra todos —
+   * o que o representante manda continua sendo o link da vitrine.
+   */
+  demo?: CatalogoDemo;
 };
 
 /**
@@ -130,6 +155,7 @@ export function montarCatalogo({
       cor: pronto?.cor,
       idiomas: pronto ? idiomasDe(raiz) : undefined,
       apresentacao: pronto ? apresentacaoDe(pronto) : undefined,
+      demo: v.demo,
     };
   });
 
