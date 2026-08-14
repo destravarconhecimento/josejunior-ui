@@ -179,6 +179,21 @@ export {
   type EvolucaoItem,
   type EvolucaoSaveData,
 } from "./components/EvolucoesManager";
+export {
+  type EvolucaoFoto,
+  MAX_EVOLUCAO_FOTOS,
+  legendaPadraoEvolucao,
+  legendaDaFoto,
+  normalizeEvolucaoFotos,
+  linhasDaEvolucao,
+} from "./evolucao/types";
+export { arteEvolucaoTree, ARTE_W, ARTE_H, ARTE_DOURADO, ARTE_FUNDO, type ArteEvolucaoInput } from "./evolucao/arte";
+export {
+  ArteEvolucaoModal,
+  type ArteEvolucaoModalProps,
+  type ArteEvolucaoConfig,
+  type ArteEvolucaoAlvo,
+} from "./evolucao/ArteEvolucaoModal";
 export { Toaster, toaster, toast, type ToastOpts } from "./components/Toast";
 export { Accordion, type AccordionItemDef } from "./components/Accordion";
 export { SidePanel } from "./components/SidePanel";

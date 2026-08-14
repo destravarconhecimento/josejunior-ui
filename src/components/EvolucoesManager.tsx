@@ -2,15 +2,19 @@
 /**
  * Gestão de "Evoluções" (comparações antes/depois) — módulo do personal trainer.
  * Componente PURO do design-system: recebe a lista + callbacks e não sabe nada de
- * server actions. Cada card mostra as duas fotos lado a lado, o título/subtítulo e
- * o destaque na home. O modal cria/edita com dois campos de upload (antes/depois),
- * título, subtítulo e o switch de destaque.
+ * server actions. Cada card mostra a faixa de fotos, o título/subtítulo e o
+ * destaque na home. O modal cria/edita com ATÉ 5 fotos, cada uma com a sua
+ * legenda editável (vazia = a padrão Antes/Durante/Depois).
+ *
+ * Alinhamento do grid: a faixa de fotos tem proporção FIXA (3:2), não importa se
+ * o item tem 2 ou 5 fotos — sem isso, um card de 3 fotos ficava mais baixo e
+ * desalinhava a linha inteira.
  *
  * Upload: `onUpload(file)` sobe direto pro Blob e devolve a URL pública (o app liga
  * isso no client-upload). Aqui só guardamos a URL no rascunho.
  */
 import { useRef, useState } from "react";
-import { ImagePlus, Pencil, Plus, Star, Trash2, TrendingUp } from "lucide-react";
+import { Download, ImagePlus, Pencil, Plus, Star, Trash2, TrendingUp } from "lucide-react";
 import { Box, Flex, Heading, HStack, SimpleGrid, Stack, Text } from "../primitives";
 import { Button } from "./Button";
 import { Card } from "./Card";
@@ -21,24 +25,26 @@ import { FormInput, FormTextarea } from "./form";
 import { Switch } from "./controls";
 import { useConfirm } from "./useConfirm";
 import { toaster } from "./Toast";
+import {
+  legendaDaFoto,
+  legendaPadraoEvolucao,
+  MAX_EVOLUCAO_FOTOS,
+  type EvolucaoFoto,
+} from "../evolucao/types";
 
 export type EvolucaoItem = {
   id: number;
   title: string;
   subtitle: string | null;
-  beforeUrl: string | null;
-  /** Foto do "durante" — opcional (antes/durante/depois). */
-  duringUrl: string | null;
-  afterUrl: string | null;
+  /** Fotos na ordem em que aparecem (até 5), cada uma com a sua legenda. */
+  photos: EvolucaoFoto[];
   featured: boolean;
 };
 
 export type EvolucaoSaveData = {
   title: string;
   subtitle: string;
-  beforeUrl: string | null;
-  duringUrl: string | null;
-  afterUrl: string | null;
+  photos: EvolucaoFoto[];
   featured: boolean;
 };
 
@@ -52,23 +58,26 @@ export type EvolucoesManagerProps = {
   onToggleFeatured: (id: number, featured: boolean) => Promise<void> | void;
   /** Sobe o arquivo pro Blob e devolve a URL pública. */
   onUpload: (file: File) => Promise<string>;
+  /** Quando definido, cada card ganha o botão de baixar a arte 9:16. */
+  onArte?: (item: EvolucaoItem) => void;
 };
+
+/** Slot do formulário: a URL pode estar vazia (o campo ainda não recebeu foto). */
+type Slot = { url: string; caption: string };
 
 type Draft = {
   title: string;
   subtitle: string;
-  beforeUrl: string | null;
-  duringUrl: string | null;
-  afterUrl: string | null;
+  slots: Slot[];
   featured: boolean;
 };
+
+const SLOT_VAZIO: Slot = { url: "", caption: "" };
 
 const EMPTY_DRAFT: Draft = {
   title: "",
   subtitle: "",
-  beforeUrl: null,
-  duringUrl: null,
-  afterUrl: null,
+  slots: [{ ...SLOT_VAZIO }, { ...SLOT_VAZIO }],
   featured: true,
 };
 
@@ -80,6 +89,7 @@ export function EvolucoesManager({
   onDelete,
   onToggleFeatured,
   onUpload,
+  onArte,
 }: EvolucoesManagerProps) {
   const { confirm, confirmDialog } = useConfirm();
   const [open, setOpen] = useState(false);
@@ -96,16 +106,27 @@ export function EvolucoesManager({
 
   const openEdit = (it: EvolucaoItem) => {
     setEditingId(it.id);
+    const slots: Slot[] = it.photos.map((p) => ({ url: p.url, caption: p.caption ?? "" }));
+    while (slots.length < 2) slots.push({ ...SLOT_VAZIO });
     setDraft({
       title: it.title,
       subtitle: it.subtitle ?? "",
-      beforeUrl: it.beforeUrl,
-      duringUrl: it.duringUrl,
-      afterUrl: it.afterUrl,
+      slots,
       featured: it.featured,
     });
     setOpen(true);
   };
+
+  const setSlot = (i: number, patch: Partial<Slot>) =>
+    setDraft((d) => ({ ...d, slots: d.slots.map((s, j) => (j === i ? { ...s, ...patch } : s)) }));
+
+  const addSlot = () =>
+    setDraft((d) =>
+      d.slots.length >= MAX_EVOLUCAO_FOTOS ? d : { ...d, slots: [...d.slots, { ...SLOT_VAZIO }] },
+    );
+
+  const removeSlot = (i: number) =>
+    setDraft((d) => ({ ...d, slots: d.slots.filter((_, j) => j !== i) }));
 
   const save = async () => {
     if (!draft.title.trim()) {
@@ -114,12 +135,14 @@ export function EvolucoesManager({
     }
     setSaving(true);
     try {
+      const photos: EvolucaoFoto[] = draft.slots
+        .filter((s) => s.url.trim())
+        .slice(0, MAX_EVOLUCAO_FOTOS)
+        .map((s) => ({ url: s.url.trim(), caption: s.caption.trim() || null }));
       const data: EvolucaoSaveData = {
         title: draft.title.trim(),
         subtitle: draft.subtitle.trim(),
-        beforeUrl: draft.beforeUrl,
-        duringUrl: draft.duringUrl,
-        afterUrl: draft.afterUrl,
+        photos,
         featured: draft.featured,
       };
       if (editingId == null) await onCreate(data);
@@ -161,6 +184,8 @@ export function EvolucoesManager({
     }
   };
 
+  const total = draft.slots.length;
+
   return (
     <Screen
       title={title}
@@ -175,7 +200,7 @@ export function EvolucoesManager({
         <EmptyState
           icon={TrendingUp}
           title="Nenhuma evolução ainda"
-          description="Mostre resultados reais: envie a foto do antes e do depois, dê um título e pronto — a seção aparece sozinha no seu site."
+          description="Mostre resultados reais: envie as fotos do antes e do depois, dê um título e pronto — a seção aparece sozinha no seu site."
           action={
             <Button tone="primary" onClick={openNew}>
               <Plus size={18} /> Criar evolução
@@ -185,13 +210,28 @@ export function EvolucoesManager({
       ) : (
         <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={5}>
           {items.map((it) => (
-            <Card key={it.id} p={0} overflow="hidden">
-              <SimpleGrid columns={it.duringUrl ? 3 : 2} gap={0}>
-                <Thumb url={it.beforeUrl} label="Antes" />
-                {it.duringUrl ? <Thumb url={it.duringUrl} label="Durante" /> : null}
-                <Thumb url={it.afterUrl} label="Depois" accent />
-              </SimpleGrid>
-              <Stack gap={2} p={3}>
+            <Card
+              key={it.id}
+              p={0}
+              overflow="hidden"
+              display="flex"
+              flexDirection="column"
+              bodyProps={{ display: "flex", flexDirection: "column", flex: "1", minHeight: 0 }}
+            >
+              {/* Faixa de fotos: proporção FIXA (3:2) e as fotos dividindo a
+                  largura — 2 ou 5 fotos ocupam a mesma altura, então os cards
+                  da linha continuam alinhados. */}
+              <Flex style={{ aspectRatio: "3 / 2" }} bg="#0b1220" flexShrink={0}>
+                {(it.photos.length ? it.photos : [{ url: "", caption: null }]).map((p, i) => (
+                  <Thumb
+                    key={`${it.id}-${i}`}
+                    url={p.url || null}
+                    label={legendaDaFoto(p, i, it.photos.length)}
+                    accent={i === it.photos.length - 1 && it.photos.length > 1}
+                  />
+                ))}
+              </Flex>
+              <Stack gap={2} p={3} flex="1">
                 <Heading size="sm" lineClamp={1} title={it.title}>
                   {it.title}
                 </Heading>
@@ -200,7 +240,7 @@ export function EvolucoesManager({
                     {it.subtitle}
                   </Text>
                 ) : null}
-                <HStack justify="space-between" pt={1}>
+                <HStack justify="space-between" pt={1} mt="auto">
                   <Button
                     tone={it.featured ? "primary" : "ghost"}
                     size="xs"
@@ -212,6 +252,17 @@ export function EvolucoesManager({
                     {it.featured ? "Na home" : "Oculta"}
                   </Button>
                   <HStack gap={1}>
+                    {onArte ? (
+                      <Button
+                        tone="ghost"
+                        size="xs"
+                        onClick={() => onArte(it)}
+                        disabled={it.photos.length === 0}
+                        title="Baixar arte 9:16"
+                      >
+                        <Download size={14} />
+                      </Button>
+                    ) : null}
                     <Button tone="ghost" size="xs" onClick={() => openEdit(it)} title="Editar">
                       <Pencil size={14} />
                     </Button>
@@ -236,6 +287,7 @@ export function EvolucoesManager({
         open={open}
         onClose={() => setOpen(false)}
         title={editingId == null ? "Nova evolução" : "Editar evolução"}
+        size="lg"
         footer={
           <>
             <Button tone="ghost" onClick={() => setOpen(false)} disabled={saving}>
@@ -247,28 +299,34 @@ export function EvolucoesManager({
           </>
         }
       >
-        <SimpleGrid columns={3} gap={4}>
-          <ImageDrop
-            label="Antes"
-            url={draft.beforeUrl}
-            onUpload={onUpload}
-            onChange={(url) => setDraft((d) => ({ ...d, beforeUrl: url }))}
-          />
-          <ImageDrop
-            label="Durante"
-            hint="opcional"
-            url={draft.duringUrl}
-            onUpload={onUpload}
-            onChange={(url) => setDraft((d) => ({ ...d, duringUrl: url }))}
-            onClear={() => setDraft((d) => ({ ...d, duringUrl: null }))}
-          />
-          <ImageDrop
-            label="Depois"
-            url={draft.afterUrl}
-            onUpload={onUpload}
-            onChange={(url) => setDraft((d) => ({ ...d, afterUrl: url }))}
-          />
-        </SimpleGrid>
+        <Stack gap={3}>
+          <HStack justify="space-between" align="center">
+            <Text fontSize="sm" fontWeight="600">
+              Fotos <Text as="span" color="var(--admin-text-soft)">({total} de {MAX_EVOLUCAO_FOTOS})</Text>
+            </Text>
+            <Button tone="outline" size="xs" onClick={addSlot} disabled={total >= MAX_EVOLUCAO_FOTOS}>
+              <Plus size={14} /> Adicionar foto
+            </Button>
+          </HStack>
+          <SimpleGrid columns={{ base: 2, md: 3 }} gap={4}>
+            {draft.slots.map((slot, i) => (
+              <ImageDrop
+                key={i}
+                caption={slot.caption}
+                placeholder={legendaPadraoEvolucao(i, total)}
+                onCaption={(caption) => setSlot(i, { caption })}
+                url={slot.url || null}
+                onUpload={onUpload}
+                onChange={(url) => setSlot(i, { url })}
+                onRemove={total > 1 ? () => removeSlot(i) : undefined}
+              />
+            ))}
+          </SimpleGrid>
+          <Text fontSize="xs" color="var(--admin-text-soft)">
+            A legenda acima de cada foto é sua: deixe em branco e vale o padrão
+            (Antes · Durante · Depois).
+          </Text>
+        </Stack>
 
         <FormInput
           label="Título (nome da pessoa ou chamada)"
@@ -303,10 +361,10 @@ export function EvolucoesManager({
   );
 }
 
-/** Miniatura de uma foto (card da lista) com o rótulo Antes/Depois. */
+/** Miniatura de uma foto (card da lista) com a legenda. */
 function Thumb({ url, label, accent }: { url: string | null; label: string; accent?: boolean }) {
   return (
-    <Box position="relative" style={{ aspectRatio: "3 / 4" }} bg="#0b1220" overflow="hidden">
+    <Box position="relative" flex="1" minW={0} h="100%" bg="#0b1220" overflow="hidden">
       {url ? (
         <Box
           position="absolute"
@@ -325,6 +383,7 @@ function Thumb({ url, label, accent }: { url: string | null; label: string; acce
         position="absolute"
         top="1.5"
         left="1.5"
+        maxW="calc(100% - 12px)"
         px={2}
         py={0.5}
         borderRadius="999px"
@@ -332,6 +391,8 @@ function Thumb({ url, label, accent }: { url: string | null; label: string; acce
         fontWeight="700"
         color="white"
         bg={accent ? "var(--admin-primary)" : "rgba(15,23,42,0.72)"}
+        lineClamp={1}
+        title={label}
       >
         {label}
       </Box>
@@ -339,23 +400,28 @@ function Thumb({ url, label, accent }: { url: string | null; label: string; acce
   );
 }
 
-/** Campo de upload de UMA foto: mostra a prévia ou o placeholder; sobe no clique. */
+/**
+ * Uma foto do formulário: a LEGENDA em cima (editável, com o padrão da posição
+ * como placeholder) e o campo de upload embaixo — sobe no clique.
+ */
 function ImageDrop({
-  label,
-  hint,
+  caption,
+  placeholder,
+  onCaption,
   url,
   onUpload,
   onChange,
-  onClear,
+  onRemove,
 }: {
-  label: string;
-  /** Ex.: "opcional" — texto discreto ao lado do rótulo. */
-  hint?: string;
+  caption: string;
+  /** Legenda padrão da posição (Antes/Durante/Depois) — só o placeholder. */
+  placeholder: string;
+  onCaption: (v: string) => void;
   url: string | null;
   onUpload: (file: File) => Promise<string>;
   onChange: (url: string) => void;
-  /** Quando definido, mostra um "×" para remover a foto (usado no campo opcional). */
-  onClear?: () => void;
+  /** Quando definido, mostra o "×" que tira a foto da lista. */
+  onRemove?: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -374,20 +440,20 @@ function ImageDrop({
 
   return (
     <Stack gap={1.5}>
-      <HStack gap={1.5} justify="space-between">
-        <Text fontSize="sm" fontWeight="600" color="var(--admin-primary)">
-          {label}
-          {hint ? (
-            <Text as="span" fontWeight="500" color="var(--admin-text-soft)">
-              {" "}
-              ({hint})
-            </Text>
-          ) : null}
-        </Text>
-        {url && onClear ? (
+      <HStack gap={1.5}>
+        <Box flex="1" minW={0}>
+          <FormInput
+            value={caption}
+            onChange={(e) => onCaption(e.target.value)}
+            placeholder={placeholder}
+            size="sm"
+            aria-label="Legenda da foto"
+          />
+        </Box>
+        {onRemove ? (
           <Box
             as="button"
-            onClick={onClear}
+            onClick={onRemove}
             fontSize="xs"
             color="var(--admin-text-soft)"
             _hover={{ color: "var(--admin-primary)" }}

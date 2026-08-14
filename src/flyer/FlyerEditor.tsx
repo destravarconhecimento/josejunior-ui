@@ -18,6 +18,7 @@ import { Card } from "../components/Card";
 import { Modal } from "../components/Modal";
 import { toaster } from "../components/Toast";
 import { CANVAS_W, CANVAS_H } from "./constants";
+import { legendaDaFoto, linhasDaEvolucao } from "../evolucao/types";
 import { useHistory, type SetMode } from "./history";
 import {
   blankPage, cloneElementShifted, createImageElement, createShapeElement, createTextElement, flyerId,
@@ -45,7 +46,19 @@ export type FlyerEditorProps = {
   onExport: (kind: "png" | "pdf", data: FlyerSaveData & { pageIndex: number }) => Promise<void>;
   /** Comparações antes/depois (módulo Evoluções) — só chega quando o módulo está ligado. */
   comparisons?: FlyerComparison[];
+  /**
+   * Abre a arte 9:16 (story/reels) da evolução. Quando não vem, o editor só
+   * insere a comparação na página — o botão "9:16" some.
+   */
+  onArteEvolucao?: (cmp: FlyerComparison) => void;
 };
+
+/** Miniatura do seletor: primeira, do meio e última — o resto vira contador. */
+function miniaturas(c: FlyerComparison) {
+  const fotos = c.photos;
+  if (fotos.length <= 3) return fotos;
+  return [fotos[0], fotos[Math.floor(fotos.length / 2)], fotos[fotos.length - 1]];
+}
 
 function deepClonePage(pg: FlyerPage): FlyerPage {
   return {
@@ -74,6 +87,7 @@ export function FlyerEditor(props: FlyerEditorProps) {
   const [compareOpen, setCompareOpen] = useState(false);
   const cropTargetRef = useRef<string | null>(null);
   const comparisons = props.comparisons ?? [];
+  const onArteEvolucao = props.onArteEvolucao;
 
   const pageIndexRef = useRef(0);
   pageIndexRef.current = Math.min(pageIndex, doc.pages.length - 1);
@@ -186,50 +200,65 @@ export function FlyerEditor(props: FlyerEditorProps) {
   );
 
   /**
-   * Insere uma comparação (antes/depois) inteira na página atual num único passo
-   * de histórico: as duas fotos lado a lado + rótulos + título/subtítulo. O usuário
-   * reposiciona/edita cada peça depois, como qualquer elemento.
+   * Insere uma comparação inteira na página atual num único passo de histórico:
+   * as fotos com o rótulo em cima + título/subtítulo. De 2 a 5 fotos: até 3 ficam
+   * numa fileira só; 4 vira 2+2 e 5 vira 3+2 (`linhasDaEvolucao`), pra foto nunca
+   * ficar espremida. O usuário reposiciona/edita cada peça depois.
    */
   const insertComparison = useCallback(
     (cmp: FlyerComparison) => {
       const M = 60; // margem lateral
-      // As fotos: antes → (durante) → depois. "Durante" só entra quando existe.
-      const stages: { src: string; label: string; accent?: boolean }[] = [
-        { src: cmp.beforeUrl, label: "ANTES" },
-        ...(cmp.duringUrl ? [{ src: cmp.duringUrl, label: "DURANTE" }] : []),
-        { src: cmp.afterUrl, label: "DEPOIS", accent: true },
-      ];
-      const n = stages.length;
-      const GAP = n === 3 ? 28 : 40; // aperta um pouco com 3 fotos
-      const imgW = Math.round((CANVAS_W - M * 2 - GAP * (n - 1)) / n); // retratos lado a lado
-      const imgH = Math.round((imgW * 4) / 3); // proporção 3:4
-      const imgY = 340;
-      const labelY = imgY - 52;
-      const titleY = imgY + imgH + 28;
-      const subY = titleY + 96;
-      const xOf = (i: number) => M + i * (imgW + GAP);
+      const total = cmp.photos.length;
+      if (!total) return;
+      const stages = cmp.photos.map((foto, i) => ({
+        src: foto.url,
+        label: legendaDaFoto(foto, i, total).toUpperCase(),
+        accent: i === total - 1,
+      }));
 
-      const els: FlyerElement[] = [
-        ...stages.map((s, i) =>
-          createTextElement({
-            x: xOf(i), y: labelY, w: imgW, h: 44,
-            text: s.label, fontSize: n === 3 ? 22 : 26, fontWeight: "700",
-            color: s.accent ? "#ffffff" : "#e6e9f2", align: "center", letterSpacing: 2, lineHeight: 1.1,
-          }),
-        ),
-        ...stages.map((s, i) =>
-          createImageElement({ x: xOf(i), y: imgY, w: imgW, h: imgH, src: s.src, radius: 18, shadow: true }),
-        ),
+      const rows = linhasDaEvolucao(total);
+      const maxPorLinha = Math.max(...rows);
+      const GAP = maxPorLinha >= 3 ? 28 : 40; // aperta um pouco com 3 na fileira
+      const LABEL_H = 44;
+      const imgW = Math.round((CANVAS_W - M * 2 - GAP * (maxPorLinha - 1)) / maxPorLinha);
+      const imgH = Math.round((imgW * 4) / 3); // proporção 3:4
+      const topo = 340 - (rows.length - 1) * 150; // sobe o bloco quando há 2 fileiras
+      const linhaH = LABEL_H + 8 + imgH;
+      const fontLabel = maxPorLinha >= 3 ? 22 : 26;
+
+      const els: FlyerElement[] = [];
+      let idx = 0;
+      let y = topo;
+      for (const n of rows) {
+        const larguraLinha = n * imgW + (n - 1) * GAP;
+        const x0 = Math.round((CANVAS_W - larguraLinha) / 2); // fileira curta fica centrada
+        for (let i = 0; i < n && idx < stages.length; i++, idx++) {
+          const s = stages[idx];
+          const x = x0 + i * (imgW + GAP);
+          els.push(
+            createTextElement({
+              x, y, w: imgW, h: LABEL_H,
+              text: s.label, fontSize: fontLabel, fontWeight: "700",
+              color: s.accent ? "#ffffff" : "#e6e9f2", align: "center", letterSpacing: 2, lineHeight: 1.1,
+            }),
+            createImageElement({ x, y: y + LABEL_H + 8, w: imgW, h: imgH, src: s.src, radius: 18, shadow: true }),
+          );
+        }
+        y += linhaH + GAP;
+      }
+
+      const titleY = y - GAP + 28;
+      els.push(
         createTextElement({
           x: M, y: titleY, w: CANVAS_W - M * 2, h: 90,
           text: cmp.title || "Evolução", fontSize: 52, fontWeight: "900",
           color: "#ffffff", align: "center", lineHeight: 1.05,
         }),
-      ];
+      );
       if (cmp.subtitle && cmp.subtitle.trim()) {
         els.push(
           createTextElement({
-            x: M + 20, y: subY, w: CANVAS_W - (M + 20) * 2, h: 80,
+            x: M + 20, y: titleY + 96, w: CANVAS_W - (M + 20) * 2, h: 80,
             text: cmp.subtitle, fontSize: 30, fontWeight: "600",
             color: "#e6e9f2", align: "center", lineHeight: 1.25,
           }),
@@ -700,27 +729,64 @@ export function FlyerEditor(props: FlyerEditorProps) {
             {comparisons.map((c) => (
               <Box
                 key={c.id}
-                as="button"
-                onClick={() => insertComparison(c)}
-                textAlign="left"
                 borderWidth="1px"
                 borderColor="var(--admin-border)"
                 borderRadius="12px"
                 overflow="hidden"
                 bg="var(--admin-surface)"
-                cursor="pointer"
                 _hover={{ borderColor: "var(--admin-primary)" }}
               >
-                <HStack gap={0}>
-                  <Box flex="1" style={{ aspectRatio: "3 / 4" }} backgroundImage={`url(${c.beforeUrl})`} backgroundSize="cover" backgroundPosition="center" />
-                  {c.duringUrl ? (
-                    <Box flex="1" style={{ aspectRatio: "3 / 4" }} backgroundImage={`url(${c.duringUrl})`} backgroundSize="cover" backgroundPosition="center" />
+                {/* Miniatura: até 3 fotos (a 1ª, a do meio e a última) — o resto vira contador. */}
+                <Box as="button" onClick={() => insertComparison(c)} display="block" w="100%" cursor="pointer" textAlign="left">
+                  <HStack gap={0} position="relative">
+                    {miniaturas(c).map((foto, i) => (
+                      <Box
+                        key={`${foto.url}-${i}`}
+                        flex="1"
+                        style={{ aspectRatio: "3 / 4" }}
+                        backgroundImage={`url(${foto.url})`}
+                        backgroundSize="cover"
+                        backgroundPosition="center"
+                      />
+                    ))}
+                    {c.photos.length > 3 ? (
+                      <Box
+                        position="absolute"
+                        right="6px"
+                        bottom="6px"
+                        px={1.5}
+                        borderRadius="6px"
+                        bg="rgba(11,18,32,.82)"
+                        color="#fff"
+                        fontSize="10px"
+                        fontWeight="700"
+                      >
+                        {c.photos.length} fotos
+                      </Box>
+                    ) : null}
+                  </HStack>
+                  <Text fontSize="xs" fontWeight="600" px={2} pt={2} lineClamp={1} title={c.title}>
+                    {c.title}
+                  </Text>
+                </Box>
+                <HStack justify="space-between" px={2} pb={2} pt={1} gap={2}>
+                  <Text fontSize="10px" color="var(--admin-text-soft)">
+                    Clique = inserir
+                  </Text>
+                  {onArteEvolucao ? (
+                    <Button
+                      tone="ghost"
+                      size="xs"
+                      onClick={() => {
+                        setCompareOpen(false);
+                        onArteEvolucao(c);
+                      }}
+                      title="Baixar como arte 9:16 (story/reels)"
+                    >
+                      <Download size={12} /> 9:16
+                    </Button>
                   ) : null}
-                  <Box flex="1" style={{ aspectRatio: "3 / 4" }} backgroundImage={`url(${c.afterUrl})`} backgroundSize="cover" backgroundPosition="center" />
                 </HStack>
-                <Text fontSize="xs" fontWeight="600" p={2} lineClamp={1} title={c.title}>
-                  {c.title}
-                </Text>
               </Box>
             ))}
           </SimpleGrid>

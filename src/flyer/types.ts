@@ -8,6 +8,8 @@
  * URL do Blob em `src` (nunca base64) — o JSON fica leve e a URL é compartilhável.
  */
 
+import type { EvolucaoFoto } from "../evolucao/types";
+
 export type FlyerBackground =
   | { type: "color"; value: string; image?: string }
   | { type: "image"; value: string; image: string };
@@ -85,10 +87,8 @@ export type FlyerComparison = {
   id: number;
   title: string;
   subtitle: string | null;
-  beforeUrl: string;
-  /** Foto do "durante" (opcional); quando existe, o flyer insere 3 fotos. */
-  duringUrl: string | null;
-  afterUrl: string;
+  /** Linha do tempo (2 a 5 fotos) com a legenda de cada uma. */
+  photos: EvolucaoFoto[];
 };
 
 /** Linha resumida de flyer para a galeria/lista. */
