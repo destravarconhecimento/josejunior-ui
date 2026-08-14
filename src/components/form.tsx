@@ -133,18 +133,26 @@ export function FormTextarea({ label, help, error, required, ...ta }: FieldWrap 
   );
 }
 
-/** Select nativo com label/erro padrão. `options` = [{value,label}]. */
+/**
+ * Select nativo com label/erro padrão. `options` = [{value,label}].
+ *
+ * `groups` desenha `<optgroup>` DEPOIS das opções soltas — lista longa (dezenas
+ * de modelos, dezenas de cidades) só é navegável separada por família, e as
+ * opções soltas são o "nenhum/padrão" que vem antes de tudo.
+ */
 export function FormSelect({
   label,
   help,
   error,
   required,
-  options,
+  options = [],
+  groups,
   placeholder,
   disabled,
   ...field
 }: FieldWrap & {
-  options: { value: string; label: string }[];
+  options?: { value: string; label: string }[];
+  groups?: { label: string; options: { value: string; label: string }[] }[];
   placeholder?: string;
   disabled?: boolean;
 } & React.ComponentProps<typeof NativeSelect.Field>) {
@@ -155,6 +163,13 @@ export function FormSelect({
           {placeholder ? <option value="">{placeholder}</option> : null}
           {options.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+          {groups?.map((g) => (
+            <optgroup key={g.label} label={g.label}>
+              {g.options.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </optgroup>
           ))}
         </NativeSelect.Field>
         <NativeSelect.Indicator />
