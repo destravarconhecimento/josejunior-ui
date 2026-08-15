@@ -288,7 +288,14 @@ function fmtPhone(peer: string): string {
 }
 
 export function displayName(chat: WhatsAppChat): string {
-  return chat.savedName?.trim() || chat.contactName?.trim() || (chat.isGroup ? "Grupo" : fmtPhone(chat.peer));
+  // O nome do vínculo (lead/cliente do CRM) vence o pushName do WhatsApp: é o
+  // dado curado do painel — o contato pode se chamar "Ana 🦷" no aparelho dele.
+  return (
+    chat.savedName?.trim() ||
+    chat.vinculo?.nome?.trim() ||
+    chat.contactName?.trim() ||
+    (chat.isGroup ? "Grupo" : fmtPhone(chat.peer))
+  );
 }
 
 function fmtTime(iso: string | null | undefined): string {

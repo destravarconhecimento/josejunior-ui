@@ -6,6 +6,8 @@ import Link from "next/link";
 import { Box, Flex, HStack, Spinner, Stack, Text, chakra } from "@chakra-ui/react";
 import {
   ArrowLeft,
+  Bot,
+  BotOff,
   Maximize2,
   MessageCircle,
   PanelRight,
@@ -115,6 +117,19 @@ export const WA_FAB_SENT_EVENT = "wa-fab:sent";
 
 const soDigitos = (s: string) => (s || "").replace(/\D/g, "");
 
+/** Estado da IA numa conversa: a instância TEM agente ativo? E este número está ligado? */
+export type WhatsAppFabIaEstado = { disponivel: boolean; ligada: boolean };
+
+/**
+ * Liga/desliga a IA POR CONVERSA (opcional — sem isto o botão nem aparece).
+ * Quem monta decide o que "desligar" significa (no sistema: pausa por número no
+ * gateway; o agente segue atendendo os demais). Grupo não tem IA por conversa.
+ */
+export type WhatsAppFabIa = {
+  estado: (chatId: string) => Promise<WhatsAppResult<WhatsAppFabIaEstado>>;
+  alternar: (chatId: string, ligar: boolean) => Promise<WhatsAppResult<WhatsAppFabIaEstado>>;
+};
+
 export type WhatsAppFabProps = {
   /** Desligado = o FAB nem existe (é o "se tiver conectado" do pedido). */
   connected: boolean;
@@ -129,6 +144,8 @@ export type WhatsAppFabProps = {
   /** Avisa quando abre/fecha — o dono usa pra ligar/desligar o polling. */
   onOpenChange?: (open: boolean) => void;
   callbacks: WhatsAppFabCallbacks;
+  /** Liga/desliga da IA por conversa (opcional — ver `WhatsAppFabIa`). */
+  ia?: WhatsAppFabIa;
   /**
    * TEMPO REAL por injeção (opcional): `(aviso) => cancelar`. O FAB não tinha
    * ciclo nenhum — o fio aberto ficava congelado até fechar e abrir de novo.
@@ -147,6 +164,7 @@ export function WhatsAppFab({
   hideOnPaths = [],
   onOpenChange,
   callbacks,
+  ia,
   onRealtime,
 }: WhatsAppFabProps) {
   const pathname = usePathname();
@@ -163,6 +181,9 @@ export function WhatsAppFab({
   // Conversa "virtual": aberta por evento (lead do funil) antes de existir na
   // lista — só serve pro cabeçalho ter nome/número enquanto o fio carrega.
   const [virtualChat, setVirtualChat] = useState<WhatsAppChat | null>(null);
+  // IA por conversa: null = ainda não perguntei (ou não há callback) — sem botão.
+  const [iaEstado, setIaEstado] = useState<WhatsAppFabIaEstado | null>(null);
+  const [iaBusy, setIaBusy] = useState(false);
   const fioRef = useRef<HTMLDivElement>(null);
 
   // Dock partilhado: empilha os FABs (WhatsApp em baixo) e garante que só um
@@ -244,6 +265,29 @@ export function WhatsAppFab({
     window.addEventListener(WA_FAB_OPEN_CHAT_EVENT, abrirEm);
     return () => window.removeEventListener(WA_FAB_OPEN_CHAT_EVENT, abrirEm);
   }, [abrirConversa]);
+
+  // Estado da IA da conversa aberta. Pergunta uma vez por conversa; grupo fica
+  // de fora (a pausa do gateway é por NÚMERO — grupo não tem um).
+  useEffect(() => {
+    setIaEstado(null);
+    if (!ia || !chatId || chatId.endsWith("@g.us")) return;
+    let vivo = true;
+    void ia.estado(chatId).then((r) => {
+      if (vivo && r.ok && r.data) setIaEstado(r.data);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [ia, chatId]);
+
+  const alternarIa = useCallback(async () => {
+    if (!ia || !chatId || !iaEstado?.disponivel || iaBusy) return;
+    setIaBusy(true);
+    const r = await ia.alternar(chatId, !iaEstado.ligada);
+    setIaBusy(false);
+    if (r.ok && r.data) setIaEstado(r.data);
+    else if (!r.ok) setErro(r.error);
+  }, [ia, chatId, iaEstado, iaBusy]);
 
   // TEMPO REAL: recarrega o fio aberto SEM piscar (não limpa as mensagens nem
   // acende o spinner — a bolha nova entra e pronto).
@@ -463,9 +507,33 @@ export function WhatsAppFab({
                   {displayName(chatAberto)}
                 </Text>
                 <Text fontSize="10px" opacity={0.85} lineClamp={1}>
-                  {chatAberto.isGroup ? "Grupo" : chatAberto.peer.replace(/\D/g, "")}
+                  {chatAberto.isGroup
+                    ? "Grupo"
+                    : chatAberto.vinculo && displayName(chatAberto) !== chatAberto.vinculo.nome
+                      ? `${chatAberto.peer.replace(/\D/g, "")} · ${chatAberto.vinculo.nome}`
+                      : chatAberto.peer.replace(/\D/g, "")}
                 </Text>
               </Stack>
+              {iaEstado?.disponivel ? (
+                <chakra.button
+                  type="button"
+                  onClick={() => void alternarIa()}
+                  disabled={iaBusy}
+                  aria-label={iaEstado.ligada ? "Desligar a IA nesta conversa" : "Ligar a IA nesta conversa"}
+                  title={
+                    iaEstado.ligada
+                      ? "IA respondendo esta conversa — clique pra desligar"
+                      : "IA desligada nesta conversa — clique pra ligar"
+                  }
+                  display="inline-flex"
+                  alignItems="center"
+                  flexShrink={0}
+                  opacity={iaBusy ? 0.45 : iaEstado.ligada ? 1 : 0.6}
+                  _hover={{ opacity: 1 }}
+                >
+                  {iaEstado.ligada ? <Bot size={17} /> : <BotOff size={17} />}
+                </chakra.button>
+              ) : null}
             </>
           ) : (
             <>

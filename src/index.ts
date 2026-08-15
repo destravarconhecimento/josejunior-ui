@@ -138,6 +138,8 @@ export {
   type WhatsAppFabSent,
   type WhatsAppFabProps,
   type WhatsAppFabCallbacks,
+  type WhatsAppFabIa,
+  type WhatsAppFabIaEstado,
 } from "./components/whatsapp/WhatsAppFab";
 export {
   ConexaoWhatsApp,
