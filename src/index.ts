@@ -188,6 +188,14 @@ export {
   linhasDaEvolucao,
 } from "./evolucao/types";
 export {
+  alinharEvolucao,
+  normalizeFoco,
+  type FocoFoto,
+  type CaixaFoco,
+  type JanelaFoto,
+  type AlinhamentoEvolucao,
+} from "./evolucao/alinhamento";
+export {
   arteEvolucaoTree,
   arteDimensoes,
   ARTE_DIMENSOES,

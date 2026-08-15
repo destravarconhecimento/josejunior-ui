@@ -4,8 +4,14 @@
  * importam daqui para não divergirem na legenda nem no teto de fotos.
  */
 
-/** Uma foto da evolução. `caption` null/vazia = usa a legenda padrão da posição. */
-export type EvolucaoFoto = { url: string; caption: string | null };
+import { normalizeFoco, type FocoFoto } from "./alinhamento";
+
+/**
+ * Uma foto da evolução. `caption` null/vazia = usa a legenda padrão da posição.
+ * `foco` é onde a pessoa está na foto (medido pela IA, ver `alinhamento.ts`);
+ * ausente = a faixa renderiza a foto inteira, como sempre fez.
+ */
+export type EvolucaoFoto = { url: string; caption: string | null; foco?: FocoFoto | null };
 
 /** Teto de fotos por evolução (o antes/durante/depois virou uma lista). */
 export const MAX_EVOLUCAO_FOTOS = 5;
@@ -39,7 +45,8 @@ export function normalizeEvolucaoFotos(value: unknown): EvolucaoFoto[] {
     const url = typeof item.url === "string" ? item.url.trim() : "";
     if (!url) continue;
     const caption = typeof item.caption === "string" ? item.caption.trim().slice(0, 60) : "";
-    out.push({ url, caption: caption || null });
+    const foco = normalizeFoco((item as { foco?: unknown }).foco);
+    out.push(foco ? { url, caption: caption || null, foco } : { url, caption: caption || null });
     if (out.length >= MAX_EVOLUCAO_FOTOS) break;
   }
   return out;
