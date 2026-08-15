@@ -2,12 +2,13 @@
 
 import type { ReactNode } from "react";
 import { Box, chakra, HStack, SimpleGrid, Stack, Text } from "@chakra-ui/react";
-import { FileText, MonitorSmartphone } from "lucide-react";
+import { Bot, FileText, MonitorSmartphone } from "lucide-react";
 import { Modal } from "./Modal";
 import { Tag } from "./Badge";
 import { InlineSelect } from "./InlineSelect";
 import { TextoCopiavel } from "./TextoCopiavel";
 import { NumeroWhats, type SituacaoWhats } from "./NumeroWhats";
+import { Timeline } from "./Timeline";
 
 /**
  * A FICHA DO LEAD — "quem é essa pessoa e o que já rolou com ela", numa tela só.
@@ -87,6 +88,13 @@ export type FichaLeadDados = {
   demo?: FichaPeca | null;
   /** Frases de contexto que só um painel sabe (ex.: "ainda no automático"). */
   avisos?: string[];
+  /**
+   * O estado da sequência automática quando a conta está NELA — frase pronta de
+   * quem chama ("Toque 2 de 4 · próximo 18/08 · última variante: b"). Ganha um
+   * bloco próprio (não um aviso solto) porque responde a pergunta que trava a
+   * decisão: "se eu não fizer nada, o que a máquina faz e quando?".
+   */
+  cadencia?: string | null;
 };
 
 function fmtDia(iso: string): string {
@@ -258,6 +266,17 @@ export function FichaLead({
         )}
       </Box>
 
+      {dados.cadencia ? (
+        <HStack className="admin-card" p={2.5} gap={2} align="flex-start">
+          <Box as="span" color="var(--admin-primary)" display="inline-flex" flexShrink={0} mt="1px">
+            <Bot size={14} />
+          </Box>
+          <Text fontSize="xs" color="var(--admin-text)">
+            {dados.cadencia}
+          </Text>
+        </HStack>
+      ) : null}
+
       {/* O pedido vem ANTES do contato de propósito: quando a pessoa escreveu
           alguma coisa, é ela que decide o que responder — o telefone só importa
           depois de saber o que ela quer. */}
@@ -319,28 +338,25 @@ export function FichaLead({
       ) : null}
 
       {emails.length ? (
-        <Box className="admin-card" p={3} maxH="220px" overflowY="auto">
-          <Text {...ROTULO_BLOCO} mb={1.5}>
+        <Box className="admin-card" p={3} maxH="260px" overflowY="auto">
+          <Text {...ROTULO_BLOCO} mb={2}>
             E-mails que saíram
           </Text>
-          <Stack gap={1}>
-            {emails.slice(0, 12).map((e, i) => (
-              <HStack key={i} gap={2} flexWrap="wrap">
-                <Text fontSize="xs" color="var(--admin-text-soft)">
-                  {fmtDia(e.enviadoEm)}
-                </Text>
-                <Text fontSize="xs" color="var(--admin-text)" lineClamp={1} minW={0}>
-                  {e.campanha ?? "campanha"}
-                </Text>
-                <Text
-                  fontSize="xs"
-                  color={e.clicouEm ? "#1d4ed8" : e.abriuEm ? "#15803d" : "var(--admin-text-soft)"}
-                >
-                  {e.clicouEm ? "clicou" : e.abriuEm ? "abriu" : e.status}
-                </Text>
-              </HStack>
-            ))}
-          </Stack>
+          {/* Narrativa temporal, não lista: cada envio é um ponto, e a cor do
+              ponto é o melhor sinal que voltou dele (clicou > abriu > nada). */}
+          <Timeline
+            items={emails.slice(0, 12).map((e, i) => ({
+              id: i,
+              title: e.campanha ?? "campanha",
+              time: fmtDia(e.enviadoEm),
+              tone: e.clicouEm ? "primary" : e.abriuEm ? "success" : "neutral",
+              description: e.clicouEm
+                ? `clicou ${fmtDia(e.clicouEm)}${e.abriuEm ? ` · abriu ${fmtDia(e.abriuEm)}` : ""}`
+                : e.abriuEm
+                  ? `abriu ${fmtDia(e.abriuEm)}`
+                  : e.status,
+            }))}
+          />
         </Box>
       ) : null}
 
