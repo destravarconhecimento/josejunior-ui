@@ -171,7 +171,14 @@ export interface SiteIdentityContent {
   /** Bloco 7 — a mesma conversão do topo, repetida no fim. */
   diagnosticCta: { title: string; text: string; ctaLabel: string };
   /** Faixa final — convite para quem quer VENDER comigo (→ /representante). */
-  representanteCta: { eyebrow: string; title: string; text: string; ctaLabel: string };
+  representanteCta: {
+    /** false = a faixa some da home (o rodapé mantém o link /representante). */
+    enabled: boolean;
+    eyebrow: string;
+    title: string;
+    text: string;
+    ctaLabel: string;
+  };
   socials: SiteSocialItem[];
   seo: { title: string; description: string };
   theme?: SiteThemeContent;

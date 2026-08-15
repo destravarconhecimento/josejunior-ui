@@ -967,9 +967,14 @@ export function SiteIdentityEditor({
     {
       value: "representante",
       title: groupTitle("Seja meu representante", "Última faixa da home — o convite para quem quer VENDER comigo"),
-      meta: <Tag>/representante</Tag>,
+      meta: <Tag tone={c.representanteCta.enabled ? "soft" : "off"}>{c.representanteCta.enabled ? "no ar" : "oculta"}</Tag>,
       content: (
         <Stack gap={5}>
+          <ToggleField
+            label="Mostrar a faixa na home"
+            value={c.representanteCta.enabled}
+            onChange={(v) => setRepresentanteCta({ enabled: v })}
+          />
           <TextField label="Eyebrow (linha de cima)" value={c.representanteCta.eyebrow} onChange={(v) => setRepresentanteCta({ eyebrow: v })} />
           <TextField label="Título" value={c.representanteCta.title} onChange={(v) => setRepresentanteCta({ title: v })} />
           <TextField label="Texto" value={c.representanteCta.text} onChange={(v) => setRepresentanteCta({ text: v })} textarea rows={3} />
