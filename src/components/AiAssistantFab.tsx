@@ -23,7 +23,7 @@ import {
   setFabOpen,
   FAB_BASE,
   FAB_LATERAL_W,
-  FAB_PANEL_BOTTOM,
+  FAB_SIZE,
 } from "./fab/dock";
 
 /** Link do Next com as props de estilo do Chakra (o botão de expandir). */
@@ -78,7 +78,8 @@ export function AiAssistantFab({
 
   // Dock partilhado: empilha os FABs e garante que só um painel abre de cada vez.
   const wantShow = !hideOnPaths.includes(pathname);
-  const { bottom, othersOpen } = useFabDock("ai", wantShow);
+  const { bottom, lado, othersOpen, arrastoProps, arrastando, arrastou } = useFabDock("ai", wantShow);
+  const { style: arrastoStyle, ...arrastoHandlers } = arrastoProps;
 
   // Flutuante (janelinha no canto) × lateral (encostado na direita, altura
   // inteira). A escolha fica guardada — ver `useFabModo`.
@@ -131,24 +132,32 @@ export function AiAssistantFab({
     return (
       <chakra.button
         type="button"
-        onClick={() => setOpen(true)}
+        // Arrastar não pode abrir o chat: `arrastou()` diz se este clique é o
+        // fim de um arrasto (ver o dock).
+        onClick={() => {
+          if (arrastou()) return;
+          setOpen(true);
+        }}
         position="fixed"
-        style={{ background: accent, boxShadow: "0 12px 34px rgba(7,26,51,0.35)" }}
+        {...arrastoHandlers}
+        style={{ background: accent, boxShadow: "0 8px 22px rgba(7,26,51,0.28)", ...arrastoStyle }}
         bottom={`${bottom}px`}
-        right={`${FAB_BASE}px`}
+        left={lado === "esq" ? `${FAB_BASE}px` : undefined}
+        right={lado === "dir" ? `${FAB_BASE}px` : undefined}
         zIndex={1400}
-        w="56px"
-        h="56px"
+        w={`${FAB_SIZE}px`}
+        h={`${FAB_SIZE}px`}
         borderRadius="full"
         display="inline-flex"
         alignItems="center"
         justifyContent="center"
         color="white"
-        _hover={{ transform: "scale(1.06)" }}
-        transition="transform .15s, bottom .18s ease"
-        aria-label={`Falar com ${title}`}
+        _hover={arrastando ? undefined : { transform: "scale(1.06)" }}
+        transition={arrastando ? "none" : "transform .15s, bottom .18s ease"}
+        aria-label={`Falar com ${title} (arraste pra mudar de canto)`}
+        title={`${title} — arraste pra mudar de canto`}
       >
-        <Sparkles size={22} />
+        <Sparkles size={18} />
       </chakra.button>
     );
   }
@@ -157,8 +166,15 @@ export function AiAssistantFab({
   // tem um tipo só e entra no `Box` sem ginástica de tipos.
   const moldura = {
     top: lateral ? "0px" : undefined,
-    bottom: lateral ? "0px" : `${FAB_PANEL_BOTTOM}px`,
-    right: lateral ? "0px" : `${FAB_BASE}px`,
+    // O botão SOME quando o painel abre, então o painel ocupa o lugar dele —
+    // é o que faz a janelinha acompanhar o dock arrastado.
+    bottom: lateral ? "0px" : `${bottom}px`,
+    // Flutuante abre pro MESMO lado em que o dock está encostado — o balão
+    // saindo do lado oposto ao botão é o que fazia ele tapar a tabela.
+    // Encostado (`lateral`) é sempre à direita: é o lado que o `--jj-fab-dock`
+    // reserva no shell.
+    left: lateral || lado === "dir" ? undefined : `${FAB_BASE}px`,
+    right: lateral ? "0px" : lado === "dir" ? `${FAB_BASE}px` : undefined,
     w: lateral
       ? { base: "100vw", sm: `min(${FAB_LATERAL_W}px, 100vw)` }
       : { base: "calc(100vw - 32px)", sm: "400px" },

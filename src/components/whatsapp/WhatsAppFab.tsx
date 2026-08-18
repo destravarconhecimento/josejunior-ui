@@ -29,7 +29,7 @@ import {
   setFabOpen,
   FAB_BASE,
   FAB_LATERAL_W,
-  FAB_PANEL_BOTTOM,
+  FAB_SIZE,
 } from "../fab/dock";
 import type { UiRealtimeSubscribe } from "../realtime";
 import {
@@ -189,7 +189,8 @@ export function WhatsAppFab({
   // Dock partilhado: empilha os FABs (WhatsApp em baixo) e garante que só um
   // painel abre de cada vez — abrir a IA some com este, e vice-versa.
   const wantShow = connected && !hideOnPaths.includes(pathname);
-  const { bottom, othersOpen } = useFabDock("whatsapp", wantShow);
+  const { bottom, lado, othersOpen, arrastoProps, arrastando, arrastou } = useFabDock("whatsapp", wantShow);
+  const { style: arrastoStyle, ...arrastoHandlers } = arrastoProps;
   // Flutuante (janelinha no canto) × lateral (encostado na direita, altura
   // inteira). A escolha fica guardada — ver `useFabModo`.
   const [modo, setModo] = useFabModo("whatsapp");
@@ -403,25 +404,31 @@ export function WhatsAppFab({
   const botao = (
     <chakra.button
       type="button"
-      onClick={() => setOpen(true)}
+      // Arrastar não pode abrir a janelinha — ver `arrastou()` no dock.
+      onClick={() => {
+        if (arrastou()) return;
+        setOpen(true);
+      }}
       position="fixed"
-      style={{ background: "#25d366", boxShadow: "0 12px 34px rgba(7,26,51,0.35)" }}
+      {...arrastoHandlers}
+      style={{ background: "#25d366", boxShadow: "0 8px 22px rgba(7,26,51,0.28)", ...arrastoStyle }}
       bottom={`${bottom}px`}
-      right={`${FAB_BASE}px`}
+      left={lado === "esq" ? `${FAB_BASE}px` : undefined}
+      right={lado === "dir" ? `${FAB_BASE}px` : undefined}
       zIndex={1400}
-      w="56px"
-      h="56px"
+      w={`${FAB_SIZE}px`}
+      h={`${FAB_SIZE}px`}
       borderRadius="full"
       display="inline-flex"
       alignItems="center"
       justifyContent="center"
       color="white"
-      _hover={{ transform: "scale(1.06)" }}
-      transition="transform .15s, bottom .18s ease"
-      aria-label="WhatsApp"
-      title="WhatsApp"
+      _hover={arrastando ? undefined : { transform: "scale(1.06)" }}
+      transition={arrastando ? "none" : "transform .15s, bottom .18s ease"}
+      aria-label="WhatsApp (arraste pra mudar de canto)"
+      title="WhatsApp — arraste pra mudar de canto"
     >
-      <FaWhatsapp size={26} />
+      <FaWhatsapp size={20} />
       {naoLidas > 0 ? (
         <Box
           position="absolute"
@@ -452,8 +459,13 @@ export function WhatsAppFab({
   // objeto tem um tipo só e entra no `Flex` sem ginástica de tipos.
   const moldura = {
     top: lateral ? "0px" : undefined,
-    bottom: lateral ? "0px" : `${FAB_PANEL_BOTTOM}px`,
-    right: lateral ? "0px" : `${FAB_BASE}px`,
+    // O botão some com o painel aberto, então o painel ocupa o lugar dele — é
+    // o que faz a janelinha acompanhar o dock arrastado.
+    bottom: lateral ? "0px" : `${bottom}px`,
+    // Flutuante abre pro MESMO lado do dock; encostado é sempre à direita, que
+    // é o lado que o `--jj-fab-dock` reserva no shell.
+    left: lateral || lado === "dir" ? undefined : `${FAB_BASE}px`,
+    right: lateral ? "0px" : lado === "dir" ? `${FAB_BASE}px` : undefined,
     w: lateral
       ? { base: "100vw", sm: `min(${FAB_LATERAL_W}px, 100vw)` }
       : { base: "calc(100vw - 32px)", sm: "380px" },

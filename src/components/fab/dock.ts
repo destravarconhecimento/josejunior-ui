@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from "react";
 
 /**
- * Dock dos FABs flutuantes do painel (canto inferior-direito).
+ * Dock dos FABs flutuantes do painel.
  *
  * Dois botões moram aqui — o WhatsApp e o Assistente (IA). Antes cada um se
  * posicionava sozinho (um em `right:6`, o outro em `right:88px`) e os dois
@@ -28,12 +28,39 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 const ORDER = ["whatsapp", "ai"] as const;
 export type FabId = (typeof ORDER)[number];
 
-export const FAB_SIZE = 56; // px — diâmetro do botão
-export const FAB_BASE = 24; // px — folga do botão até o canto (bottom/right)
-const FAB_GAP = 12; // px — respiro entre botões empilhados
+export const FAB_SIZE = 42; // px — diâmetro do botão
+export const FAB_BASE = 16; // px — folga do botão até o canto (bottom/lateral)
+const FAB_GAP = 10; // px — respiro entre botões empilhados
 
-/** `bottom` (px) do PAINEL aberto: sempre logo acima do botão do canto. */
-export const FAB_PANEL_BOTTOM = FAB_BASE + FAB_SIZE + FAB_GAP; // 92
+/* ============================================================
+ * ONDE o dock fica — e por que ele se move
+ *
+ * Nasceu no canto inferior-DIREITO, que é onde toda tela do painel põe o que
+ * importa: a coluna congelada de ações do funil, a paginação, o rodapé da
+ * tabela. Dois botões de 56px ali em cima tapavam justamente o "✓ respondeu" e
+ * o "1/102" — a operadora tinha de rolar a tela pra clicar no que estava
+ * debaixo do balão.
+ *
+ * Então: menor (42px), do lado ESQUERDO por padrão, e ARRASTÁVEL. O arrasto é
+ * de um dock SÓ (os dois botões andam juntos) — foi por posição individual que
+ * eles colidiram da primeira vez; aqui a pilha continua sendo uma pilha.
+ *
+ * Ao soltar, o dock ENCOSTA no lado mais próximo (esquerda/direita) e guarda
+ * só isso mais a altura: assim ele nunca fica no meio da tabela, e a janela
+ * mudar de tamanho não deixa o botão fora da tela. A escolha é da pessoa e
+ * fica no `localStorage`.
+ * ============================================================ */
+
+export type FabLado = "esq" | "dir";
+export type FabPos = { lado: FabLado; bottom: number };
+
+const POS_KEY = "jj:fab-pos";
+const POS_PADRAO: FabPos = { lado: "esq", bottom: FAB_BASE };
+
+/** Quanto o dock inteiro ocupa em altura (px) — usado pra prender o arrasto. */
+const alturaDaPilha = (n: number) => n * FAB_SIZE + Math.max(0, n - 1) * FAB_GAP;
+
+const prender = (v: number, min: number, max: number) => Math.min(Math.max(v, min), Math.max(min, max));
 
 /**
  * Como o painel aberto se apresenta:
@@ -93,8 +120,15 @@ export function useFabModo(id: FabId): [FabModo, (m: FabModo) => void] {
   return [modo, setModo];
 }
 
-type State = { mounted: readonly FabId[]; openId: FabId | null; suppress: number; acoplado: FabId | null };
-let state: State = { mounted: [], openId: null, suppress: 0, acoplado: null };
+type State = {
+  mounted: readonly FabId[];
+  openId: FabId | null;
+  suppress: number;
+  acoplado: FabId | null;
+  /** Onde o dock está. `null` = ainda não li o localStorage (ver `useFabPos`). */
+  pos: FabPos | null;
+};
+let state: State = { mounted: [], openId: null, suppress: 0, acoplado: null, pos: null };
 const subs = new Set<() => void>();
 
 function emit() {
@@ -128,6 +162,45 @@ export function setFabOpen(id: FabId, open: boolean) {
   if (next === state.openId) return;
   state = { ...state, openId: next };
   emit();
+}
+
+/**
+ * Onde o dock está agora. Enquanto o `localStorage` não foi lido devolve o
+ * PADRÃO — ler no primeiro render faria o HTML do servidor divergir do cliente
+ * (a mesma razão do `useFabModo` logo acima).
+ */
+export function useFabPos(): [FabPos, (p: FabPos) => void] {
+  const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+
+  useEffect(() => {
+    if (state.pos) return;
+    let lido: FabPos | null = null;
+    try {
+      const cru = window.localStorage.getItem(POS_KEY);
+      if (cru) {
+        const o = JSON.parse(cru) as Partial<FabPos>;
+        if (o && (o.lado === "esq" || o.lado === "dir") && Number.isFinite(o.bottom)) {
+          lido = { lado: o.lado, bottom: Number(o.bottom) };
+        }
+      }
+    } catch {
+      /* localStorage bloqueado ou JSON estragado: fica no padrão */
+    }
+    state = { ...state, pos: lido ?? POS_PADRAO };
+    emit();
+  }, []);
+
+  const setPos = useCallback((p: FabPos) => {
+    state = { ...state, pos: p };
+    emit();
+    try {
+      window.localStorage.setItem(POS_KEY, JSON.stringify(p));
+    } catch {
+      /* idem — a escolha vale pra esta sessão */
+    }
+  }, []);
+
+  return [snap.pos ?? POS_PADRAO, setPos];
 }
 
 function setAcoplado(id: FabId, on: boolean) {
@@ -189,11 +262,13 @@ export function useFabSuppress(active: boolean) {
 
 /**
  * Liga um FAB ao dock. `present` = este FAB quer aparecer (ignorando o irmão).
- * Devolve a posição empilhada do botão e se OUTRO painel está aberto — nesse
- * caso o chamador deve sumir (`return null`).
+ * Devolve onde o botão fica, o lado em que o dock está encostado (o painel abre
+ * pro mesmo lado), o que é preciso pra ARRASTAR e se OUTRO painel está aberto —
+ * nesse caso o chamador deve sumir (`return null`).
  */
 export function useFabDock(id: FabId, present: boolean) {
   const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const [pos, setPos] = useFabPos();
 
   useEffect(() => {
     setMounted(id, present);
@@ -204,13 +279,78 @@ export function useFabDock(id: FabId, present: boolean) {
   // primeiro render (antes de o efeito de registo correr).
   const visiveis = ORDER.filter((x) => (x === id ? present : snap.mounted.includes(x)));
   const slot = Math.max(0, visiveis.indexOf(id));
+  const bottom = pos.bottom + slot * (FAB_SIZE + FAB_GAP);
+
+  // Arrasto: enquanto a mão está em cima o botão segue o dedo (`vivo`), e só ao
+  // soltar é que a posição vira preferência guardada. `moveu` distingue arrasto
+  // de CLIQUE — sem isso, todo arrasto terminaria abrindo o painel.
+  const [vivo, setVivo] = useState<{ x: number; y: number } | null>(null);
+  const arrasto = useRef<{ x0: number; y0: number; moveu: boolean } | null>(null);
+  const moveuRef = useRef(false);
+
+  const onPointerDown = useCallback((e: ReactPointerEvent<HTMLElement>) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    arrasto.current = { x0: e.clientX, y0: e.clientY, moveu: false };
+    moveuRef.current = false;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  }, []);
+
+  const onPointerMove = useCallback((e: ReactPointerEvent<HTMLElement>) => {
+    const a = arrasto.current;
+    if (!a) return;
+    // Limiar de 5px: mão trémula em cima do botão continua sendo clique.
+    if (!a.moveu && Math.hypot(e.clientX - a.x0, e.clientY - a.y0) < 5) return;
+    a.moveu = true;
+    moveuRef.current = true;
+    setVivo({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  const onPointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLElement>) => {
+      const a = arrasto.current;
+      arrasto.current = null;
+      setVivo(null);
+      if (!a?.moveu) return;
+      // Encosta no lado mais próximo e prende a altura DENTRO da janela — assim
+      // o dock nunca fica no meio da tabela nem some ao redimensionar.
+      const lado: FabLado = e.clientX < window.innerWidth / 2 ? "esq" : "dir";
+      const pilha = alturaDaPilha(visiveis.length);
+      const desteBotao = window.innerHeight - e.clientY - FAB_SIZE / 2;
+      const base = desteBotao - slot * (FAB_SIZE + FAB_GAP);
+      setPos({ lado, bottom: Math.round(prender(base, FAB_BASE, window.innerHeight - pilha - FAB_BASE)) });
+    },
+    [setPos, slot, visiveis.length],
+  );
 
   return {
     /** `bottom` (px) do BOTÃO quando o painel deste FAB está fechado. */
-    bottom: FAB_BASE + slot * (FAB_SIZE + FAB_GAP),
+    bottom,
+    /** Em que lado o dock está encostado — o painel flutuante abre pro mesmo. */
+    lado: pos.lado,
     selfOpen: snap.openId === id,
     // Uma tela com chat próprio aberto (useFabSuppress) conta como "outro aberto":
     // o FAB some pelo caminho que já existia, sem tocar em quem o usa.
     othersOpen: snap.suppress > 0 || (snap.openId != null && snap.openId !== id),
+    /**
+     * O que o botão precisa pra ser arrastável. Espalhar no elemento e chamar
+     * `arrastou()` no `onClick` — se devolver `true`, o clique é o fim de um
+     * arrasto e não deve abrir nada.
+     */
+    arrastoProps: {
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
+      onPointerCancel: onPointerUp,
+      style: {
+        touchAction: "none" as const,
+        cursor: vivo ? ("grabbing" as const) : ("grab" as const),
+        ...(vivo
+          ? { left: `${vivo.x - FAB_SIZE / 2}px`, top: `${vivo.y - FAB_SIZE / 2}px`, right: "auto", bottom: "auto" }
+          : null),
+      },
+    },
+    /** Está sendo arrastado AGORA (o botão segue o dedo, sem transição). */
+    arrastando: vivo != null,
+    arrastou: () => moveuRef.current,
   };
 }
