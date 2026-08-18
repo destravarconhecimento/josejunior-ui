@@ -15,12 +15,22 @@ import { FormColor, FormInput, FormSelect, FormTextarea } from "./form";
  *
  * Uma proposta, duas faces, e quem decide é o DADO (nunca quem está gerando):
  *   • o site respondeu  → sai o diagnóstico do que está no ar;
- *   • o segmento tem protótipo → sai também `/proposta/<token>/site`, o site que
- *     a empresa passa a ter, com o nome e a cidade dela.
+ *   • há protótipo escolhido → sai também `/proposta/<token>/site`, o site que a
+ *     empresa passa a ter, com o nome e a cidade dela.
  * Por isso aqui não existe "criar demo" ou "criar proposta": existe **escolher o
  * segmento** — o resto o sistema resolve. Os três modais que faziam isso antes
  * (dois `PropostaModal` e um `DemoModal`) pediam ao operador uma decisão de
  * formato que ele não tem como tomar.
+ *
+ * ⚠️ SEGMENTO e PROTÓTIPO são coisas diferentes e não se deduzem um do outro. O
+ * segmento é o PACOTE que a empresa compra; o protótipo é o RAMO dela. O mapa
+ * ramo→pacote é muitos-pra-um, então a lista do segmento nunca teve como dizer
+ * qual é o ramo. Esta tela já assumiu que tinha: pré-escolhia `modelos[0]` e
+ * rotulava "(do segmento)". No pacote genérico, que começa em "advocacia", isso
+ * mandou uma peça de escritório de advocacia pra Clínica Pró Saúde em
+ * 17/08/2026. Agora só entra pré-escolhido o que o segmento DECLARA (`padrao`),
+ * e a lista oferece os protótipos dos outros segmentos também — porque o ramo
+ * da empresa não tem obrigação nenhuma de morar no pacote que ela compra.
  *
  * Componente PURO (molde `MailClient`): dados e callbacks entram por prop, as
  * actions ficam em cada app. Não conhece banco, sessão nem rota.
@@ -32,6 +42,13 @@ export type PropostaSegmentoOpcao = {
   nome: string;
   /** Protótipos daquele segmento; vazio = a proposta sai só com a leitura. */
   modelos: { id: string; label: string }[];
+  /**
+   * Protótipo que o segmento assume quando ninguém escolheu — DECLARADO pelo
+   * app, nunca deduzido da ordem da lista. Vazio (ou ausente) = o segmento não
+   * tem protótipo que sirva pra qualquer empresa dele, e a peça nasce sem face
+   * de site até alguém escolher o ramo.
+   */
+  padrao?: string;
 };
 
 /** O que o scan do site devolve pra conferência (tudo serializável). */
@@ -90,6 +107,23 @@ export type PropostaGeneratorProps = {
   onClose: () => void;
 };
 
+/** O segmento com que a tela abre: o do lead, quando ele já foi classificado. */
+function segmentoInicial(segmentos: PropostaSegmentoOpcao[], alvo?: PropostaAlvo): string {
+  const s = (alvo?.segmento ?? "").trim().toLowerCase();
+  return segmentos.some((x) => x.slug === s) ? s : (segmentos[0]?.slug ?? "");
+}
+
+/**
+ * O protótipo com que o campo abre, dado o segmento — `"-"` (nenhum) sempre que
+ * o segmento não DECLARA um. Nenhum é a resposta honesta: quem gera vê "Não
+ * mostrar site de exemplo" e escolhe o ramo se quiser um.
+ */
+function prototipoPadrao(segmentos: PropostaSegmentoOpcao[], slug: string): string {
+  const op = segmentos.find((s) => s.slug === slug);
+  const padrao = (op?.padrao ?? "").trim();
+  return padrao && op?.modelos.some((m) => m.id === padrao) ? padrao : "-";
+}
+
 export function PropostaGenerator({
   alvo,
   segmentos,
@@ -103,12 +137,12 @@ export function PropostaGenerator({
   const [ramo, setRamo] = useState(alvo?.ramo ?? "");
   const [whatsapp, setWhatsapp] = useState(alvo?.whatsapp ?? "");
   const [observacoes, setObservacoes] = useState("");
-  const [segmento, setSegmento] = useState(() => {
-    const s = (alvo?.segmento ?? "").trim().toLowerCase();
-    return segmentos.some((x) => x.slug === s) ? s : (segmentos[0]?.slug ?? "");
-  });
-  // "" = usar o protótipo do segmento (o primeiro); "-" = proposta sem face de site
-  const [modelo, setModelo] = useState("");
+  const [segmento, setSegmento] = useState(() => segmentoInicial(segmentos, alvo));
+  // O id do protótipo, ou "-" = proposta sem face de site. Não existe mais o
+  // estado "" ("deixa o segmento decidir"): era ele que escondia o chute.
+  const [modelo, setModelo] = useState(() =>
+    prototipoPadrao(segmentos, segmentoInicial(segmentos, alvo)),
+  );
   const [accent, setAccent] = useState("");
   const [dossie, setDossie] = useState<PropostaDossie | null>(null);
   const [links, setLinks] = useState<PropostaLinks | null>(null);
@@ -121,8 +155,25 @@ export function PropostaGenerator({
     [segmentos, segmento],
   );
   const modelos = atual?.modelos ?? [];
-  // Protótipo que vai sair de fato: o escolhido, ou o primeiro do segmento.
-  const modeloEfetivo = modelo === "-" ? "" : modelo || (modelos[0]?.id ?? "");
+  /**
+   * Os protótipos dos OUTROS segmentos, oferecidos no mesmo campo. Sem isto,
+   * "Clínica de saúde" não existia na tela de quem gerava pelo pacote genérico
+   * — a operadora que atendeu a Pró Saúde não tinha como escolher certo nem se
+   * quisesse, porque a lista dela era advocacia, contabilidade, terceirização,
+   * petshop e restaurante.
+   */
+  const outros = useMemo(() => {
+    const daqui = new Set(modelos.map((m) => m.id));
+    const vistos = new Map<string, string>();
+    for (const s of segmentos) {
+      for (const m of s.modelos) {
+        if (!daqui.has(m.id) && !vistos.has(m.id)) vistos.set(m.id, m.label);
+      }
+    }
+    return [...vistos].map(([id, label]) => ({ id, label }));
+  }, [segmentos, modelos]);
+  // Protótipo que vai sair de fato: o escolhido, e nada além dele.
+  const modeloEfetivo = modelo === "-" ? "" : modelo;
 
   const escanear = () =>
     startScan(async () => {
@@ -159,9 +210,10 @@ export function PropostaGenerator({
       ) : (
         <Stack gap={4}>
           <Text fontSize="sm" color="var(--admin-text-soft)">
-            Uma peça por empresa. Escolha o <strong>segmento</strong> que ela compra — o sistema
-            monta o site de exemplo com o nome dela e, se ela já tiver site no ar, lê o que está lá e
-            escreve o diagnóstico. <strong>Sem valores</strong>: orçamento é conversa de reunião.
+            Uma peça por empresa. Escolha o <strong>segmento</strong> que ela compra e o{" "}
+            <strong>site de exemplo do ramo dela</strong> — o sistema monta esse site com o nome
+            dela e, se ela já tiver site no ar, lê o que está lá e escreve o diagnóstico.{" "}
+            <strong>Sem valores</strong>: orçamento é conversa de reunião.
           </Text>
 
           <FormInput
@@ -202,7 +254,7 @@ export function PropostaGenerator({
                 value={segmento}
                 onChange={(e) => {
                   setSegmento(e.target.value);
-                  setModelo("");
+                  setModelo(prototipoPadrao(segmentos, e.target.value));
                 }}
                 options={segmentos.map((s) => ({ value: s.slug, label: s.nome }))}
               />
@@ -210,18 +262,13 @@ export function PropostaGenerator({
             <Box flex="1" minW="200px">
               <FormSelect
                 label="Site de exemplo"
-                help={
-                  modelos.length
-                    ? "A segunda face da proposta: como o site dela ficaria."
-                    : "Este segmento ainda não tem site de exemplo."
-                }
-                disabled={!modelos.length}
+                help="Escolha pelo RAMO da empresa, não pelo segmento. Sem escolher, a proposta sai só com a leitura."
                 value={modelo}
                 onChange={(e) => setModelo(e.target.value)}
                 options={[
-                  ...(modelos.length ? [{ value: "", label: `${modelos[0].label} (do segmento)` }] : []),
-                  ...modelos.slice(1).map((m) => ({ value: m.id, label: m.label })),
                   { value: "-", label: "Não mostrar site de exemplo" },
+                  ...modelos.map((m) => ({ value: m.id, label: m.label })),
+                  ...outros.map((m) => ({ value: m.id, label: `${m.label} (outro segmento)` })),
                 ]}
               />
             </Box>
