@@ -17,6 +17,10 @@ export type ActionMenuItem = {
 /**
  * Botão que agrupa ações secundárias num dropdown (via Portal — não é cortado
  * pelo header). Usado quando o PageHeader tem muitos botões.
+ *
+ * Também serve de "…" numa LINHA de tabela: `label=""` + `icon` deixam o gatilho
+ * só com o ícone, e aí o `ariaLabel` é obrigatório — botão sem nome acessível é
+ * botão que o leitor de tela anuncia como "botão".
  */
 export function ActionMenu({
   label = "Mais",
@@ -24,12 +28,15 @@ export function ActionMenu({
   items,
   size = "sm",
   tone = "outline",
+  ariaLabel,
 }: {
   label?: string;
   icon?: ReactNode;
   items: ActionMenuItem[];
   size?: "xs" | "sm" | "md";
   tone?: ButtonTone;
+  /** Nome do gatilho quando ele é só ícone (vira `aria-label` e `title`). */
+  ariaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [place, setPlace] = useState<{ top: number; left: number } | null>(null);
@@ -91,8 +98,16 @@ export function ActionMenu({
   return (
     <>
       <Box ref={triggerRef} display="inline-flex">
-        <Button tone={tone} size={size} onClick={toggle} aria-haspopup="menu" aria-expanded={open}>
-          {icon ? <Box as="span" display="inline-flex" mr={1.5}>{icon}</Box> : null}
+        <Button
+          tone={tone}
+          size={size}
+          onClick={toggle}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={ariaLabel}
+          title={ariaLabel}
+        >
+          {icon ? <Box as="span" display="inline-flex" mr={label ? 1.5 : 0}>{icon}</Box> : null}
           {label}
         </Button>
       </Box>
