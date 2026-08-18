@@ -82,6 +82,7 @@ export function DataTable<T>({
   onRowClick,
   selectedKey,
   actions,
+  actionsWidth,
   pageSize = PAGE_SIZE,
   // Default = modo PÁGINA (sem scroll interno; quem rola é a janela). `false` =
   // mini/natural; `number` = offset legado (evite). Ver o bloco ALTURA no doc acima.
@@ -104,6 +105,16 @@ export function DataTable<T>({
   selectedKey?: string | number;
   /** Célula de ações por linha — renderizada na coluna "Ações" (à direita). */
   actions?: (row: T) => ReactNode;
+  /**
+   * Largura RESERVADA da coluna de ações (ex.: `"176px"`).
+   *
+   * No modo página não há rolagem horizontal: a tabela cabe em 100% e o
+   * navegador reparte a largura entre as colunas. Sem reserva, uma coluna de
+   * texto longo espremia a de ações abaixo do tamanho natural dos botões e
+   * eles VAZAVAM da célula — foi o que a operadora viu cortado na borda.
+   * Com a reserva, a coluna tem piso e quem cede largura é o texto.
+   */
+  actionsWidth?: string;
   pageSize?: number;
   /** Altura. Default (`true`) = modo PÁGINA: altura natural, sem scroll interno,
    *  sticky na toolbar/`thead`/rodapé. `false` = mini/natural (tabela secundária
@@ -397,6 +408,8 @@ export function DataTable<T>({
                   letterSpacing="0.04em"
                   color="var(--admin-text-soft)"
                   whiteSpace="nowrap"
+                  width={actionsWidth}
+                  minW={actionsWidth}
                   position="sticky"
                   right={0}
                   zIndex={2}
@@ -461,10 +474,18 @@ export function DataTable<T>({
                     position="sticky"
                     right={0}
                     zIndex={1}
+                    width={actionsWidth}
+                    minW={actionsWidth}
+                    // O `overflowWrap: anywhere` do modo página vale pra TODA
+                    // `td`; aqui ele quebraria a fila de botões. Ações não são
+                    // texto — não quebram, não encolhem.
+                    whiteSpace="nowrap"
                     bg={sel ? "rgba(202,138,4,0.10)" : "var(--admin-surface)"}
                     boxShadow="inset 1px 0 0 var(--admin-divider)"
                   >
-                    <HStack gap={1} justify="flex-end">{actions(row)}</HStack>
+                    <HStack gap={1} justify="flex-end" flexWrap="nowrap" css={{ "& > *": { flexShrink: 0 } }}>
+                      {actions(row)}
+                    </HStack>
                   </Table.Cell>
                 ) : null}
               </Table.Row>
