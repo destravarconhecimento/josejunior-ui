@@ -13,9 +13,10 @@ export type LeadKindKey = "contato" | "orcamento" | "prospectado" | "adicionado"
 export function classifyLead(input: { source?: string | null; origin?: string | null }): LeadKindKey {
   const source = (input.source || "").toLowerCase();
   const origin = (input.origin || "").toLowerCase();
-  // Prospecção: NÓS (ou o representante) fomos atrás — Google Places, raspagem.
+  // Prospecção: NÓS (ou o representante) fomos atrás — Google Places, raspagem,
+  // export do LinkedIn (Sales Navigator/Evaboot, `source = 'linkedin'`).
   // Vale pro `source = 'prospeccao'` do sistema e pro `rep:<slug>` com origin "Prospecção…".
-  if (source === "prospeccao" || origin.startsWith("prospec")) return "prospectado";
+  if (source === "prospeccao" || source === "linkedin" || origin.startsWith("prospec")) return "prospectado";
   // Cadastro à mão (no sistema `source=manual`; no rep origin "Cadastro manual").
   if (source === "manual" || origin.startsWith("cadastro manual")) return "adicionado";
   // Base importada (planilha/CSV/CRM de tenant).
