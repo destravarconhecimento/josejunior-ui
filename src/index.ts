@@ -283,6 +283,7 @@ export { AiAssistantFab } from "./components/AiAssistantFab";
 // Console do assistente (chat em tela cheia) — divide o miolo com o FAB.
 export { AiAssistantConsole, type AiConsoleSuggestion } from "./components/ai/AiAssistantConsole";
 export { useAiChat, type AiChatMsg } from "./components/ai/useAiChat";
+export { TETO_CORPO, erroDaResposta, lerJson, mb, reduzirImagem } from "./components/ai/envio";
 
 // Primitivos premium (KPIs, avatar, IA, timeline, ações rápidas)
 export { KpiCard, KpiRow, type KpiRowItem, type KpiTone, type KpiTrendTone } from "./components/KpiCard";
