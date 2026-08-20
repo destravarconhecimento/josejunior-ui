@@ -48,8 +48,25 @@ export function SitePreview({ content }: { content: SiteIdentityContent }) {
 
   const largura = mode === "mobile" ? 300 : 400;
 
+  // As famílias escolhidas carregam do Google Fonts SÓ pra prévia — sem isso
+  // o mockup cairia no fallback e trocar de fonte pareceria não fazer nada.
+  // Mesma validação do site (brand-style.ts): nome inválido é ignorado.
+  const familias = [
+    ...new Set(
+      [c.theme?.fontHeading, c.theme?.fontBody]
+        .map((f) => (f ?? "").trim())
+        .filter((f) => /^[A-Za-z0-9 ]{2,60}$/.test(f)),
+    ),
+  ];
+  const fontsHref = familias.length
+    ? `https://fonts.googleapis.com/css2?${familias
+        .map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@400;600;700`)
+        .join("&")}&display=swap`
+    : null;
+
   return (
     <Stack gap={3} w={`${largura}px`} transition="width .18s ease">
+      {fontsHref ? <link rel="stylesheet" href={fontsHref} /> : null}
       <HStack justify="space-between">
         <Text fontSize="xs" fontWeight="700" color="var(--admin-text-soft)" textTransform="uppercase" letterSpacing="0.06em">
           Prévia — {obsidian ? "Obsidian" : "Nocturne"}

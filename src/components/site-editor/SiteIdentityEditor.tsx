@@ -157,6 +157,70 @@ function TextField({
   );
 }
 
+/**
+ * Catálogo de fontes (Google Fonts) — select em vez de texto livre: nome
+ * digitado errado falhava em SILÊNCIO no site (a validação de família ignora
+ * valor inválido e ninguém sabia por quê). Valor antigo fora do catálogo
+ * continua selecionável pra não sumir com dado salvo.
+ */
+const FONT_CHOICES = [
+  "Inter",
+  "Space Grotesk",
+  "Manrope",
+  "Sora",
+  "Poppins",
+  "Montserrat",
+  "DM Sans",
+  "Plus Jakarta Sans",
+  "Outfit",
+  "Raleway",
+  "Work Sans",
+  "Nunito Sans",
+  "Lora",
+  "Playfair Display",
+  "Oswald",
+  "Lato",
+];
+function FontSelectField({
+  label,
+  value,
+  onChange,
+  helper,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  helper?: string;
+}) {
+  const atual = value.trim();
+  const opcoes = atual && !FONT_CHOICES.includes(atual) ? [atual, ...FONT_CHOICES] : FONT_CHOICES;
+  return (
+    <Field.Root>
+      <Field.Label fontWeight="600" fontSize="sm" color="var(--admin-primary)">
+        {label}
+      </Field.Label>
+      <NativeSelect.Root size="lg">
+        <NativeSelect.Field
+          value={atual}
+          onChange={(e) => onChange(e.target.value)}
+          bg="white"
+          borderColor="var(--admin-border)"
+          borderRadius="10px"
+        >
+          <option value="">Padrão do layout</option>
+          {opcoes.map((f) => (
+            <option key={f} value={f}>
+              {f}
+            </option>
+          ))}
+        </NativeSelect.Field>
+        <NativeSelect.Indicator />
+      </NativeSelect.Root>
+      {helper ? <Field.HelperText>{helper}</Field.HelperText> : null}
+    </Field.Root>
+  );
+}
+
 /** Campo de cor: swatch nativo + hex digitável (vazio = herda a marca do José). */
 function ColorField({
   label,
@@ -1353,7 +1417,7 @@ export function SiteIdentityEditor({
   ];
 
   return (
-    <Stack gap={5} maxW={{ base: "1180px", "2xl": "1620px" }} pb={24}>
+    <Stack gap={5} maxW={{ base: "1180px", xl: "1620px" }} pb={24}>
       <Tabs value={tab} onChange={setTab} items={TABS} sidebarLabel="Meu site" />
 
       {/* ───────────── Marca & imagens ───────────── */}
@@ -1484,19 +1548,17 @@ export function SiteIdentityEditor({
               />
             </SimpleGrid>
             <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-              <TextField
+              <FontSelectField
                 label="Fonte dos títulos"
                 value={c.theme?.fontHeading ?? ""}
                 onChange={(v) => setTheme({ fontHeading: v })}
-                placeholder="ex.: Oswald"
-                helper="Nome da família (Google Fonts). Vazio = padrão."
+                helper="Vale no site E no painel. Vazio = padrão do layout."
               />
-              <TextField
+              <FontSelectField
                 label="Fonte do corpo"
                 value={c.theme?.fontBody ?? ""}
                 onChange={(v) => setTheme({ fontBody: v })}
-                placeholder="ex.: Lato"
-                helper="Nome da família (Google Fonts). Vazio = padrão."
+                helper="Vale no site E no painel. Vazio = padrão do layout."
               />
             </SimpleGrid>
           </Card>
@@ -1546,7 +1608,7 @@ export function SiteIdentityEditor({
 
           {/* Prévia AO VIVO da marca sobre o layout escolhido — mesma régua do
               RepPreview da criação de representante. Só em telas bem largas. */}
-          <Box display={{ base: "none", "2xl": "block" }} position="sticky" top="88px" flexShrink={0}>
+          <Box display={{ base: "none", xl: "block" }} position="sticky" top="88px" flexShrink={0}>
             <SitePreview content={c} />
           </Box>
         </Flex>
