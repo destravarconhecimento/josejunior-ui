@@ -6,6 +6,13 @@ import { Button, type ButtonTone } from "./Button";
 
 export type ActionMenuItem = {
   label: string;
+  /**
+   * A segunda linha, em cinza: o que a ação FAZ. Existe pra que o rótulo possa
+   * ser curto ("Feito") sem virar adivinhação — quem já sabe lê só o nome, quem
+   * hesita lê a linha de baixo. Vai também pro `title`, que é o que sobra pra
+   * quem navega por teclado.
+   */
+  hint?: string;
   icon?: ReactNode;
   onClick?: () => void;
   href?: string;
@@ -81,7 +88,7 @@ export function ActionMenu({
 
   const itemStyle = (danger?: boolean) => ({
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 2.5,
     w: "100%",
     textAlign: "left" as const,
@@ -136,25 +143,41 @@ export function ActionMenu({
                 <chakra.a
                   key={i}
                   href={it.href}
+                  title={it.hint}
                   {...(it.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   onClick={() => setOpen(false)}
                   {...itemStyle(it.danger)}
                 >
-                  {it.icon ? <Box as="span" display="inline-flex" color="var(--admin-text-soft)">{it.icon}</Box> : null}
-                  <Box as="span" flex="1">{it.label}</Box>
+                  {it.icon ? <Box as="span" display="inline-flex" color="var(--admin-text-soft)" mt="1px">{it.icon}</Box> : null}
+                  <Box as="span" flex="1" minW={0}>
+                    {it.label}
+                    {it.hint ? (
+                      <Box as="span" display="block" fontSize="xs" fontWeight="400" color="var(--admin-text-soft)" lineHeight="1.25">
+                        {it.hint}
+                      </Box>
+                    ) : null}
+                  </Box>
                 </chakra.a>
               ) : (
                 <chakra.button
                   key={i}
                   type="button"
+                  title={it.hint}
                   onClick={() => {
                     setOpen(false);
                     it.onClick?.();
                   }}
                   {...itemStyle(it.danger)}
                 >
-                  {it.icon ? <Box as="span" display="inline-flex" color="var(--admin-text-soft)">{it.icon}</Box> : null}
-                  <Box as="span" flex="1">{it.label}</Box>
+                  {it.icon ? <Box as="span" display="inline-flex" color="var(--admin-text-soft)" mt="1px">{it.icon}</Box> : null}
+                  <Box as="span" flex="1" minW={0}>
+                    {it.label}
+                    {it.hint ? (
+                      <Box as="span" display="block" fontSize="xs" fontWeight="400" color="var(--admin-text-soft)" lineHeight="1.25">
+                        {it.hint}
+                      </Box>
+                    ) : null}
+                  </Box>
                 </chakra.button>
               ),
             )}
