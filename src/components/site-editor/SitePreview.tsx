@@ -120,7 +120,7 @@ export function SitePreview({ content }: { content: SiteIdentityContent }) {
             style={{
               backgroundImage: `url(${fundo})`,
               backgroundSize: "cover",
-              backgroundPosition: "center top",
+              backgroundPosition: `${c.hero.imagePosX ?? "center"} ${c.hero.imagePosY ?? "top"}`,
               opacity: 0.28,
               maskImage: "linear-gradient(180deg, rgba(0,0,0,0.9), transparent 85%)",
               WebkitMaskImage: "linear-gradient(180deg, rgba(0,0,0,0.9), transparent 85%)",

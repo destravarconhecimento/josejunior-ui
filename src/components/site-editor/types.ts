@@ -124,6 +124,13 @@ export interface SiteIdentityContent {
      * imagem no chão do tema; vazio = sem imagem, só a atmosfera do layout.
      */
     image?: string;
+    /**
+     * Posição do fundo quando a imagem é maior que a tela: que lado fica
+     * visível. Vazio = center/top. Parallax = fundo fixo enquanto rola.
+     */
+    imagePosX?: "left" | "center" | "right";
+    imagePosY?: "top" | "center" | "bottom";
+    imageParallax?: boolean;
     primaryCtaLabel: string;
     secondaryCtaLabel: string;
     stats: SiteStatItem[];

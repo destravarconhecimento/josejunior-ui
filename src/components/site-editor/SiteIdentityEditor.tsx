@@ -221,6 +221,46 @@ function FontSelectField({
   );
 }
 
+/** Select simples de opções fixas (posição do fundo do hero etc.). */
+function OptionField({
+  label,
+  value,
+  onChange,
+  options,
+  helper,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  helper?: string;
+}) {
+  return (
+    <Field.Root>
+      <Field.Label fontWeight="600" fontSize="sm" color="var(--admin-primary)">
+        {label}
+      </Field.Label>
+      <NativeSelect.Root size="lg">
+        <NativeSelect.Field
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          bg="white"
+          borderColor="var(--admin-border)"
+          borderRadius="10px"
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </NativeSelect.Field>
+        <NativeSelect.Indicator />
+      </NativeSelect.Root>
+      {helper ? <Field.HelperText>{helper}</Field.HelperText> : null}
+    </Field.Root>
+  );
+}
+
 /** Campo de cor: swatch nativo + hex digitável (vazio = herda a marca do José). */
 function ColorField({
   label,
@@ -1467,6 +1507,37 @@ export function SiteIdentityEditor({
                 onChange={(url) => setHero({ image: url })}
                 renderImageUpload={renderImageUpload}
               />
+              {/* Posição e parallax do fundo — só fazem sentido com imagem. */}
+              {c.hero.image?.trim() ? (
+                <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
+                  <OptionField
+                    label="Fundo: posição horizontal"
+                    value={c.hero.imagePosX ?? "center"}
+                    onChange={(v) => setHero({ imagePosX: v as "left" | "center" | "right" })}
+                    options={[
+                      { value: "left", label: "Esquerda" },
+                      { value: "center", label: "Centro" },
+                      { value: "right", label: "Direita" },
+                    ]}
+                    helper="Que lado da imagem fica visível quando ela não cabe inteira."
+                  />
+                  <OptionField
+                    label="Fundo: posição vertical"
+                    value={c.hero.imagePosY ?? "top"}
+                    onChange={(v) => setHero({ imagePosY: v as "top" | "center" | "bottom" })}
+                    options={[
+                      { value: "top", label: "Topo" },
+                      { value: "center", label: "Centro" },
+                      { value: "bottom", label: "Base" },
+                    ]}
+                  />
+                  <ToggleField
+                    label="Parallax (fundo fixo ao rolar)"
+                    value={c.hero.imageParallax ?? false}
+                    onChange={(v) => setHero({ imageParallax: v })}
+                  />
+                </SimpleGrid>
+              ) : null}
               <ImageField
                 label="Foto de perfil (seção Sobre)"
                 hint="A foto redonda do “Sobre” — o único lugar do site onde você aparece. Vazio = /assets/perfil.png. PNG/JPG/WebP até 8MB."
