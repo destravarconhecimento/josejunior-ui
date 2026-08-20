@@ -104,7 +104,14 @@ export interface SiteThemeContent {
 
 /** Forma COMPLETA do conteúdo editável do "Meu site". */
 export interface SiteIdentityContent {
-  brand: { name: string; wordmark: string; role: string; whatsapp: string };
+  brand: {
+    name: string;
+    wordmark: string;
+    role: string;
+    whatsapp: string;
+    /** A logo — a MESMA no site e na topbar do painel. Vazio = ícone do app. */
+    logo?: string;
+  };
   hero: {
     eyebrow: string;
     titleLead: string;

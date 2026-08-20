@@ -68,10 +68,18 @@ export const ADMIN_STRUCTURAL_CSS = `
    este seletor descendente não a alcança: ela continua no tema claro, de
    propósito. */
 .admin-topbar[data-variant="brand"] .admin-navbtn { color: rgba(255, 255, 255, 0.82); }
-.admin-topbar[data-variant="brand"] .admin-navbtn:hover,
+/* Aberto/ativo acende na PRIMÁRIA, não num véu branco: sobre o fundo escuro do
+   site, o branco translúcido dava um cinza sem dono e o grupo aberto parecia
+   apenas "menos apagado". Com a primária chapada, o grupo em que ela está é a
+   única coisa colorida da barra — e é a cor da marca, então continua sendo a
+   cor do tenant em cada painel. */
+.admin-topbar[data-variant="brand"] .admin-navbtn:hover {
+  background: color-mix(in srgb, var(--admin-primary) 42%, transparent);
+  color: #fff;
+}
 .admin-topbar[data-variant="brand"] .admin-navbtn[data-open="true"],
 .admin-topbar[data-variant="brand"] .admin-navbtn[data-active="true"] {
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--admin-primary);
   color: #fff;
 }
 .admin-navbtn {

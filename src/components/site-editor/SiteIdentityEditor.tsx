@@ -1379,8 +1379,17 @@ export function SiteIdentityEditor({
 
             <Card
               title="Imagens do site"
-              hint="Só uma: a sua foto. O topo da home é o celular animado — não tem mais imagem de fundo."
+              hint="A logo vale pelos dois: o site E o painel do sistema leem daqui. Trocou aqui, trocou nos dois."
             >
+              <ImageField
+                label="Logo (site e painel)"
+                hint="O ícone do topo do site e da barra do painel do sistema — a MESMA imagem nos dois, sem precisar de deploy. Quadrada, fundo transparente. Vazio = o ícone que já vem no app. PNG/SVG/WebP até 8MB."
+                value={c.brand.logo ?? ""}
+                fallback="/icone.png"
+                folder="landing/marca"
+                onChange={(url) => setBrand({ logo: url })}
+                renderImageUpload={renderImageUpload}
+              />
               <ImageField
                 label="Foto de perfil (seção Sobre)"
                 hint="A foto redonda do “Sobre” — o único lugar do site onde você aparece. Vazio = /assets/perfil.png. PNG/JPG/WebP até 8MB."

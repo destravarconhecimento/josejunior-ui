@@ -188,10 +188,11 @@ export type MailAiSettings = {
   autoReply: "off" | "draft" | "safe_auto";
 };
 
-/** As 5 categorias PADRÃO (slug canônico + rótulo pt-BR + cor). FONTE
+/** As categorias PADRÃO (slug canônico + rótulo pt-BR + cor). FONTE
  *  ÚNICA: os apps semeiam a partir daqui e o classificador usa estes slugs como
  *  enum-alvo — nunca redefina os slugs em outro lugar. `nome` é editável depois. */
 export const DEFAULT_MAIL_CATEGORIES: { slug: string; label: string; color: string; hint: string }[] = [
+  { slug: "respostas", label: "Respostas", color: "#dc2626", hint: "Uma PESSOA respondeu a um e-mail que a máquina mandou. É a pasta que se abre primeiro — robô, férias e devolução não entram aqui." },
   { slug: "clientes", label: "Clientes", color: "#2563eb", hint: "Clientes atuais e leads: dúvidas, pedidos, suporte, respostas a propostas." },
   { slug: "financeiro", label: "Financeiro", color: "#16a34a", hint: "Cobranças, boletos, pagamentos, notas fiscais, Asaas, Mercado Pago, bancos." },
   { slug: "fornecedores", label: "Fornecedores", color: "#9333ea", hint: "Prestadores, ferramentas, hospedagem, contratos B2B, faturas de serviços." },
