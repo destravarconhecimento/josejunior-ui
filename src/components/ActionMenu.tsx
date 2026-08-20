@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Box, chakra, Portal, Stack } from "@chakra-ui/react";
 import { Button, type ButtonTone } from "./Button";
 
 export type ActionMenuItem = {
   label: string;
   /**
-   * A segunda linha, em cinza: o que a ação FAZ. Existe pra que o rótulo possa
-   * ser curto ("Feito") sem virar adivinhação — quem já sabe lê só o nome, quem
-   * hesita lê a linha de baixo. Vai também pro `title`, que é o que sobra pra
-   * quem navega por teclado.
+   * O que a ação FAZ, em uma frase. NÃO vira segunda linha: vai pro `title`, que
+   * é o balão do mouse e o que o leitor de tela anuncia. Já foi linha de baixo em
+   * cinza — cada item ficava com o dobro da altura e um menu de onze ações não
+   * cabia na tela. O rótulo curto ("Feito") resolve pra quem já sabe; quem hesita
+   * para o mouse em cima e lê.
    */
   hint?: string;
   icon?: ReactNode;
@@ -21,6 +22,14 @@ export type ActionMenuItem = {
   danger?: boolean;
 };
 
+/** Respiro entre o gatilho e o menu, e do menu pra borda da janela. */
+const ESPACO = 6;
+const MARGEM = 8;
+/** Abaixo disto não vale abrir pro lado escolhido: melhor virar pro outro. */
+const ALTURA_MINIMA = 140;
+
+type Lugar = { top: number; left: number; maxH: number };
+
 /**
  * Botão que agrupa ações secundárias num dropdown (via Portal — não é cortado
  * pelo header). Usado quando o PageHeader tem muitos botões.
@@ -28,6 +37,12 @@ export type ActionMenuItem = {
  * Também serve de "…" numa LINHA de tabela: `label=""` + `icon` deixam o gatilho
  * só com o ícone, e aí o `ariaLabel` é obrigatório — botão sem nome acessível é
  * botão que o leitor de tela anuncia como "botão".
+ *
+ * A posição é MEDIDA, não chutada: o menu é montado invisível, o efeito de
+ * layout lê o tamanho real dele e só então decide se abre pra baixo ou pra cima,
+ * gruda dentro da janela nos dois eixos e corta a altura com rolagem própria.
+ * Sem isso, um menu numa linha do rodapé da tabela abria metade fora da tela e a
+ * última ação era inalcançável.
  */
 export function ActionMenu({
   label = "Mais",
@@ -46,20 +61,53 @@ export function ActionMenu({
   ariaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [place, setPlace] = useState<{ top: number; left: number } | null>(null);
+  /** Onde o gatilho estava quando abriu — a âncora da conta. */
+  const [alvo, setAlvo] = useState<DOMRect | null>(null);
+  /** Só existe depois da medição; até lá o menu fica montado e invisível. */
+  const [lugar, setLugar] = useState<Lugar | null>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  function position() {
+  function toggle() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
     const el = triggerRef.current;
     if (!el) return;
-    const r = el.getBoundingClientRect();
-    setPlace({ top: r.bottom + 6, left: r.right });
+    setAlvo(el.getBoundingClientRect());
+    setLugar(null);
+    setOpen(true);
   }
-  function toggle() {
-    if (!open) position();
-    setOpen((o) => !o);
-  }
+
+  const medir = useCallback(() => {
+    const m = menuRef.current;
+    const a = triggerRef.current?.getBoundingClientRect();
+    if (!m || !a) return;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    // Altura que o conteúdo QUER, não a que ele tem depois de cortado.
+    const cheia = m.scrollHeight;
+    const abaixo = vh - a.bottom - ESPACO - MARGEM;
+    const acima = a.top - ESPACO - MARGEM;
+    // Vira pra cima só se não couber embaixo E lá em cima couber mais.
+    const paraCima = cheia > abaixo && acima > abaixo;
+    const maxH = Math.max(ALTURA_MINIMA, paraCima ? acima : abaixo);
+    const altura = Math.min(cheia, maxH);
+    const top = paraCima
+      ? Math.max(MARGEM, a.top - ESPACO - altura)
+      : Math.min(a.bottom + ESPACO, Math.max(MARGEM, vh - MARGEM - altura));
+    const largura = Math.min(m.offsetWidth, vw - MARGEM * 2);
+    // Alinhado pela direita do gatilho (é o canto onde o "…" mora), mas grudado
+    // dentro da janela: no fim, quem manda é a janela.
+    const left = Math.min(Math.max(MARGEM, a.right - largura), Math.max(MARGEM, vw - MARGEM - largura));
+    setLugar({ top, left, maxH });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    medir();
+  }, [open, items.length, medir]);
 
   useEffect(() => {
     if (!open) return;
@@ -71,36 +119,46 @@ export function ActionMenu({
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
-    function onMove() {
+    function onScroll(e: Event) {
+      // Rolagem DENTRO do menu não fecha o menu: quando a lista é alta ela ganha
+      // rolagem própria, e o ouvinte de captura enxergaria esse scroll também.
+      if (menuRef.current?.contains(e.target as Node)) return;
       setOpen(false);
+    }
+    function onResize() {
+      medir();
     }
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
-    window.addEventListener("resize", onMove);
-    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", onMove);
-      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll, true);
     };
-  }, [open]);
+  }, [open, medir]);
 
   const itemStyle = (danger?: boolean) => ({
     display: "flex",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 2.5,
     w: "100%",
     textAlign: "left" as const,
     px: 2.5,
-    py: 2,
+    py: 1.5,
     borderRadius: "8px",
     fontSize: "sm",
     fontWeight: "500",
+    lineHeight: "1.35",
+    whiteSpace: "nowrap" as const,
     color: danger ? "#dc2626" : "var(--admin-text)",
     cursor: "pointer",
     _hover: { bg: danger ? "rgba(220,38,38,0.08)" : "var(--admin-nav-hover)" },
   });
+
+  const balao = (it: ActionMenuItem) => (it.hint ? `${it.label} — ${it.hint}` : it.label);
 
   return (
     <>
@@ -118,17 +176,22 @@ export function ActionMenu({
           {label}
         </Button>
       </Box>
-      {open && place ? (
+      {open && alvo ? (
         <Portal>
           <Stack
             ref={menuRef}
             role="menu"
             gap={0.5}
             position="fixed"
-            top={`${place.top}px`}
-            left={`${place.left}px`}
-            transform="translateX(-100%)"
-            minW="220px"
+            top={`${lugar ? lugar.top : alvo.bottom + ESPACO}px`}
+            left={`${lugar ? lugar.left : Math.max(MARGEM, alvo.right - 200)}px`}
+            /* Antes da medição o menu existe pra ser medido, não pra ser visto. */
+            visibility={lugar ? "visible" : "hidden"}
+            minW="200px"
+            maxW={`calc(100vw - ${MARGEM * 2}px)`}
+            maxH={lugar ? `${lugar.maxH}px` : undefined}
+            overflowY="auto"
+            overscrollBehavior="contain"
             zIndex={1500}
             p={1.5}
             bg="var(--admin-surface)"
@@ -143,40 +206,30 @@ export function ActionMenu({
                 <chakra.a
                   key={i}
                   href={it.href}
-                  title={it.hint}
+                  title={balao(it)}
                   {...(it.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   onClick={() => setOpen(false)}
                   {...itemStyle(it.danger)}
                 >
-                  {it.icon ? <Box as="span" display="inline-flex" color="var(--admin-text-soft)" mt="1px">{it.icon}</Box> : null}
-                  <Box as="span" flex="1" minW={0}>
+                  {it.icon ? <Box as="span" display="inline-flex" color="var(--admin-text-soft)">{it.icon}</Box> : null}
+                  <Box as="span" flex="1" minW={0} overflow="hidden" textOverflow="ellipsis">
                     {it.label}
-                    {it.hint ? (
-                      <Box as="span" display="block" fontSize="xs" fontWeight="400" color="var(--admin-text-soft)" lineHeight="1.25">
-                        {it.hint}
-                      </Box>
-                    ) : null}
                   </Box>
                 </chakra.a>
               ) : (
                 <chakra.button
                   key={i}
                   type="button"
-                  title={it.hint}
+                  title={balao(it)}
                   onClick={() => {
                     setOpen(false);
                     it.onClick?.();
                   }}
                   {...itemStyle(it.danger)}
                 >
-                  {it.icon ? <Box as="span" display="inline-flex" color="var(--admin-text-soft)" mt="1px">{it.icon}</Box> : null}
-                  <Box as="span" flex="1" minW={0}>
+                  {it.icon ? <Box as="span" display="inline-flex" color="var(--admin-text-soft)">{it.icon}</Box> : null}
+                  <Box as="span" flex="1" minW={0} overflow="hidden" textOverflow="ellipsis">
                     {it.label}
-                    {it.hint ? (
-                      <Box as="span" display="block" fontSize="xs" fontWeight="400" color="var(--admin-text-soft)" lineHeight="1.25">
-                        {it.hint}
-                      </Box>
-                    ) : null}
                   </Box>
                 </chakra.button>
               ),
