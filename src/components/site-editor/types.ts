@@ -120,9 +120,8 @@ export interface SiteIdentityContent {
     /** Foto de PERFIL (seção "Sobre"). Vazio = /assets/perfil.png. */
     photo?: string;
     /**
-     * @deprecated Imagem de fundo do topo da home. O hero virou mockup de
-     * operação e não desenha mais foto — o campo só sobrevive para não
-     * invalidar a linha 'main' gravada. Sem controle no editor.
+     * Imagem de FUNDO do topo da home (hero). O layout escurece e derrete a
+     * imagem no chão do tema; vazio = sem imagem, só a atmosfera do layout.
      */
     image?: string;
     primaryCtaLabel: string;
@@ -187,6 +186,16 @@ export interface SiteIdentityContent {
     ctaLabel: string;
   };
   socials: SiteSocialItem[];
+  /**
+   * Layout (tema) do site — a ROUPA. A marca (cores/fontes/logo) é outra
+   * camada e vale por cima de qualquer layout. Vazio = "obsidian".
+   */
+  tema?: { layout?: "nocturne" | "obsidian" };
+  /**
+   * Layout (tema) do site — a ROUPA. A marca (cores/fontes/logo) é outra
+   * camada e vale por cima de qualquer layout. Vazio = "obsidian".
+   */
+  tema?: { layout?: "nocturne" | "obsidian" };
   seo: { title: string; description: string };
   theme?: SiteThemeContent;
 }

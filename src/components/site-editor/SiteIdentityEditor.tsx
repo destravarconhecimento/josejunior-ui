@@ -33,6 +33,7 @@ import { Button } from "../Button";
 import { Tabs, type TabDef } from "../Tabs";
 import { Accordion, type AccordionItemDef } from "../Accordion";
 import { SITE_ICON_OPTIONS } from "./icon-options";
+import { SitePreview } from "./SitePreview";
 import type {
   SiteIdentityContent,
   SiteMarketing,
@@ -627,6 +628,8 @@ export function SiteIdentityEditor({
     setC((s) => ({ ...s, seo: { ...s.seo, ...patch } }));
   const setTheme = (patch: Partial<NonNullable<SiteIdentityContent["theme"]>>) =>
     setC((s) => ({ ...s, theme: { ...s.theme, ...patch } }));
+  const setTemaLayout = (layout: NonNullable<NonNullable<SiteIdentityContent["tema"]>["layout"]>) =>
+    setC((s) => ({ ...s, tema: { ...(s.tema ?? {}), layout } }));
   const setSocials = (socials: SiteIdentityContent["socials"]) =>
     setC((s) => ({ ...s, socials }));
   // blocos da home nova
@@ -1350,15 +1353,16 @@ export function SiteIdentityEditor({
   ];
 
   return (
-    <Stack gap={5} maxW="1180px" pb={24}>
+    <Stack gap={5} maxW={{ base: "1180px", "2xl": "1620px" }} pb={24}>
       <Tabs value={tab} onChange={setTab} items={TABS} sidebarLabel="Meu site" />
 
       {/* ───────────── Marca & imagens ───────────── */}
       {tab === "marca" && (
-        <Stack gap={5}>
+        <Flex gap={6} align="flex-start">
+          <Stack gap={5} flex="1 1 0" minW={0}>
           {contentHeader(
             "Marca & imagens",
-            "Nome, WhatsApp, a sua foto, cores/fontes e os links das redes.",
+            "Nome, logo, layout, fundo do hero, cores/fontes — a marca que o site E o painel vestem.",
             "Salvar marca",
           )}
 
@@ -1391,6 +1395,15 @@ export function SiteIdentityEditor({
                 renderImageUpload={renderImageUpload}
               />
               <ImageField
+                label="Fundo do topo (hero)"
+                hint="Imagem de fundo da primeira dobra da home — o layout escurece e derrete ela no chão do tema. Vazio = sem imagem, só a atmosfera do layout. JPG/WebP até 8MB."
+                value={c.hero.image ?? ""}
+                fallback=""
+                folder="landing/hero"
+                onChange={(url) => setHero({ image: url })}
+                renderImageUpload={renderImageUpload}
+              />
+              <ImageField
                 label="Foto de perfil (seção Sobre)"
                 hint="A foto redonda do “Sobre” — o único lugar do site onde você aparece. Vazio = /assets/perfil.png. PNG/JPG/WebP até 8MB."
                 value={c.hero.photo ?? ""}
@@ -1402,10 +1415,54 @@ export function SiteIdentityEditor({
             </Card>
           </SimpleGrid>
 
+          {/* Layout = a ROUPA; a marca (cores/fontes/logo) é outra camada e
+              sobrevive à troca — mesma separação do site dos representantes. */}
+          <Card
+            title="Layout do site"
+            icon={<Layers size={18} color="var(--admin-primary)" />}
+            hint="Troca a estrutura visual inteira sem perder a marca: cores, fontes e logo valem por cima do layout escolhido. A prévia ao lado mostra o resultado."
+          >
+            <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+              {(
+                [
+                  { id: "nocturne", nome: "Nocturne", desc: "Lilás delineado, uma fonte só — sóbrio, tipográfico, CTA em linha." },
+                  { id: "obsidian", nome: "Obsidian", desc: "Roxo profundo com OURO nas decisões — hero conversacional, CTA cheia." },
+                ] as const
+              ).map((op) => {
+                const ativo = (c.tema?.layout ?? "obsidian") === op.id;
+                return (
+                  <Box
+                    as="button"
+                    type="button"
+                    key={op.id}
+                    onClick={() => setTemaLayout(op.id)}
+                    textAlign="left"
+                    p={4}
+                    borderRadius="12px"
+                    cursor="pointer"
+                    transition="all .15s"
+                    border={ativo ? "2px solid var(--admin-accent)" : "1px solid var(--admin-border)"}
+                    bg={ativo ? "color-mix(in srgb, var(--admin-accent) 8%, transparent)" : "transparent"}
+                  >
+                    <HStack justify="space-between" mb={1}>
+                      <Text fontWeight="700" color="var(--admin-primary)">
+                        {op.nome}
+                      </Text>
+                      {ativo ? <Check size={16} color="var(--admin-accent)" /> : null}
+                    </HStack>
+                    <Text fontSize="sm" color="var(--admin-text-soft)">
+                      {op.desc}
+                    </Text>
+                  </Box>
+                );
+              })}
+            </SimpleGrid>
+          </Card>
+
           <Card
             title="Cores e fontes do site"
             icon={<Palette size={18} color="var(--admin-primary)" />}
-            hint="A cor do seu site é a MESMA do painel do sistema. Vazio = marca padrão (lilás do José); a “Aparência do painel” (/aparencia) ainda sobrescreve, se quiser separar."
+            hint="FONTE ÚNICA da aparência: o site E o painel do sistema vestem estas cores e fontes — a tela “Aparência do painel” virou só um atalho pra cá. Vazio = marca padrão (lilás do José)."
           >
             <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
               <ColorField
@@ -1486,7 +1543,14 @@ export function SiteIdentityEditor({
           </Card>
 
           <SaveBar label="Salvar marca" onSave={onSaveContentClick} loading={contentLoading} saved={contentSaved} error={contentError} />
-        </Stack>
+          </Stack>
+
+          {/* Prévia AO VIVO da marca sobre o layout escolhido — mesma régua do
+              RepPreview da criação de representante. Só em telas bem largas. */}
+          <Box display={{ base: "none", "2xl": "block" }} position="sticky" top="88px" flexShrink={0}>
+            <SitePreview content={c} />
+          </Box>
+        </Flex>
       )}
 
       {/* ───────────── Home ───────────── */}
