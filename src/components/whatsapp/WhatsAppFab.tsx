@@ -428,7 +428,7 @@ export function WhatsAppFab({
       aria-label="WhatsApp (arraste pra mudar de canto)"
       title="WhatsApp — arraste pra mudar de canto"
     >
-      <FaWhatsapp size={20} />
+      <FaWhatsapp size={18} />
       {naoLidas > 0 ? (
         <Box
           position="absolute"

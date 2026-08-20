@@ -157,7 +157,7 @@ export function AiAssistantFab({
         aria-label={`Falar com ${title} (arraste pra mudar de canto)`}
         title={`${title} — arraste pra mudar de canto`}
       >
-        <Sparkles size={18} />
+        <Sparkles size={16} />
       </chakra.button>
     );
   }

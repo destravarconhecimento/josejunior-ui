@@ -28,22 +28,26 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type Po
 const ORDER = ["whatsapp", "ai"] as const;
 export type FabId = (typeof ORDER)[number];
 
-export const FAB_SIZE = 42; // px — diâmetro do botão
-export const FAB_BASE = 16; // px — folga do botão até o canto (bottom/lateral)
+export const FAB_SIZE = 34; // px — diâmetro do botão
+export const FAB_BASE = 8; // px — folga do botão até o canto (bottom/lateral)
 const FAB_GAP = 10; // px — respiro entre botões empilhados
 
 /* ============================================================
  * ONDE o dock fica — e por que ele se move
  *
- * Nasceu no canto inferior-DIREITO, que é onde toda tela do painel põe o que
- * importa: a coluna congelada de ações do funil, a paginação, o rodapé da
- * tabela. Dois botões de 56px ali em cima tapavam justamente o "✓ respondeu" e
- * o "1/102" — a operadora tinha de rolar a tela pra clicar no que estava
- * debaixo do balão.
+ * O canto é o inferior-DIREITO, que é onde o painel sempre teve os botões
+ * flutuantes. Já esteve na esquerda por uma rodada — lá ele tapava a primeira
+ * coluna da tabela e o José pediu de volta pra direita.
  *
- * Então: menor (42px), do lado ESQUERDO por padrão, e ARRASTÁVEL. O arrasto é
- * de um dock SÓ (os dois botões andam juntos) — foi por posição individual que
- * eles colidiram da primeira vez; aqui a pilha continua sendo uma pilha.
+ * O motivo de ele ter fugido da direita continua valendo: ali ficam a coluna
+ * congelada de AÇÕES do funil, a paginação e o rodapé da tabela. A resposta
+ * agora não é mudar de lado, é OCUPAR MENOS: 34px de diâmetro (era 56, depois
+ * 42) e 8px de folga do canto, encostado o quanto dá. Assim a pilha cabe na
+ * quina, abaixo da última linha de ações, em vez de pousar em cima dela.
+ *
+ * E continua ARRASTÁVEL: o arrasto é de um dock SÓ (os dois botões andam
+ * juntos) — foi por posição individual que eles colidiram da primeira vez;
+ * aqui a pilha continua sendo uma pilha.
  *
  * Ao soltar, o dock ENCOSTA no lado mais próximo (esquerda/direita) e guarda
  * só isso mais a altura: assim ele nunca fica no meio da tabela, e a janela
@@ -54,8 +58,12 @@ const FAB_GAP = 10; // px — respiro entre botões empilhados
 export type FabLado = "esq" | "dir";
 export type FabPos = { lado: FabLado; bottom: number };
 
-const POS_KEY = "jj:fab-pos";
-const POS_PADRAO: FabPos = { lado: "esq", bottom: FAB_BASE };
+// `:v2` — a chave foi versionada de propósito ao dock voltar pra DIREITA: quem
+// já tinha arrastado (ou só guardado o padrão antigo, "esq") ficaria preso na
+// esquerda e nunca veria a mudança. Trocar a chave é o reset de uma vez só;
+// quem arrastar de novo grava na nova e a preferência volta a mandar.
+const POS_KEY = "jj:fab-pos:v2";
+const POS_PADRAO: FabPos = { lado: "dir", bottom: FAB_BASE };
 
 /** Quanto o dock inteiro ocupa em altura (px) — usado pra prender o arrasto. */
 const alturaDaPilha = (n: number) => n * FAB_SIZE + Math.max(0, n - 1) * FAB_GAP;
