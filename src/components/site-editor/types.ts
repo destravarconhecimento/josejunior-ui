@@ -191,11 +191,6 @@ export interface SiteIdentityContent {
    * camada e vale por cima de qualquer layout. Vazio = "obsidian".
    */
   tema?: { layout?: "nocturne" | "obsidian" };
-  /**
-   * Layout (tema) do site — a ROUPA. A marca (cores/fontes/logo) é outra
-   * camada e vale por cima de qualquer layout. Vazio = "obsidian".
-   */
-  tema?: { layout?: "nocturne" | "obsidian" };
   seo: { title: string; description: string };
   theme?: SiteThemeContent;
 }

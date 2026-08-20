@@ -1433,7 +1433,6 @@ export function SiteIdentityEditor({
                 return (
                   <Box
                     as="button"
-                    type="button"
                     key={op.id}
                     onClick={() => setTemaLayout(op.id)}
                     textAlign="left"
