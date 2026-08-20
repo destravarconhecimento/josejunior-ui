@@ -1,7 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { Box, HStack, Stack, NativeSelect, Text } from "@chakra-ui/react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { Box, HStack, Spinner, Stack, NativeSelect, Text } from "@chakra-ui/react";
 
 export type TabDef = { value: string; label: string; icon?: ReactNode };
 
@@ -11,6 +11,14 @@ export type TabDef = { value: string; label: string; icon?: ReactNode };
  *  - `orientation="vertical"`: sidebar de abas (cartão à esquerda);
  *  - mobile (qualquer orientação): dropdown com a aba atual.
  * O consumidor controla `value` e renderiza o conteúdo por `value`.
+ *
+ * Toda troca de aba passa por `useTransition`. Isso dá, de graça e em TODA aba
+ * do sistema, o sinal que faltava: a aba clicada acende na hora e ganha um
+ * spinner enquanto a troca não termina. Vale tanto pra aba que NAVEGA (o
+ * `router.push` fica pendente até o servidor responder) quanto pra aba que só
+ * troca estado mas renderiza uma árvore pesada — nos dois casos a tela ficava
+ * parada na aba antiga e o clique parecia não ter pegado. Troca barata resolve
+ * no mesmo quadro e ninguém vê spinner nenhum.
  */
 export function Tabs({
   value,
@@ -27,14 +35,29 @@ export function Tabs({
   sidebarLabel?: string;
 }) {
   const vertical = orientation === "vertical";
+  const [pendente, startTroca] = useTransition();
+  const [alvo, setAlvo] = useState<string | null>(null);
+
+  // Transição acabou (ou nem chegou a durar): o destaque volta a ser o `value`
+  // que o consumidor manda.
+  useEffect(() => {
+    if (!pendente) setAlvo(null);
+  }, [pendente]);
+
+  const trocar = (v: string) => {
+    setAlvo(v);
+    startTroca(() => onChange(v));
+  };
+  const selecionado = pendente && alvo ? alvo : value;
 
   const triggers = items.map((it) => {
-    const active = it.value === value;
+    const active = it.value === selecionado;
+    const carregando = pendente && alvo === it.value;
     return (
       <Box
         as="button"
         key={it.value}
-        onClick={() => onChange(it.value)}
+        onClick={() => trocar(it.value)}
         px={vertical ? 3 : 4}
         py={2.5}
         fontSize="sm"
@@ -60,7 +83,7 @@ export function Tabs({
         transition="color .14s ease, border-color .14s ease, background .14s ease"
       >
         <HStack gap={2} justify={vertical ? "flex-start" : "center"}>
-          {it.icon}
+          {carregando ? <Spinner size="xs" borderWidth="2px" /> : it.icon}
           <Text fontSize="sm" as="span">
             {it.label}
           </Text>
@@ -126,8 +149,8 @@ export function Tabs({
         </Text>
         <NativeSelect.Root size="lg">
           <NativeSelect.Field
-            value={value}
-            onChange={(e) => onChange(e.currentTarget.value)}
+            value={selecionado}
+            onChange={(e) => trocar(e.currentTarget.value)}
             bg="var(--admin-surface)"
             borderColor="var(--admin-border)"
             borderRadius="12px"
@@ -137,7 +160,7 @@ export function Tabs({
           >
             {items.map((it) => (
               <option key={it.value} value={it.value}>
-                {it.label}
+                {pendente && alvo === it.value ? `${it.label} …` : it.label}
               </option>
             ))}
           </NativeSelect.Field>
