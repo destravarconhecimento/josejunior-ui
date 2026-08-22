@@ -247,6 +247,16 @@ export type WhatsAppClientProps = {
    * afrouxa pra 20s (rede de segurança). Sem ela, nada muda: 4s como sempre.
    */
   onRealtime?: UiRealtimeSubscribe;
+  /**
+   * BOTÕES do canal, no cabeçalho do fio — ao lado do "atualizar". Existe porque
+   * a mesma caixa mostra conversas de fornecedores diferentes e algumas trazem
+   * um estado que só elas têm (a janela de 24h do Cloud API, por exemplo). Recebe
+   * a conversa inteira, e não só o número, porque é o `chatId` que diz de onde
+   * ela veio.
+   */
+  acoesDaConversa?: (chat: WhatsAppChat) => ReactNode;
+  /** Faixa de aviso logo acima do campo de resposta (ex.: "janela de 24h fechada"). */
+  avisoDaConversa?: (chat: WhatsAppChat) => ReactNode;
 };
 
 /* ── Constantes visuais (identidade real do WhatsApp) ───────── */
@@ -964,6 +974,8 @@ function ChatWorkspace({
   onAbriu,
   onNovaConversa,
   onRealtime,
+  acoesDaConversa,
+  avisoDaConversa,
 }: {
   chats: WhatsAppChat[];
   loadingChats?: boolean;
@@ -974,6 +986,9 @@ function ChatWorkspace({
   onAbriu?: () => void;
   onNovaConversa?: () => void;
   onRealtime?: UiRealtimeSubscribe;
+  /** Ver `WhatsAppClientProps` — quem desenha é o consumidor, o fio só dá lugar. */
+  acoesDaConversa?: (chat: WhatsAppChat) => ReactNode;
+  avisoDaConversa?: (chat: WhatsAppChat) => ReactNode;
 }) {
   const [categoria, setCategoria] = useState<Categoria>("conversas");
   const [query, setQuery] = useState("");
@@ -1617,6 +1632,7 @@ function ChatWorkspace({
               >
                 <Star size={17} fill={selected.favorito ? "#eab308" : "none"} />
               </Box>
+              {acoesDaConversa?.(selected)}
               <Button tone="ghost" size="sm" onClick={() => void loadThread(selected.chatId)} aria-label="Atualizar conversa">
                 <RefreshCw size={15} />
               </Button>
@@ -1671,6 +1687,7 @@ function ChatWorkspace({
 
             {/* composer */}
             <Stack gap={1} px={3} py={3} borderTopWidth="1px" borderColor="var(--admin-border)" bg="var(--admin-surface)" flexShrink={0}>
+              {avisoDaConversa?.(selected)}
               <HStack gap={2} align="flex-end">
                 <input ref={fileRef} type="file" hidden onChange={onPickFile} />
                 <Button tone="ghost" size="sm" onClick={() => fileRef.current?.click()} loading={uploading} aria-label="Anexar">
@@ -1795,6 +1812,8 @@ export function WhatsAppClient({
   configSlots = [],
   callbacks,
   onRealtime,
+  acoesDaConversa,
+  avisoDaConversa,
 }: WhatsAppClientProps) {
   const [view, setView] = useState<"conversas" | "config">("conversas");
   const [statsOpen, setStatsOpen] = useState(false);
@@ -1894,6 +1913,8 @@ export function WhatsAppClient({
         onAbriu={() => setAbrirId(null)}
         onNovaConversa={callbacks.onNovaConversa && connected ? () => setNovaOpen(true) : undefined}
         onRealtime={onRealtime}
+        acoesDaConversa={acoesDaConversa}
+        avisoDaConversa={avisoDaConversa}
       />
     );
 
