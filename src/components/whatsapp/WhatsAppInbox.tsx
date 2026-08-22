@@ -126,6 +126,8 @@ function displayName(c: WaChat): string {
 export function WhatsAppInbox({
   api,
   onRealtime,
+  acoesDaConversa,
+  avisoDaConversa,
 }: {
   api: WaInboxApi;
   /**
@@ -133,6 +135,17 @@ export function WhatsAppInbox({
    * aberto recarrega no instante da mensagem e o ciclo de 4s vira 20s.
    */
   onRealtime?: UiRealtimeSubscribe;
+  /**
+   * BOTÕES do canal, no cabeçalho do fio — ao lado do "atualizar".
+   *
+   * Existe porque cada canal tem um controle que só faz sentido nele: no Cloud
+   * API é "assumir a conversa / devolver pra IA", e não há equivalente no
+   * gateway. Injetar é melhor que ramificar o componente por canal — quem não
+   * passa nada continua com a tela de antes, byte por byte.
+   */
+  acoesDaConversa?: (peer: string) => React.ReactNode;
+  /** Faixa de aviso acima do campo de resposta (ex.: "janela de 24h fechada"). */
+  avisoDaConversa?: (peer: string) => React.ReactNode;
 }) {
   const [chats, setChats] = useState<WaChat[] | null>(null);
   const [chatsErr, setChatsErr] = useState<string | null>(null);
@@ -448,10 +461,12 @@ export function WhatsAppInbox({
                   <Text fontSize="sm" fontWeight="700" color="var(--admin-text)" lineClamp={1}>{peerName}</Text>
                   <Text fontSize="xs" color="var(--admin-text-soft)">{peerIsGroup ? "Grupo" : fmtPhone(peer)}</Text>
                 </Stack>
+                {acoesDaConversa?.(peer)}
                 <Button tone="ghost" size="sm" onClick={() => reloadThread(peer)} aria-label="Atualizar">
                   <RefreshCw size={15} />
                 </Button>
               </HStack>
+              {avisoDaConversa?.(peer)}
 
               {/* mensagens sobre o fundo do WhatsApp */}
               <Box
