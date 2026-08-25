@@ -257,6 +257,18 @@ export type WhatsAppClientProps = {
   acoesDaConversa?: (chat: WhatsAppChat) => ReactNode;
   /** Faixa de aviso logo acima do campo de resposta (ex.: "janela de 24h fechada"). */
   avisoDaConversa?: (chat: WhatsAppChat) => ReactNode;
+  /**
+   * AÇÕES EXTRAS no menu "Ações" do fio — entram DEPOIS das de sempre
+   * (arquivar, fixar, vínculo).
+   *
+   * É a mesma ideia de `acoesDaConversa`, com uma diferença que importa: aqui o
+   * consumidor manda DADO (rótulo, ícone, callback), não JSX. Assim o item sai
+   * com a aparência do menu, o menu continua fechando sozinho no clique, e este
+   * componente segue PURO — ele não sabe o que é orçamento, não importa action
+   * nenhuma e não ganha uma dependência de app por cada botão novo. O que ele
+   * dá é lugar; quem sabe o que fazer é a tela que o monta.
+   */
+  itensDeAcao?: (chat: WhatsAppChat) => ActionMenuItem[];
 };
 
 /* ── Constantes visuais (identidade real do WhatsApp) ───────── */
@@ -976,6 +988,7 @@ function ChatWorkspace({
   onRealtime,
   acoesDaConversa,
   avisoDaConversa,
+  itensDeAcao,
 }: {
   chats: WhatsAppChat[];
   loadingChats?: boolean;
@@ -989,6 +1002,7 @@ function ChatWorkspace({
   /** Ver `WhatsAppClientProps` — quem desenha é o consumidor, o fio só dá lugar. */
   acoesDaConversa?: (chat: WhatsAppChat) => ReactNode;
   avisoDaConversa?: (chat: WhatsAppChat) => ReactNode;
+  itensDeAcao?: (chat: WhatsAppChat) => ActionMenuItem[];
 }) {
   const [categoria, setCategoria] = useState<Categoria>("conversas");
   const [query, setQuery] = useState("");
@@ -1439,6 +1453,7 @@ function ChatWorkspace({
                 onClick: () => abrirDetalhes("tenant"),
               },
             ]),
+        ...(itensDeAcao?.(selected) ?? []),
       ]
     : [];
 
@@ -1814,6 +1829,7 @@ export function WhatsAppClient({
   onRealtime,
   acoesDaConversa,
   avisoDaConversa,
+  itensDeAcao,
 }: WhatsAppClientProps) {
   const [view, setView] = useState<"conversas" | "config">("conversas");
   const [statsOpen, setStatsOpen] = useState(false);
@@ -1915,6 +1931,7 @@ export function WhatsAppClient({
         onRealtime={onRealtime}
         acoesDaConversa={acoesDaConversa}
         avisoDaConversa={avisoDaConversa}
+        itensDeAcao={itensDeAcao}
       />
     );
 
