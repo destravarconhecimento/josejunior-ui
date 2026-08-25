@@ -476,3 +476,14 @@ export type {
   AvatarActionResult,
   AvatarUploadKind,
 } from "./avatar/types";
+
+// Vertical clínica (agenda por vagas) — primitivo puro, sem servidor.
+export {
+  AgendaGrade,
+  AgendaGradeLegenda,
+  AGENDA_STATUS_LABELS,
+  AGENDA_STATUS_STYLES,
+  type AgendaGradeSlot,
+  type AgendaGradeDay,
+  type AgendaGradeStatus,
+} from "./clinica/AgendaGrade";
