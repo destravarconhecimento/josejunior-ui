@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Box, HStack, Input, Stack, Text, Textarea } from "@chakra-ui/react";
-import { ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, RotateCcw } from "lucide-react";
 import { Button } from "./Button";
 
 /**
@@ -17,6 +17,9 @@ import { Button } from "./Button";
  *  - A estrutura (nº de passos/planos/depoimentos) vem do default — aqui só se troca
  *    TEXTO, posição a posição; o shape é podado no servidor (`sanitizeRepSiteOverrides`).
  *  - Depoimentos ganham o campo extra `name` (identidade; não traduz).
+ *  - Cada seção pode ser OCULTADA do site (olhinho no cabeçalho): vai na key META
+ *    `hidden` (array de keys de seção) do mesmo override — validada no sanitize e
+ *    consumida pela page do site do rep (não renderiza) e pelo Header (some o link).
  */
 
 export type RepSiteSectionsEditorProps = {
@@ -239,6 +242,17 @@ function FieldRow({
 export function RepSiteSectionsEditor({ base, value, onChange }: RepSiteSectionsEditorProps) {
   const [open, setOpen] = useState<string | null>(null);
 
+  // `hidden` = seções ocultas do site (meta, fora do conteúdo textual).
+  const hidden = useMemo(
+    () => (Array.isArray(value.hidden) ? (value.hidden as unknown[]).filter((k): k is string => typeof k === "string") : []),
+    [value],
+  );
+  const toggleHidden = (key: string) => {
+    const next = hidden.includes(key) ? hidden.filter((k) => k !== key) : [...hidden, key];
+    const { hidden: _drop, ...rest } = value;
+    onChange(next.length > 0 ? { ...rest, hidden: next } : rest);
+  };
+
   const overrideCount = useMemo(() => {
     const count = (node: unknown): number => {
       if (typeof node === "string") return node.trim() === "" ? 0 : 1;
@@ -246,7 +260,8 @@ export function RepSiteSectionsEditor({ base, value, onChange }: RepSiteSections
       if (node && typeof node === "object") return Object.values(node).reduce((n: number, v) => n + count(v), 0);
       return 0;
     };
-    return count(value);
+    // `hidden` não é texto personalizado — fica fora da conta.
+    return Object.entries(value).reduce((n, [k, v]) => (k === "hidden" ? n : n + count(v)), 0);
   }, [value]);
 
   const setField = (segs: string[], v: string) => {
@@ -322,14 +337,16 @@ export function RepSiteSectionsEditor({ base, value, onChange }: RepSiteSections
       <HStack justify="space-between" flexWrap="wrap" gap={2}>
         <Text fontSize="xs" color={SOFT}>
           Texto próprio por seção — o que ficar vazio usa o padrão da plataforma (e é
-          traduzido automaticamente nos idiomas ativos).
+          traduzido automaticamente nos idiomas ativos). O olhinho oculta a seção
+          inteira do site.
         </Text>
         {overrideCount > 0 ? (
           <HStack gap={2}>
             <Text fontSize="xs" fontWeight="700" color="var(--admin-text)">
               {overrideCount} personalizado{overrideCount > 1 ? "s" : ""}
             </Text>
-            <Button type="button" size="xs" tone="outline" onClick={() => onChange({})}>
+            {/* Restaura só os TEXTOS — visibilidade (hidden) é outra decisão, fica. */}
+            <Button type="button" size="xs" tone="outline" onClick={() => onChange(hidden.length > 0 ? { hidden } : {})}>
               <RotateCcw size={12} /> Restaurar padrão
             </Button>
           </HStack>
@@ -346,35 +363,61 @@ export function RepSiteSectionsEditor({ base, value, onChange }: RepSiteSections
           };
           return count(value[s.key]);
         })();
+        const isSectionHidden = hidden.includes(s.key);
         return (
           <Box key={s.key} className="admin-card" p={0} overflow="hidden">
-            <HStack
-              as="button"
-              // `type` não existe em StackProps — sem isto o header viraria submit
-              // dentro do <form> do portal do rep.
-              {...({ type: "button" } as Record<string, unknown>)}
-              onClick={() => setOpen(isOpen ? null : s.key)}
-              w="100%"
-              px={4}
-              py={3}
-              justify="space-between"
-              cursor="pointer"
-              _hover={{ bg: "var(--admin-surface)" }}
-            >
-              <HStack gap={2}>
+            {/* O expandir e o olhinho são DOIS botões irmãos (button dentro de button é HTML inválido). */}
+            <HStack px={4} py={3} gap={3} justify="space-between" _hover={{ bg: "var(--admin-surface)" }}>
+              <HStack
+                as="button"
+                // `type` não existe em StackProps — sem isto o header viraria submit
+                // dentro do <form> do portal do rep.
+                {...({ type: "button" } as Record<string, unknown>)}
+                onClick={() => setOpen(isOpen ? null : s.key)}
+                gap={2}
+                flex="1"
+                minW={0}
+                cursor="pointer"
+                textAlign="left"
+                opacity={isSectionHidden ? 0.55 : 1}
+              >
                 <Box color="var(--admin-primary)">{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</Box>
                 <Text fontWeight="700" fontSize="sm" color="var(--admin-text)">
                   {s.label}
                 </Text>
+                {isSectionHidden ? (
+                  <Box as="span" fontSize="10px" fontWeight="700" px="6px" py="1px" borderRadius="6px" bg="rgba(234,88,12,0.14)" color="#c2410c">
+                    oculta
+                  </Box>
+                ) : null}
                 {sectionCount > 0 ? (
                   <Box as="span" fontSize="10px" fontWeight="700" px="6px" py="1px" borderRadius="6px" bg="rgba(59,130,246,0.12)" color="#2563eb">
                     {sectionCount}
                   </Box>
                 ) : null}
               </HStack>
-              <Text fontSize="xs" color={SOFT} display={{ base: "none", md: "block" }}>
-                {s.hint}
-              </Text>
+              <HStack gap={3} flexShrink={0}>
+                <Text fontSize="xs" color={SOFT} display={{ base: "none", md: "block" }}>
+                  {s.hint}
+                </Text>
+                <Button
+                  type="button"
+                  size="xs"
+                  tone="outline"
+                  onClick={() => toggleHidden(s.key)}
+                  title={isSectionHidden ? "Voltar a mostrar esta seção no site" : "Ocultar esta seção do site"}
+                >
+                  {isSectionHidden ? (
+                    <>
+                      <Eye size={12} /> Mostrar
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff size={12} /> Ocultar
+                    </>
+                  )}
+                </Button>
+              </HStack>
             </HStack>
             {isOpen ? (
               <Stack gap={4} px={4} pb={4} pt={1}>
