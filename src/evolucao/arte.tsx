@@ -65,7 +65,11 @@ export type ArteEvolucaoInput = {
    * Satori NÃO — quem rasteriza mede antes e manda o número aqui.
    */
   logoRatio?: number | null;
-  /** Assinatura do rodapé; vazia usa a do template. */
+  /**
+   * Assinatura do rodapé. Ausente (null/undefined) = a do template; string VAZIA
+   * = sem rodapé nenhum (assinatura, régua de diferenciais e site somem) — é o
+   * que o cliente quer quando limpa o campo pra postar a foto "limpa".
+   */
   rodape?: string | null;
   /** Site do cliente, impresso na última linha (ex.: "luandavyson.com.br"). */
   site?: string | null;
@@ -211,8 +215,10 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
   const chamada = (input.chamada || "").trim().toUpperCase();
   const titulo = (input.titulo || "").trim().toUpperCase();
   const subtitulo = (input.subtitulo || "").trim();
-  const assinatura = (input.rodape || "").trim() || ARTE_ASSINATURA;
-  const site = limparSite(input.site || "");
+  const assinatura = input.rodape == null ? ARTE_ASSINATURA : input.rodape.trim();
+  // Rodapé limpo de propósito (campo vazio) = a arte termina nas fotos/título.
+  const temRodape = assinatura.length > 0;
+  const site = temRodape ? limparSite(input.site || "") : "";
   // Não repete o endereço se ele já escreveu o site na própria assinatura.
   const mostraSite = !!site && !assinatura.toLowerCase().includes(site.toLowerCase());
   const fotos = input.fotos.slice(0, 5);
@@ -242,8 +248,9 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
   const ySite = H - 72;
   const assinaturaH = 36;
   const yAssinatura = mostraSite ? ySite - 4 - assinaturaH : H - 74;
-  const featuresH = 66;
-  const yFeatures = yAssinatura - 20 - featuresH;
+  const featuresH = temRodape ? 66 : 0;
+  // Sem rodapé, o "chão" do bloco das fotos é a margem inferior da arte.
+  const yFeatures = temRodape ? yAssinatura - 20 - featuresH : H - PAD;
 
   // Título (pílula) e subtítulo, com a altura REAL do texto quebrado.
   const tt = titulo
@@ -548,6 +555,7 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
       ) : null}
 
       {/* Régua de diferenciais */}
+      {temRodape ? (
       <div
         style={{
           position: "absolute",
@@ -598,8 +606,10 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
           </div>
         ))}
       </div>
+      ) : null}
 
       {/* Assinatura */}
+      {temRodape ? (
       <div
         style={{
           position: "absolute",
@@ -617,6 +627,7 @@ export function arteEvolucaoTree(input: ArteEvolucaoInput): ReactElement {
       >
         {assinatura}
       </div>
+      ) : null}
 
       {/* Site do cliente — a chamada para ação do rodapé */}
       {mostraSite ? (

@@ -212,6 +212,7 @@ export function ArteEvolucaoModal({
             value={cfg.chamada}
             onChange={(e) => setCfg((c) => ({ ...c, chamada: e.target.value }))}
             placeholder="Transformação real"
+            help="Deixe vazio para a arte sair sem chamada."
           />
           <FormInput
             label="Título (faixa embaixo das fotos)"
@@ -231,8 +232,12 @@ export function ArteEvolucaoModal({
             label="Rodapé (frase, site ou @perfil)"
             value={cfg.rodape}
             onChange={(e) => setCfg((c) => ({ ...c, rodape: e.target.value }))}
-            placeholder={ARTE_ASSINATURA}
-            help={brand?.site ? `O site ${brand.site} entra na última linha da arte.` : undefined}
+            placeholder="Sem rodapé"
+            help={
+              brand?.site
+                ? `O site ${brand.site} entra na última linha da arte. Vazio = sem rodapé (some a frase, a régua e o site).`
+                : "Vazio = sem rodapé (some a frase e a régua)."
+            }
           />
 
           <Stack gap={2}>
