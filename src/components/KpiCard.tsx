@@ -124,6 +124,13 @@ export type KpiRowItem = {
   tone?: KpiTone;
   /** Ícone pequeno, na frente do rótulo. Opcional — a faixa vive bem sem ele. */
   icon?: ReactNode;
+  /**
+   * KPI que FILTRA: clicar aplica o recorte na lista abaixo (e clicar de novo
+   * tira). Sem `onClick` o item é só leitura, como sempre foi.
+   */
+  onClick?: () => void;
+  /** O recorte deste KPI está aplicado agora — desenha o item marcado. */
+  active?: boolean;
 };
 
 /**
@@ -149,6 +156,7 @@ export function KpiRow({ items }: { items: KpiRowItem[] }) {
       <HStack gap={0} align="center" minW="max-content">
         {items.map((item, i) => {
           const t = TONES[item.tone ?? "neutral"];
+          const clicavel = Boolean(item.onClick);
           return (
             <HStack
               key={i}
@@ -156,8 +164,29 @@ export function KpiRow({ items }: { items: KpiRowItem[] }) {
               align="baseline"
               flexShrink={0}
               px={3}
+              py={clicavel ? 1 : 0}
               borderLeftWidth={i === 0 ? 0 : "1px"}
               borderColor="var(--admin-divider)"
+              cursor={clicavel ? "pointer" : undefined}
+              role={clicavel ? "button" : undefined}
+              tabIndex={clicavel ? 0 : undefined}
+              aria-pressed={clicavel ? Boolean(item.active) : undefined}
+              onClick={item.onClick}
+              onKeyDown={
+                clicavel
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        item.onClick?.();
+                      }
+                    }
+                  : undefined
+              }
+              borderRadius="md"
+              bg={item.active ? t.soft : undefined}
+              boxShadow={item.active ? `inset 0 0 0 1px ${t.strong}` : undefined}
+              _hover={clicavel && !item.active ? { bg: "var(--admin-surface-2, rgba(0,0,0,0.04))" } : undefined}
+              title={clicavel ? (item.active ? "Tirar o filtro" : "Filtrar por este indicador") : undefined}
             >
               {item.icon ? (
                 <Box color={t.strong} flexShrink={0} alignSelf="center" display="flex">
