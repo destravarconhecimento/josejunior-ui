@@ -488,3 +488,4 @@ export {
   type AgendaGradeDay,
   type AgendaGradeStatus,
 } from "./clinica/AgendaGrade";
+export { PdvBalcao, fmtBRL as fmtBRLCents, type PdvProduto, type PdvCategoria, type PdvItemCarrinho } from "./components/PdvBalcao";
