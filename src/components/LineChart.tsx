@@ -5,6 +5,9 @@ import { Box, HStack, Text } from "@chakra-ui/react";
 
 export type LineSeries = { key: string; label: string; color: string; points: number[] };
 
+/** Teto de rótulos no eixo X — acima disso eles se atropelam e vazam do card. */
+const MAX_LABELS = 8;
+
 /**
  * Gráfico de linha em SVG puro (sem dependência), responsivo. Toggle de séries
  * (chips) — mostra uma série por vez com área degradê. Strokes usam
@@ -108,13 +111,24 @@ export function LineChart({
         </svg>
       </Box>
 
-      <HStack justify="space-between" mt={2} px={1}>
-        {labels.map((l, i) => (
-          <Text key={i} fontSize="10px" color="var(--admin-text-soft)" flexShrink={0}>
-            {l}
-          </Text>
-        ))}
-      </HStack>
+      {/* Rótulos do eixo X: no máximo ~8, cada um preso ao ponto que representa.
+          Imprimir todos (30 dias) estourava a largura do card e fazia a página
+          rolar na horizontal — a lista de dias não pode ditar a largura. */}
+      <Box position="relative" h="14px" mt={2} overflow="hidden">
+        {labels.map((l, i) => {
+          const step = Math.max(1, Math.ceil(n / MAX_LABELS));
+          const ultimo = i === n - 1;
+          // O último dia sempre aparece; o rótulo de grade que ficaria colado nele sai.
+          if (!ultimo && (i % step !== 0 || n - 1 - i < step / 2)) return null;
+          const x = n > 1 ? (i / (n - 1)) * 100 : 0;
+          const transform = i === 0 ? "none" : ultimo ? "translateX(-100%)" : "translateX(-50%)";
+          return (
+            <Text key={i} as="span" position="absolute" left={`${x}%`} top={0} transform={transform} fontSize="10px" color="var(--admin-text-soft)" whiteSpace="nowrap" lineHeight="14px">
+              {l}
+            </Text>
+          );
+        })}
+      </Box>
     </Box>
   );
 }
