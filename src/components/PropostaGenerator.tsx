@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { Box, HStack, Stack, Text } from "@chakra-ui/react";
-import { Search, FileText, ExternalLink, ShieldAlert, ShieldCheck, Layers } from "lucide-react";
+import { Search, FileText, ExternalLink, ShieldAlert, ShieldCheck, Layers, MessageCircle } from "lucide-react";
 import { Button } from "./Button";
 import { Modal } from "./Modal";
 import { Tag } from "./Badge";
@@ -119,6 +119,12 @@ export type PropostaGeneratorProps = {
   onEscanear: (site: string) => Promise<Res<PropostaDossie>>;
   /** Escreve e publica — devolve os links prontos pra mandar. */
   onGerar: (input: PropostaGerarInput) => Promise<Res<PropostaLinks>>;
+  /**
+   * "Mandar no WhatsApp" na tela dos links prontos. Ausente = o botão não
+   * aparece. Quem passa decide o destino (balão do painel ou wa.me) e o texto;
+   * aqui só se entrega o link — nada é enviado sem a pessoa apertar enviar.
+   */
+  onEnviarWhats?: (links: PropostaLinks) => void;
   onClose: () => void;
 };
 
@@ -145,6 +151,7 @@ export function PropostaGenerator({
   vendedores = [],
   onEscanear,
   onGerar,
+  onEnviarWhats,
   onClose,
 }: PropostaGeneratorProps) {
   const [empresa, setEmpresa] = useState(alvo?.empresa ?? "");
@@ -225,7 +232,12 @@ export function PropostaGenerator({
   return (
     <Modal open onClose={onClose} size="lg" title={`Proposta — ${empresa || "nova empresa"}`}>
       {links ? (
-        <PropostaPronta links={links} temLead={!!alvo?.leadId} onClose={onClose} />
+        <PropostaPronta
+          links={links}
+          temLead={!!alvo?.leadId}
+          onEnviarWhats={onEnviarWhats ? () => onEnviarWhats(links) : undefined}
+          onClose={onClose}
+        />
       ) : (
         <Stack gap={4}>
           <Text fontSize="sm" color="var(--admin-text-soft)">
@@ -388,10 +400,12 @@ export function PropostaGenerator({
 function PropostaPronta({
   links,
   temLead,
+  onEnviarWhats,
   onClose,
 }: {
   links: PropostaLinks;
   temLead: boolean;
+  onEnviarWhats?: () => void;
   onClose: () => void;
 }) {
   return (
@@ -420,8 +434,13 @@ function PropostaPronta({
         Dica: mande junto — “Dei uma olhada no site de vocês e montei um resumo do que dá pra
         melhorar: {"{link}"}”.
       </Text>
-      <HStack>
+      <HStack gap={2} flexWrap="wrap">
         <Button tone="ghost" onClick={onClose}>Fechar</Button>
+        {onEnviarWhats ? (
+          <Button tone="whatsapp" onClick={onEnviarWhats}>
+            <MessageCircle size={14} style={{ marginRight: 6 }} /> Mandar no WhatsApp
+          </Button>
+        ) : null}
       </HStack>
     </Stack>
   );
