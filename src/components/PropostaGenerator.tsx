@@ -90,7 +90,16 @@ export type PropostaGerarInput = {
   modelo: string;
   accent: string;
   leadId: string;
+  /** Representante que assina o link (vazio = o próprio site de quem gera). */
+  rep: string;
 };
+
+/**
+ * Um representante que pode assinar o link. Quem gera escolhe por onde a peça
+ * sai: o próprio site ou o domínio de um representante — e aí o link enviado é
+ * o do rep, e o orçamento preenchido nela cai no funil dele.
+ */
+export type PropostaVendedorOpcao = { slug: string; nome: string; dominio: string };
 
 /** Links das duas faces (o de protótipo é null quando não há modelo). */
 export type PropostaLinks = { url: string; urlSite: string | null };
@@ -100,6 +109,12 @@ type Res<T> = { ok: true; data: T } | { ok: false; error: string };
 export type PropostaGeneratorProps = {
   alvo?: PropostaAlvo;
   segmentos: PropostaSegmentoOpcao[];
+  /**
+   * Representantes que podem assinar o link (só os ativos). Ausente ou vazio =
+   * o campo não aparece e a peça sai pelo próprio site (é o caso do painel do
+   * rep, onde o dono do link já é ele).
+   */
+  vendedores?: PropostaVendedorOpcao[];
   /** Entra no site e devolve o que achou (sem gastar IA ainda). */
   onEscanear: (site: string) => Promise<Res<PropostaDossie>>;
   /** Escreve e publica — devolve os links prontos pra mandar. */
@@ -127,6 +142,7 @@ function prototipoPadrao(segmentos: PropostaSegmentoOpcao[], slug: string): stri
 export function PropostaGenerator({
   alvo,
   segmentos,
+  vendedores = [],
   onEscanear,
   onGerar,
   onClose,
@@ -144,6 +160,8 @@ export function PropostaGenerator({
     prototipoPadrao(segmentos, segmentoInicial(segmentos, alvo)),
   );
   const [accent, setAccent] = useState("");
+  // Quem assina o link: "" = o próprio site; slug = sai no domínio do rep.
+  const [vendedor, setVendedor] = useState("");
   const [dossie, setDossie] = useState<PropostaDossie | null>(null);
   const [links, setLinks] = useState<PropostaLinks | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -198,6 +216,7 @@ export function PropostaGenerator({
         modelo: modeloEfetivo,
         accent: /^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "",
         leadId: alvo?.leadId ?? "",
+        rep: vendedor,
       });
       if (r.ok) setLinks(r.data);
       else setErr(r.error);
@@ -245,6 +264,19 @@ export function PropostaGenerator({
           </HStack>
 
           {dossie ? <DossieCard d={dossie} /> : null}
+
+          {vendedores.length ? (
+            <FormSelect
+              label="Link sai por"
+              help="Escolhendo um representante, o link é do domínio DELE e o orçamento preenchido na peça cai no funil dele."
+              value={vendedor}
+              onChange={(e) => setVendedor(e.target.value)}
+              options={[
+                { value: "", label: "Próprio site (padrão)" },
+                ...vendedores.map((v) => ({ value: v.slug, label: `${v.nome} — ${v.dominio}` })),
+              ]}
+            />
+          ) : null}
 
           <HStack gap={3} align="flex-start" flexWrap="wrap">
             <Box flex="1" minW="200px">

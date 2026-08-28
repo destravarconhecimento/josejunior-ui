@@ -331,6 +331,7 @@ export {
   SegmentoTag,
   type PropostaGeneratorProps,
   type PropostaSegmentoOpcao,
+  type PropostaVendedorOpcao,
   type PropostaDossie,
   type PropostaAlvo,
   type PropostaGerarInput,
