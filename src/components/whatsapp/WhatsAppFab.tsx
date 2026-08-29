@@ -89,8 +89,9 @@ export type WhatsAppFabCallbacks = {
    * Sobe + envia um ANEXO (imagem/vídeo/áudio/documento) — mesma callback da
    * tela cheia. Com ela o balão ganha o clipe, aceita Ctrl+V de imagem
    * (print da tela) e arrastar-e-soltar no fio. Sem ela, nada disso aparece.
+   * `legenda` é o texto digitado junto (vai como caption da mídia).
    */
-  onEnviarAnexo?: (chatId: string, file: File) => Promise<WhatsAppResult>;
+  onEnviarAnexo?: (chatId: string, file: File, legenda?: string) => Promise<WhatsAppResult>;
 };
 
 /** Tipo de bolha pro anexo (o mesmo mapa que o servidor usa no upload). */
@@ -233,6 +234,19 @@ export function WhatsAppFab({
   // Anexo: subindo? e alguém está arrastando um arquivo por cima do fio?
   const [anexando, setAnexando] = useState(false);
   const [soltando, setSoltando] = useState(false);
+  // Anexos PREPARADOS (clipe, Ctrl+V ou arrastar): ficam à vista em cima da
+  // caixa, com a legenda embaixo, e só saem no Enviar — junto com o texto.
+  // Antes a imagem saía na hora e a pessoa não tinha onde escrever a legenda.
+  const [anexos, setAnexos] = useState<File[]>([]);
+  const previews = useMemo(() => anexos.map((f) => (f.type.startsWith("image/") ? URL.createObjectURL(f) : null)), [anexos]);
+  useEffect(() => () => previews.forEach((u) => u && URL.revokeObjectURL(u)), [previews]);
+  const textoRef = useRef<HTMLTextAreaElement>(null);
+  const anexar = useCallback((files: File[]) => {
+    if (!files.length) return;
+    setAnexos((prev) => [...prev, ...files]);
+    setErro(null);
+    setTimeout(() => textoRef.current?.focus(), 0);
+  }, []);
   const fileRef = useRef<HTMLInputElement>(null);
   const fioRef = useRef<HTMLDivElement>(null);
 
@@ -353,6 +367,10 @@ export function WhatsAppFab({
 
   const enviar = useCallback(async () => {
     const t = texto.trim();
+    if (anexos.length) {
+      void enviarAnexo(anexos, t);
+      return;
+    }
     if (!t || !chatId || enviando) return;
     setTexto("");
     setEnviando(true);
@@ -405,18 +423,23 @@ export function WhatsAppFab({
     const fresco = await callbacks.onSelecionar(chatId);
     if (fresco.ok) setMsgs(fresco.data ?? []);
     void callbacks.onActualizar();
-  }, [texto, chatId, enviando, msgs.length, callbacks]);
+    // `enviarAnexo` é function declaration (içada) — lê o estado fresco por closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [texto, chatId, enviando, msgs.length, callbacks, anexos]);
 
-  // Anexo (clipe, Ctrl+V ou arrastar): sobe pela callback do dono e mostra a
-  // bolha otimista com o próprio arquivo (object URL) até o fio real voltar.
-  // Vários arquivos de uma vez saem em sequência, na ordem em que vieram.
-  const enviarAnexo = useCallback(
-    async (files: File[]) => {
+  // Anexo preparado + legenda: sobe pela callback do dono e mostra a bolha
+  // otimista com o próprio arquivo (object URL) até o fio real voltar. Vários
+  // arquivos saem em sequência; a legenda vai no PRIMEIRO (é o que o WhatsApp
+  // faz quando se manda um álbum com texto).
+  async function enviarAnexo(files: File[], legenda: string) {
+    {
       const cb = callbacks.onEnviarAnexo;
       if (!cb || !chatId || anexando || !files.length) return;
       setAnexando(true);
       setErro(null);
-      const legenda = texto.trim();
+      setAnexos([]);
+      setTexto("");
+      let indice = 0;
       for (const file of files) {
         const kind = tipoDoArquivo(file);
         const url = URL.createObjectURL(file);
@@ -425,7 +448,7 @@ export function WhatsAppFab({
           chatId,
           from: "",
           to: chatId,
-          body: kind === "document" ? file.name : "",
+          body: indice === 0 && legenda ? legenda : kind === "document" ? file.name : "",
           type: kind,
           direction: "out",
           fromMe: true,
@@ -441,41 +464,32 @@ export function WhatsAppFab({
           pendingLocal: true,
         };
         setMsgs((prev) => [...prev, local]);
-        const r = await cb(chatId, file);
+        const r = await cb(chatId, file, indice === 0 && legenda ? legenda : undefined);
         URL.revokeObjectURL(url);
         if (!r.ok) {
           // Anexo não dá pra conferir por texto — recarrega o fio pra pessoa
-          // VER se saiu antes de mandar de novo.
+          // VER se saiu antes de mandar de novo. O que não saiu volta pra
+          // caixa (arquivo e legenda), pra não ter que colar tudo de novo.
           setErro(`${file.name}: ${r.error}`);
           setMsgs((prev) => prev.filter((m) => m.id !== local.id));
           if (r.talvezEnviada) {
             const check = await callbacks.onSelecionar(chatId);
             if (check.ok) setMsgs(check.data ?? []);
+          } else {
+            setAnexos(files.slice(indice));
+            if (indice === 0) setTexto(legenda);
           }
           break;
         }
+        indice += 1;
         window.dispatchEvent(new CustomEvent<WhatsAppFabSent>(WA_FAB_SENT_EVENT, { detail: { chatId } }));
       }
       setAnexando(false);
       const fresco = await callbacks.onSelecionar(chatId);
       if (fresco.ok) setMsgs(fresco.data ?? []);
       void callbacks.onActualizar();
-      // A legenda digitada sai como texto logo a seguir (o gateway aceita
-      // caption, mas nem todo canal — texto separado funciona em todos).
-      if (legenda) {
-        setTexto("");
-        const t = await callbacks.onResponder(chatId, legenda);
-        if (!t.ok) {
-          setErro(t.error);
-          setTexto(legenda);
-        } else {
-          const de = await callbacks.onSelecionar(chatId);
-          if (de.ok) setMsgs(de.data ?? []);
-        }
-      }
-    },
-    [callbacks, chatId, anexando, texto],
-  );
+    }
+  }
 
   // Rola pro fim sempre que o fio muda (abrir conversa ou mensagem nova).
   useEffect(() => {
@@ -794,7 +808,7 @@ export function WhatsAppFab({
                 if (!callbacks.onEnviarAnexo) return;
                 e.preventDefault();
                 setSoltando(false);
-                void enviarAnexo(arquivosDe(e.dataTransfer));
+                anexar(arquivosDe(e.dataTransfer));
               }}
             >
               {soltando ? (
@@ -809,7 +823,7 @@ export function WhatsAppFab({
                   zIndex={1}
                 >
                   <Text fontSize="sm" fontWeight="700" color="#075e54">
-                    Solte pra enviar
+                    Solte pra anexar
                   </Text>
                 </Flex>
               ) : null}
@@ -854,6 +868,66 @@ export function WhatsAppFab({
               </Box>
             ) : null}
 
+            {anexos.length ? (
+              <Box
+                px={2.5}
+                pt={2}
+                pb={1}
+                flexShrink={0}
+                borderTopWidth="1px"
+                borderColor="var(--admin-border)"
+                bg="var(--admin-surface, white)"
+              >
+                <Text fontSize="10px" fontWeight="600" color="var(--admin-text-soft)" mb={1}>
+                  {anexos.length === 1 ? "1 anexo pronto" : `${anexos.length} anexos prontos`} — escreva a legenda embaixo e Enviar
+                </Text>
+                <HStack gap={2} flexWrap="wrap">
+                  {anexos.map((f, i) => (
+                    <Box
+                      key={`${f.name}-${f.size}-${i}`}
+                      position="relative"
+                      borderWidth="1px"
+                      borderColor="var(--admin-border)"
+                      borderRadius="10px"
+                      overflow="hidden"
+                      bg="var(--admin-bg-soft, #f4f4f5)"
+                      title={f.name}
+                    >
+                      {previews[i] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={previews[i] as string} alt={f.name} style={{ width: 96, height: 96, objectFit: "cover", display: "block" }} />
+                      ) : (
+                        <Flex w="96px" h="64px" align="center" justify="center" px={2}>
+                          <Text fontSize="10px" color="var(--admin-text-soft)" lineClamp={2} textAlign="center">
+                            📎 {f.name}
+                          </Text>
+                        </Flex>
+                      )}
+                      <chakra.button
+                        type="button"
+                        onClick={() => setAnexos((prev) => prev.filter((_, j) => j !== i))}
+                        position="absolute"
+                        top="3px"
+                        right="3px"
+                        w="20px"
+                        h="20px"
+                        borderRadius="full"
+                        display="inline-flex"
+                        alignItems="center"
+                        justifyContent="center"
+                        color="white"
+                        style={{ background: "rgba(0,0,0,0.55)" }}
+                        aria-label="Tirar anexo"
+                        title="Tirar este anexo"
+                      >
+                        <X size={12} />
+                      </chakra.button>
+                    </Box>
+                  ))}
+                </HStack>
+              </Box>
+            ) : null}
+
             <HStack
               gap={2}
               p={2.5}
@@ -861,6 +935,7 @@ export function WhatsAppFab({
               borderTopWidth="1px"
               borderColor="var(--admin-border)"
               bg="var(--admin-surface, white)"
+              align={anexos.length ? "flex-end" : "center"}
             >
               {/* Textarea (e não Input): rascunho de proposta tem quebra de
                   linha, e o <input> do browser as descarta em silêncio. */}
@@ -874,7 +949,7 @@ export function WhatsAppFab({
                     onChange={(e) => {
                       const files = Array.from(e.target.files ?? []);
                       e.target.value = "";
-                      void enviarAnexo(files);
+                      anexar(files);
                     }}
                   />
                   <chakra.button
@@ -898,6 +973,7 @@ export function WhatsAppFab({
                 </>
               ) : null}
               <Textarea
+                ref={textoRef}
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 onKeyDown={(e) => {
@@ -913,18 +989,20 @@ export function WhatsAppFab({
                   const files = arquivosDe(e.clipboardData);
                   if (!files.length) return;
                   e.preventDefault();
-                  void enviarAnexo(files);
+                  anexar(files);
                 }}
-                placeholder={callbacks.onEnviarAnexo ? "Escreva ou cole uma imagem…" : "Escreva uma mensagem…"}
+                placeholder={
+                  anexos.length ? "Legenda (opcional)…" : callbacks.onEnviarAnexo ? "Escreva ou cole uma imagem…" : "Escreva uma mensagem…"
+                }
                 size="sm"
-                rows={texto.includes("\n") ? 3 : 1}
+                rows={anexos.length ? 3 : texto.includes("\n") ? 3 : 1}
                 resize="none"
                 borderRadius="18px"
               />
               <chakra.button
                 type="button"
                 onClick={() => void enviar()}
-                disabled={enviando || !texto.trim()}
+                disabled={enviando || anexando || (!texto.trim() && !anexos.length)}
                 w="36px"
                 h="36px"
                 flexShrink={0}
@@ -933,10 +1011,11 @@ export function WhatsAppFab({
                 alignItems="center"
                 justifyContent="center"
                 color="white"
-                style={{ background: "#25d366", opacity: enviando || !texto.trim() ? 0.5 : 1 }}
+                style={{ background: "#25d366", opacity: enviando || anexando || (!texto.trim() && !anexos.length) ? 0.5 : 1 }}
                 aria-label="Enviar"
+                title={anexos.length ? "Enviar anexo(s) com a legenda" : "Enviar"}
               >
-                <Send size={16} />
+                {anexando ? <Spinner size="xs" /> : <Send size={16} />}
               </chakra.button>
             </HStack>
           </>
