@@ -11,6 +11,7 @@ import {
   Maximize2,
   MessageCircle,
   PanelRight,
+  Paperclip,
   PictureInPicture2,
   Plus,
   RefreshCw,
@@ -84,7 +85,52 @@ export type WhatsAppFabCallbacks = {
     texto: string,
     nome?: string,
   ) => Promise<WhatsAppResult<{ chatId: string }>>;
+  /**
+   * Sobe + envia um ANEXO (imagem/vídeo/áudio/documento) — mesma callback da
+   * tela cheia. Com ela o balão ganha o clipe, aceita Ctrl+V de imagem
+   * (print da tela) e arrastar-e-soltar no fio. Sem ela, nada disso aparece.
+   */
+  onEnviarAnexo?: (chatId: string, file: File) => Promise<WhatsAppResult>;
 };
+
+/** Tipo de bolha pro anexo (o mesmo mapa que o servidor usa no upload). */
+function tipoDoArquivo(file: File): "image" | "video" | "audio" | "document" {
+  const m = file.type || "";
+  return m.startsWith("image/") ? "image" : m.startsWith("video/") ? "video" : m.startsWith("audio/") ? "audio" : "document";
+}
+
+/**
+ * Arquivos de um evento de colar/soltar. No Ctrl+V de um print o browser
+ * entrega um `File` sem nome ("image.png") — ganha nome com hora pra não
+ * virar dez "image.png" no Blob.
+ */
+function arquivosDe(dt: DataTransfer | null): File[] {
+  if (!dt) return [];
+  const out: File[] = [];
+  const vistos = new Set<File>();
+  for (const f of Array.from(dt.files ?? [])) {
+    if (!vistos.has(f)) {
+      vistos.add(f);
+      out.push(f);
+    }
+  }
+  if (!out.length) {
+    for (const it of Array.from(dt.items ?? [])) {
+      if (it.kind !== "file") continue;
+      const f = it.getAsFile();
+      if (f && !vistos.has(f)) {
+        vistos.add(f);
+        out.push(f);
+      }
+    }
+  }
+  return out.map((f) => {
+    if (f.name && f.name !== "image.png") return f;
+    const ext = (f.type.split("/")[1] || "png").replace(/[^a-z0-9]/gi, "");
+    const carimbo = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15);
+    return new File([f], `colado-${carimbo}.${ext}`, { type: f.type });
+  });
+}
 
 /**
  * Pedido de "abrir o balão NESTA conversa", vindo de qualquer tela (ex.: o
@@ -184,6 +230,10 @@ export function WhatsAppFab({
   // IA por conversa: null = ainda não perguntei (ou não há callback) — sem botão.
   const [iaEstado, setIaEstado] = useState<WhatsAppFabIaEstado | null>(null);
   const [iaBusy, setIaBusy] = useState(false);
+  // Anexo: subindo? e alguém está arrastando um arquivo por cima do fio?
+  const [anexando, setAnexando] = useState(false);
+  const [soltando, setSoltando] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const fioRef = useRef<HTMLDivElement>(null);
 
   // Dock partilhado: empilha os FABs (WhatsApp em baixo) e garante que só um
@@ -356,6 +406,76 @@ export function WhatsAppFab({
     if (fresco.ok) setMsgs(fresco.data ?? []);
     void callbacks.onActualizar();
   }, [texto, chatId, enviando, msgs.length, callbacks]);
+
+  // Anexo (clipe, Ctrl+V ou arrastar): sobe pela callback do dono e mostra a
+  // bolha otimista com o próprio arquivo (object URL) até o fio real voltar.
+  // Vários arquivos de uma vez saem em sequência, na ordem em que vieram.
+  const enviarAnexo = useCallback(
+    async (files: File[]) => {
+      const cb = callbacks.onEnviarAnexo;
+      if (!cb || !chatId || anexando || !files.length) return;
+      setAnexando(true);
+      setErro(null);
+      const legenda = texto.trim();
+      for (const file of files) {
+        const kind = tipoDoArquivo(file);
+        const url = URL.createObjectURL(file);
+        const local: UiMessage = {
+          id: `local-anexo-${chatId}-${Date.now()}-${file.name}`,
+          chatId,
+          from: "",
+          to: chatId,
+          body: kind === "document" ? file.name : "",
+          type: kind,
+          direction: "out",
+          fromMe: true,
+          status: null,
+          hasMedia: true,
+          mediaUrl: url,
+          mediaType: kind,
+          contactName: null,
+          savedName: null,
+          sentBy: "painel",
+          sentByName: null,
+          at: new Date().toISOString(),
+          pendingLocal: true,
+        };
+        setMsgs((prev) => [...prev, local]);
+        const r = await cb(chatId, file);
+        URL.revokeObjectURL(url);
+        if (!r.ok) {
+          // Anexo não dá pra conferir por texto — recarrega o fio pra pessoa
+          // VER se saiu antes de mandar de novo.
+          setErro(`${file.name}: ${r.error}`);
+          setMsgs((prev) => prev.filter((m) => m.id !== local.id));
+          if (r.talvezEnviada) {
+            const check = await callbacks.onSelecionar(chatId);
+            if (check.ok) setMsgs(check.data ?? []);
+          }
+          break;
+        }
+        window.dispatchEvent(new CustomEvent<WhatsAppFabSent>(WA_FAB_SENT_EVENT, { detail: { chatId } }));
+      }
+      setAnexando(false);
+      const fresco = await callbacks.onSelecionar(chatId);
+      if (fresco.ok) setMsgs(fresco.data ?? []);
+      void callbacks.onActualizar();
+      // A legenda digitada sai como texto logo a seguir (o gateway aceita
+      // caption, mas nem todo canal — texto separado funciona em todos).
+      if (legenda) {
+        setTexto("");
+        const t = await callbacks.onResponder(chatId, legenda);
+        if (!t.ok) {
+          setErro(t.error);
+          setTexto(legenda);
+        } else {
+          const de = await callbacks.onSelecionar(chatId);
+          if (de.ok) setMsgs(de.data ?? []);
+        }
+      }
+    },
+    [callbacks, chatId, anexando, texto],
+  );
 
   // Rola pro fim sempre que o fio muda (abrir conversa ou mensagem nova).
   useEffect(() => {
@@ -661,8 +781,38 @@ export function WhatsAppFab({
               overflowY="auto"
               px={3}
               py={2.5}
+              position="relative"
               style={{ background: WA_CREAM, backgroundImage: `url("${WA_DOODLE}")` }}
+              // Arrastar-e-soltar um arquivo em cima do fio = anexo.
+              onDragOver={(e) => {
+                if (!callbacks.onEnviarAnexo || !Array.from(e.dataTransfer.types).includes("Files")) return;
+                e.preventDefault();
+                setSoltando(true);
+              }}
+              onDragLeave={() => setSoltando(false)}
+              onDrop={(e) => {
+                if (!callbacks.onEnviarAnexo) return;
+                e.preventDefault();
+                setSoltando(false);
+                void enviarAnexo(arquivosDe(e.dataTransfer));
+              }}
             >
+              {soltando ? (
+                <Flex
+                  position="absolute"
+                  inset={0}
+                  align="center"
+                  justify="center"
+                  bg="rgba(37,211,102,0.14)"
+                  border="2px dashed #25d366"
+                  pointerEvents="none"
+                  zIndex={1}
+                >
+                  <Text fontSize="sm" fontWeight="700" color="#075e54">
+                    Solte pra enviar
+                  </Text>
+                </Flex>
+              ) : null}
               {carregando ? (
                 <HStack justify="center" py={6}>
                   <Spinner size="sm" />
@@ -714,6 +864,39 @@ export function WhatsAppFab({
             >
               {/* Textarea (e não Input): rascunho de proposta tem quebra de
                   linha, e o <input> do browser as descarta em silêncio. */}
+              {callbacks.onEnviarAnexo ? (
+                <>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    hidden
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      e.target.value = "";
+                      void enviarAnexo(files);
+                    }}
+                  />
+                  <chakra.button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={anexando}
+                    w="32px"
+                    h="36px"
+                    flexShrink={0}
+                    display="inline-flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    color="var(--admin-text-soft)"
+                    _hover={{ color: "var(--admin-text)" }}
+                    opacity={anexando ? 0.5 : 1}
+                    aria-label="Anexar arquivo"
+                    title="Anexar (ou cole com Ctrl+V / arraste pro fio)"
+                  >
+                    {anexando ? <Spinner size="xs" /> : <Paperclip size={17} />}
+                  </chakra.button>
+                </>
+              ) : null}
               <Textarea
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
@@ -723,7 +906,16 @@ export function WhatsAppFab({
                     void enviar();
                   }
                 }}
-                placeholder="Escreva uma mensagem…"
+                // Ctrl+V com imagem na área de transferência (print) = anexo.
+                // Texto colado segue o caminho normal do textarea.
+                onPaste={(e) => {
+                  if (!callbacks.onEnviarAnexo) return;
+                  const files = arquivosDe(e.clipboardData);
+                  if (!files.length) return;
+                  e.preventDefault();
+                  void enviarAnexo(files);
+                }}
+                placeholder={callbacks.onEnviarAnexo ? "Escreva ou cole uma imagem…" : "Escreva uma mensagem…"}
                 size="sm"
                 rows={texto.includes("\n") ? 3 : 1}
                 resize="none"
