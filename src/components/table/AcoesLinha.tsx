@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { HStack } from "@chakra-ui/react";
 import { MoreVertical } from "lucide-react";
-import { Button } from "../Button";
+import { Button, type ButtonTone } from "../Button";
 import { ActionMenu, type ActionMenuItem } from "../ActionMenu";
 
 export type AcaoLinha = {
@@ -15,6 +15,8 @@ export type AcaoLinha = {
   /** abre o href em nova guia */
   external?: boolean;
   danger?: boolean;
+  /** Cor do botão quando visível (ex.: "whatsapp"). Default: ghost. */
+  tone?: ButtonTone;
   /** Frase do que a ação faz — vai pro balão do mouse (`title`). */
   hint?: string;
   /**
@@ -65,9 +67,10 @@ export function AcoesLinha({
     <HStack gap={1} justify="flex-end" flexWrap="nowrap">
       {visiveis.map((a, i) => {
         const balao = a.hint ? `${a.label} — ${a.hint}` : a.label;
+        const tone = a.tone ?? (a.danger ? "danger" : "ghost");
         if (a.href && !a.disabled) {
           return (
-            <Button key={i} asChild size="xs" tone={a.danger ? "danger" : "ghost"} aria-label={a.label} title={balao}>
+            <Button key={i} asChild size="xs" tone={tone} aria-label={a.label} title={balao}>
               <a href={a.href} {...(a.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
                 {a.icon ?? a.label}
               </a>
@@ -78,7 +81,7 @@ export function AcoesLinha({
           <Button
             key={i}
             size="xs"
-            tone={a.danger ? "danger" : "ghost"}
+            tone={tone}
             aria-label={a.label}
             title={balao}
             disabled={a.disabled}
