@@ -20,6 +20,8 @@ export type ActionMenuItem = {
   /** abre o href em nova guia */
   external?: boolean;
   danger?: boolean;
+  /** Fica no lugar, esmaecida e sem clique — posição estável > item que some. */
+  disabled?: boolean;
 };
 
 /** Respiro entre o gatilho e o menu, e do menu pra borda da janela. */
@@ -140,7 +142,7 @@ export function ActionMenu({
     };
   }, [open, medir]);
 
-  const itemStyle = (danger?: boolean) => ({
+  const itemStyle = (danger?: boolean, disabled?: boolean) => ({
     display: "flex",
     alignItems: "center",
     gap: 2.5,
@@ -154,8 +156,9 @@ export function ActionMenu({
     lineHeight: "1.35",
     whiteSpace: "nowrap" as const,
     color: danger ? "#dc2626" : "var(--admin-text)",
-    cursor: "pointer",
-    _hover: { bg: danger ? "rgba(220,38,38,0.08)" : "var(--admin-nav-hover)" },
+    cursor: disabled ? "default" : "pointer",
+    opacity: disabled ? 0.45 : 1,
+    _hover: disabled ? undefined : { bg: danger ? "rgba(220,38,38,0.08)" : "var(--admin-nav-hover)" },
   });
 
   const balao = (it: ActionMenuItem) => (it.hint ? `${it.label} — ${it.hint}` : it.label);
@@ -202,7 +205,7 @@ export function ActionMenu({
             onClick={(e) => e.stopPropagation()}
           >
             {items.map((it, i) =>
-              it.href ? (
+              it.href && !it.disabled ? (
                 <chakra.a
                   key={i}
                   href={it.href}
@@ -221,11 +224,13 @@ export function ActionMenu({
                   key={i}
                   type="button"
                   title={balao(it)}
+                  disabled={it.disabled}
                   onClick={() => {
+                    if (it.disabled) return;
                     setOpen(false);
                     it.onClick?.();
                   }}
-                  {...itemStyle(it.danger)}
+                  {...itemStyle(it.danger, it.disabled)}
                 >
                   {it.icon ? <Box as="span" display="inline-flex" color="var(--admin-text-soft)">{it.icon}</Box> : null}
                   <Box as="span" flex="1" minW={0} overflow="hidden" textOverflow="ellipsis">

@@ -170,7 +170,18 @@ export {
   type GoogleRedirectUri,
 } from "./components/GoogleCredentialForm";
 export { FormField, FormGrid, FormActions, FormColor, FormInput, FormSelect, FormTextarea } from "./components/form";
-export { DataTable, TableCard, type Column } from "./components/DataTable";
+export { DataTable, TableCard, type Column, type Selection } from "./components/DataTable";
+export { type SortState, type SortDir, type ValorCelula, proximoSort, ordenarLinhas, compararValores } from "./components/table/sort";
+export {
+  type FiltroColuna,
+  type ValorFaceta,
+  chaveDoValor,
+  rotuloDoValor,
+  aplicarFiltros,
+  valoresDistintos,
+} from "./components/table/filtros";
+export { type PresetTabela, lerPresets, gravarPresets } from "./components/table/presets";
+export { AcoesLinha, type AcaoLinha } from "./components/table/AcoesLinha";
 export { Pagination } from "./components/Pagination";
 export { Modal } from "./components/Modal";
 export { ImageCropper } from "./components/ImageCropper";

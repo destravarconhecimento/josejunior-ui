@@ -1,10 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
-import { Box, Checkbox, HStack, Portal, Stack, Table, Text } from "@chakra-ui/react";
-import { ChevronLeft, ChevronRight, GripVertical, Maximize2, Minimize2 } from "lucide-react";
+import { Box, Checkbox, HStack, Input, Portal, Stack, Table, Text } from "@chakra-ui/react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsUpDown,
+  GripVertical,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 import { EmptyState } from "./EmptyState";
 import { Button } from "./Button";
+import { ordenarLinhas, proximoSort, type SortState, type ValorCelula } from "./table/sort";
+import { aplicarFiltros, valoresDistintos, type FiltroColuna } from "./table/filtros";
+import { FiltroColunaMenu } from "./table/FiltroColunaMenu";
+import { BarraTabela } from "./table/BarraTabela";
 
 export type Column<T> = {
   key: string;
@@ -14,6 +27,19 @@ export type Column<T> = {
   width?: string;
   /** No mobile (visão em cards) esconde células pouco importantes. */
   hideOnMobile?: boolean;
+  /**
+   * Acessor do DADO CRU da célula (o `render` é JSX — não dá pra comparar). É o
+   * que liga a coluna ao motor "quase Excel": com `value` a coluna ordena pelo
+   * clique no cabeçalho e ganha o funil de filtro por valores (com contagem).
+   * Sem `value` a coluna fica EXATAMENTE como sempre foi.
+   */
+  value?: (row: T) => ValorCelula;
+  /** Desliga a ordenação mesmo com `value` (default: ordena se tem `value`). */
+  sortable?: boolean;
+  /** Desliga o filtro mesmo com `value` (default: filtra se tem `value`). */
+  filterable?: boolean;
+  /** Nome da coluna em chips/menus quando `header` é JSX (senão usa o texto). */
+  headerLabel?: string;
 };
 
 /**
@@ -95,6 +121,12 @@ export function DataTable<T>({
   selection,
   titulo,
   expansivel = true,
+  defaultSort,
+  sort: sortProp,
+  onSortChange,
+  defaultFiltros,
+  filtros: filtrosProp,
+  onFiltrosChange,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -138,20 +170,80 @@ export function DataTable<T>({
   titulo?: string;
   /** false = esconde o botão "expandir" do rodapé. */
   expansivel?: boolean;
+  /** Ordenação inicial (modo interno). Só vale pra colunas com `value`. */
+  defaultSort?: SortState | null;
+  /** Ordenação CONTROLADA — a PRESENÇA da prop liga o modo controlado. */
+  sort?: SortState | null;
+  onSortChange?: (sort: SortState | null) => void;
+  /** Filtros de coluna iniciais (modo interno). */
+  defaultFiltros?: FiltroColuna[];
+  /** Filtros CONTROLADOS — a PRESENÇA da prop liga o modo controlado. */
+  filtros?: FiltroColuna[];
+  onFiltrosChange?: (filtros: FiltroColuna[]) => void;
 }) {
   const [page, setPage] = useState(0);
   const [dragKey, setDragKey] = useState<string | number | null>(null);
   const [overKey, setOverKey] = useState<string | number | null>(null);
   const [expandido, setExpandido] = useState(false);
-  const effPageSize = paginate ? pageSize : Math.max(rows.length, 1);
-  const pages = Math.max(1, Math.ceil(rows.length / effPageSize));
+
+  // ORDENAR/FILTRAR ("quase Excel") — só existe pra coluna com `value`. Estado
+  // interno por padrão; a PRESENÇA de `sort`/`filtros` liga o modo controlado
+  // (é como a tela liga KPIs clicáveis e presets aos filtros da tabela).
+  const sortControlado = sortProp !== undefined;
+  const [sortInterno, setSortInterno] = useState<SortState | null>(defaultSort ?? null);
+  const sortAtivo = sortControlado ? (sortProp ?? null) : sortInterno;
+  const mudarSort = (s: SortState | null) => {
+    if (!sortControlado) setSortInterno(s);
+    onSortChange?.(s);
+  };
+  const filtrosControlados = filtrosProp !== undefined;
+  const [filtrosInternos, setFiltrosInternos] = useState<FiltroColuna[]>(defaultFiltros ?? []);
+  const filtrosAtivos = filtrosControlados ? (filtrosProp ?? []) : filtrosInternos;
+  const mudarFiltros = (f: FiltroColuna[]) => {
+    if (!filtrosControlados) setFiltrosInternos(f);
+    onFiltrosChange?.(f);
+  };
+  const mudarFiltroColuna = (key: string, valores: string[] | null) => {
+    const sem = filtrosAtivos.filter((f) => f.key !== key);
+    mudarFiltros(valores && valores.length > 0 ? [...sem, { key, valores }] : sem);
+  };
+  const ativoDe = (key: string) => {
+    const v = filtrosAtivos.find((f) => f.key === key)?.valores;
+    return v && v.length > 0 ? v : null;
+  };
+
+  const valueDe = useCallback(
+    (key: string) => columns.find((c) => c.key === key)?.value,
+    [columns],
+  );
+  // Pipeline: `rows` (a tela já filtrou o dela) → filtros de coluna → ordenação
+  // → paginação. Sem filtro/sort ativo os helpers devolvem a MESMA referência de
+  // `rows` — nos call sites que não aderiram, nada muda nem de identidade.
+  const linhasFiltradas = useMemo(
+    () => aplicarFiltros(rows, filtrosAtivos, valueDe),
+    [rows, filtrosAtivos, valueDe],
+  );
+  const linhasVisiveis = useMemo(() => {
+    const v = sortAtivo ? valueDe(sortAtivo.key) : undefined;
+    return sortAtivo && v ? ordenarLinhas(linhasFiltradas, v, sortAtivo.dir) : linhasFiltradas;
+  }, [linhasFiltradas, sortAtivo, valueDe]);
+
+  // Filtro/ordenação/tamanho mudou → volta pra 1ª página. A ASSINATURA (e não o
+  // array) é a dependência: pai que recria `filtros` a cada render não reseta à toa.
+  const assinaturaExcel = `${rows.length}|${JSON.stringify(filtrosAtivos)}|${JSON.stringify(sortAtivo)}`;
+  useEffect(() => {
+    setPage(0);
+  }, [assinaturaExcel]);
+
+  const effPageSize = paginate ? pageSize : Math.max(linhasVisiveis.length, 1);
+  const pages = Math.max(1, Math.ceil(linhasVisiveis.length / effPageSize));
   const current = Math.min(page, pages - 1);
   const visible = useMemo(
-    () => rows.slice(current * effPageSize, current * effPageSize + effPageSize),
-    [rows, current, effPageSize],
+    () => linhasVisiveis.slice(current * effPageSize, current * effPageSize + effPageSize),
+    [linhasVisiveis, current, effPageSize],
   );
-  const from = rows.length === 0 ? 0 : current * effPageSize + 1;
-  const to = Math.min(rows.length, (current + 1) * effPageSize);
+  const from = linhasVisiveis.length === 0 ? 0 : current * effPageSize + 1;
+  const to = Math.min(linhasVisiveis.length, (current + 1) * effPageSize);
 
   // ALTURA — 3 modos. `fill` continua vencendo `fillHeight` (era o marcador de
   // "esta enche"; hoje "encher" virou o padrão, então ele só anula os outros dois).
@@ -197,8 +289,9 @@ export function DataTable<T>({
   }, [expandido]);
 
   // Seleção em massa: "selecionar todos" abrange TODAS as linhas filtradas (todas
-  // as páginas), não só a visível — por isso mapeia `rows` inteiro, não `visible`.
-  const allKeys: Array<string | number> = selection ? rows.map((r, i) => getRowKey(r, i)) : [];
+  // as páginas), não só a visível. Filtro de coluna ativo corta daqui também —
+  // selecionar todos com a lista filtrada seleciona só o que a pessoa está vendo.
+  const allKeys: Array<string | number> = selection ? linhasVisiveis.map((r, i) => getRowKey(r, i)) : [];
   const selCount = selection ? allKeys.filter((k) => selection.selectedKeys.has(k)).length : 0;
   const allChecked = selCount > 0 && selCount === allKeys.length;
   const someChecked = selCount > 0 && !allChecked;
@@ -231,24 +324,49 @@ export function DataTable<T>({
     onReorder(next);
   }
 
-  const toolbarNode = toolbar ? (
-    <Box
-      ref={medirToolbar}
-      px={3}
-      py={2.5}
-      borderBottomWidth="1px"
-      borderColor="var(--admin-divider)"
-      flexShrink={0}
-      // Gruda no topo junto com o `thead`. `bg` opaco é obrigatório: sem ele as
-      // linhas passariam por baixo e apareceriam através da barra de filtros.
-      position={stickyToolbar ? "sticky" : undefined}
-      top={stickyToolbar}
-      zIndex={stickyToolbar ? 3 : undefined}
-      bg="var(--admin-surface)"
-    >
-      {toolbar}
-    </Box>
-  ) : null;
+  const rotuloColuna = (c: Column<T>) =>
+    c.headerLabel ?? (typeof c.header === "string" ? c.header : c.key);
+  const ordenaveis = columns.filter((c) => c.value && c.sortable !== false);
+  const filtraveis = columns.filter((c) => c.value && c.filterable !== false);
+  // Facetas LAZY (só ao abrir o menu/modal): valores da coluna X contados sobre
+  // as linhas filtradas por TODAS as OUTRAS colunas — a conta do Excel.
+  const facetasDe = (c: Column<T>) => () =>
+    valoresDistintos(aplicarFiltros(rows, filtrosAtivos, valueDe, c.key), c.value!);
+  const temChips = sortAtivo != null || filtrosAtivos.some((f) => f.valores.length > 0);
+
+  const toolbarNode =
+    toolbar || temChips || ordenaveis.length > 0 || filtraveis.length > 0 ? (
+      <Box
+        ref={medirToolbar}
+        flexShrink={0}
+        // Gruda no topo junto com o `thead`. `bg` opaco é obrigatório: sem ele as
+        // linhas passariam por baixo e apareceriam através da barra de filtros.
+        // Os chips moram AQUI DENTRO (box medido): quando aparecem, o offset do
+        // `thead` se ajusta sozinho pelo ResizeObserver.
+        position={stickyToolbar ? "sticky" : undefined}
+        top={stickyToolbar}
+        zIndex={stickyToolbar ? 3 : undefined}
+        bg="var(--admin-surface)"
+      >
+        {toolbar ? (
+          <Box px={3} py={2.5} borderBottomWidth="1px" borderColor="var(--admin-divider)">
+            {toolbar}
+          </Box>
+        ) : null}
+        <BarraTabela
+          ordenaveis={ordenaveis.map((c) => ({ key: c.key, rotulo: rotuloColuna(c) }))}
+          filtraveis={filtraveis.map((c) => ({ key: c.key, rotulo: rotuloColuna(c), facetas: facetasDe(c) }))}
+          sort={sortAtivo}
+          onSortChange={mudarSort}
+          filtros={filtrosAtivos}
+          onFiltroChange={mudarFiltroColuna}
+          onLimparTudo={() => {
+            mudarFiltros([]);
+            mudarSort(null);
+          }}
+        />
+      </Box>
+    ) : null;
 
   if (rows.length === 0) {
     // Vazia não tem o que rolar: fica em altura natural e, no modo página, ainda
@@ -267,11 +385,50 @@ export function DataTable<T>({
     );
   }
 
+  if (linhasVisiveis.length === 0) {
+    // TEM linha, mas os filtros de coluna esconderam todas — diferente de vazio
+    // de verdade: aqui a saída é limpar o filtro, e o botão faz isso.
+    return (
+      <Box
+        className="admin-card"
+        data-jj-table={modoPagina ? "pagina" : undefined}
+        overflow={modoPagina ? "clip" : "hidden"}
+        p={0}
+      >
+        {toolbarNode}
+        <Box p={6}>
+          <EmptyState
+            title="Nenhuma linha passa nos filtros."
+            description={`${rows.length} ${rows.length === 1 ? "linha escondida" : "linhas escondidas"} pelos filtros da tabela.`}
+            action={
+              <Button
+                size="sm"
+                tone="outline"
+                onClick={() => {
+                  mudarFiltros([]);
+                  mudarSort(null);
+                }}
+              >
+                Limpar filtros
+              </Button>
+            }
+          />
+        </Box>
+      </Box>
+    );
+  }
+
   const cell = (c: Column<T>, row: T) =>
     c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? "");
 
   // Só faz sentido expandir o que tem altura de verdade: mini embutida fica fora.
   const mostraExpandir = expansivel && !mini;
+
+  const irParaPagina = (texto: string) => {
+    const n = Math.floor(Number(texto));
+    if (!Number.isFinite(n) || n < 1) return;
+    setPage(Math.min(pages - 1, n - 1));
+  };
 
   const footer = (
     <HStack
@@ -291,7 +448,8 @@ export function DataTable<T>({
       zIndex={stickyRodape ? 3 : undefined}
     >
       <Text fontSize="xs" color="var(--admin-text-soft)">
-        {from}–{to} de {rows.length}
+        {from}–{to} de {linhasVisiveis.length}
+        {linhasVisiveis.length !== rows.length ? ` · filtrado de ${rows.length}` : ""}
       </Text>
       <HStack gap={1}>
         {pages > 1 ? (
@@ -299,8 +457,25 @@ export function DataTable<T>({
             <Button size="xs" tone="ghost" disabled={current === 0} onClick={() => setPage(current - 1)} aria-label="Página anterior">
               <ChevronLeft size={14} />
             </Button>
-            <Text fontSize="xs" color="var(--admin-text-soft)" px={1}>
-              {current + 1}/{pages}
+            {/* Salto direto: 80 páginas de leads não se atravessam de chevron em
+                chevron. `key` remonta o input quando a página muda por fora. */}
+            <Input
+              key={current}
+              size="xs"
+              w="48px"
+              textAlign="center"
+              type="number"
+              min={1}
+              max={pages}
+              defaultValue={current + 1}
+              aria-label="Ir para a página"
+              onBlur={(e) => irParaPagina(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") irParaPagina((e.target as HTMLInputElement).value);
+              }}
+            />
+            <Text fontSize="xs" color="var(--admin-text-soft)" pr={1}>
+              /{pages}
             </Text>
             <Button size="xs" tone="ghost" disabled={current >= pages - 1} onClick={() => setPage(current + 1)} aria-label="Próxima página">
               <ChevronRight size={14} />
@@ -380,23 +555,83 @@ export function DataTable<T>({
                 </Table.ColumnHeader>
               ) : null}
               {onReorder ? <Table.ColumnHeader width="34px" /> : null}
-              {columns.map((c) => (
-                <Table.ColumnHeader
-                  key={c.key}
-                  textAlign={c.align}
-                  width={c.width}
-                  fontSize="xs"
-                  fontWeight="600"
-                  textTransform="uppercase"
-                  letterSpacing="0.04em"
-                  color="var(--admin-text-soft)"
-                  whiteSpace="nowrap"
-                  overflow="hidden"
-                  textOverflow="ellipsis"
-                >
-                  {c.header}
-                </Table.ColumnHeader>
-              ))}
+              {columns.map((c) => {
+                const ordenavel = !!c.value && c.sortable !== false;
+                const filtravel = !!c.value && c.filterable !== false;
+                const ordem = sortAtivo && sortAtivo.key === c.key ? sortAtivo.dir : null;
+                return (
+                  <Table.ColumnHeader
+                    key={c.key}
+                    textAlign={c.align}
+                    width={c.width}
+                    fontSize="xs"
+                    fontWeight="600"
+                    textTransform="uppercase"
+                    letterSpacing="0.04em"
+                    color="var(--admin-text-soft)"
+                    whiteSpace="nowrap"
+                    overflow={ordenavel || filtravel ? undefined : "hidden"}
+                    textOverflow={ordenavel || filtravel ? undefined : "ellipsis"}
+                    aria-sort={ordem ? (ordem === "asc" ? "ascending" : "descending") : undefined}
+                  >
+                    {ordenavel || filtravel ? (
+                      <HStack
+                        gap={0.5}
+                        flexWrap="nowrap"
+                        justify={c.align === "end" ? "flex-end" : c.align === "center" ? "center" : undefined}
+                      >
+                        {ordenavel ? (
+                          // O th INTEIRO (menos o funil) é o botão de ordenar:
+                          // ciclo sem → asc → desc → sem (volta à ordem da tela).
+                          <Box
+                            as="button"
+                            onClick={() => mudarSort(proximoSort(sortAtivo, c.key))}
+                            display="inline-flex"
+                            alignItems="center"
+                            gap={0.5}
+                            minW={0}
+                            cursor="pointer"
+                            fontSize="inherit"
+                            fontWeight="inherit"
+                            textTransform="inherit"
+                            letterSpacing="inherit"
+                            color={ordem ? "var(--admin-primary)" : "inherit"}
+                            _hover={{ color: "var(--admin-primary)" }}
+                            title={`Ordenar por ${rotuloColuna(c)}`}
+                          >
+                            <Box as="span" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
+                              {c.header}
+                            </Box>
+                            <Box as="span" display="inline-flex" flexShrink={0} opacity={ordem ? 1 : 0.45}>
+                              {ordem === "asc" ? (
+                                <ArrowUp size={12} />
+                              ) : ordem === "desc" ? (
+                                <ArrowDown size={12} />
+                              ) : (
+                                <ChevronsUpDown size={12} />
+                              )}
+                            </Box>
+                          </Box>
+                        ) : (
+                          <Box as="span" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap" minW={0}>
+                            {c.header}
+                          </Box>
+                        )}
+                        {filtravel ? (
+                          <FiltroColunaMenu
+                            rotulo={rotuloColuna(c)}
+                            ativo={ativoDe(c.key)}
+                            facetas={facetasDe(c)}
+                            onChange={(valores) => mudarFiltroColuna(c.key, valores)}
+                          />
+                        ) : null}
+                      </HStack>
+                    ) : (
+                      c.header
+                    )}
+                  </Table.ColumnHeader>
+                );
+              })}
               {actions ? (
                 // CONGELADA à direita: some o problema de "ações fora da tela" quando
                 // a tabela rola na horizontal (sem overflow, fica igual a antes).
@@ -583,7 +818,8 @@ export function DataTable<T>({
           <Text fontSize="sm" fontWeight="600" lineClamp={1}>
             {titulo ?? "Tabela"}{" "}
             <Text as="span" color="var(--admin-text-soft)" fontWeight="400">
-              · {rows.length} {rows.length === 1 ? "item" : "itens"}
+              · {linhasVisiveis.length} {linhasVisiveis.length === 1 ? "item" : "itens"}
+              {linhasVisiveis.length !== rows.length ? ` (de ${rows.length})` : ""}
             </Text>
           </Text>
           <Button size="xs" tone="ghost" onClick={() => setExpandido(false)}>

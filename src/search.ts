@@ -7,7 +7,8 @@
 // da linha e casa contra o termo, ignorando caixa e acentos, para que a busca
 // ache QUALQUER registro visível — não só o nome.
 
-const norm = (s: string) =>
+/** Normaliza pra comparar texto digitado: sem acento, sem caixa. */
+export const norm = (s: string) =>
   s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 
 /** Achata todos os valores textuais/numéricos de um valor/objeto em `out`. */
