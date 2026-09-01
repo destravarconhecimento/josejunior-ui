@@ -602,7 +602,7 @@ export function DataTable<T>({
                             <Box as="span" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
                               {c.header}
                             </Box>
-                            <Box as="span" display="inline-flex" flexShrink={0} opacity={ordem ? 1 : 0.45}>
+                            <Box as="span" display="inline-flex" flexShrink={0} opacity={ordem ? 1 : 0.6}>
                               {ordem === "asc" ? (
                                 <ArrowUp size={12} />
                               ) : ordem === "desc" ? (

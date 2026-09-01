@@ -68,10 +68,19 @@ export function ListaFacetas({
       _hover={{ bg: "var(--admin-nav-hover)" }}
     >
       <Checkbox.HiddenInput />
-      <Checkbox.Control />
+      {/* Cores EXPLÍCITAS dos tokens --admin-*: o popover vive num Portal, fora
+          do shell do painel — no rep ele herdaria o tema dark do site público
+          (texto claro sobre o fundo branco do .admin-dropdown, ilegível). */}
+      <Checkbox.Control
+        borderColor="var(--admin-border)"
+        bg="var(--admin-surface)"
+        color="#ffffff"
+        _checked={{ bg: "var(--admin-primary)", borderColor: "var(--admin-primary)" }}
+        _indeterminate={{ bg: "var(--admin-primary)", borderColor: "var(--admin-primary)" }}
+      />
       <Checkbox.Label flex="1" minW={0}>
         <HStack gap={2} justify="space-between" w="full">
-          <Text fontSize="sm" fontWeight={props.forte ? 600 : 400} lineClamp={1}>
+          <Text fontSize="sm" fontWeight={props.forte ? 600 : 400} lineClamp={1} color="var(--admin-text)">
             {props.rotulo}
           </Text>
           {props.n != null ? (
@@ -93,6 +102,9 @@ export function ListaFacetas({
           placeholder="Buscar valor…"
           size="sm"
           bg="var(--admin-surface)"
+          color="var(--admin-text)"
+          borderColor="var(--admin-border)"
+          _placeholder={{ color: "var(--admin-text-soft)" }}
         />
       ) : null}
       {linha({
@@ -162,8 +174,8 @@ export function FiltroColunaMenu({
           p="3px"
           borderRadius="6px"
           flexShrink={0}
-          color={temFiltro ? "var(--admin-primary)" : "var(--admin-text-soft)"}
-          opacity={temFiltro || open ? 1 : 0.55}
+          color={temFiltro ? "var(--admin-primary)" : "var(--admin-text)"}
+          opacity={temFiltro || open ? 1 : 0.7}
           _hover={{ opacity: 1, bg: "var(--admin-nav-hover)" }}
         >
           <Filter size={12} fill={temFiltro ? "currentColor" : "none"} />
@@ -171,7 +183,14 @@ export function FiltroColunaMenu({
       </Popover.Trigger>
       <Portal>
         <Popover.Positioner>
-          <Popover.Content className="admin-dropdown" w="248px" p={2} borderRadius="12px">
+          <Popover.Content
+            className="admin-dropdown"
+            w="248px"
+            p={2}
+            borderRadius="12px"
+            bg="var(--admin-surface)"
+            color="var(--admin-text)"
+          >
             <Text fontSize="xs" fontWeight={600} textTransform="uppercase" letterSpacing="0.04em" color="var(--admin-text-soft)" px={2} pb={1.5}>
               {rotulo}
             </Text>

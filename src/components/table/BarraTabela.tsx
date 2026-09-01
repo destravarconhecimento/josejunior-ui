@@ -32,7 +32,7 @@ function Chip({ children, onRemove, removeLabel }: { children: ReactNode; onRemo
       flexShrink={0}
       maxW="100%"
     >
-      <Text fontSize="xs" fontWeight={600} lineClamp={1}>
+      <Text fontSize="xs" fontWeight={600} lineClamp={1} color="var(--admin-text)">
         {children}
       </Text>
       <Box
@@ -128,6 +128,7 @@ export function BarraTabela({
               onSortChange({ key: v.slice(0, idx), dir: v.slice(idx + 1) as "asc" | "desc" });
             }}
             bg="var(--admin-surface)"
+            color="var(--admin-text)"
             fontSize="sm"
           >
             <option value="">Ordem padrão</option>
