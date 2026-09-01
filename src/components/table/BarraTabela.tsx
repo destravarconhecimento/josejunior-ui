@@ -18,7 +18,8 @@ export type ColunaFiltravel = {
   facetas: () => ValorFaceta[];
 };
 
-function Chip({ children, onRemove, removeLabel }: { children: ReactNode; onRemove: () => void; removeLabel: string }) {
+/** Pill de filtro ativo com X. Exportado pra quem alimenta `chipsExtras` (ex.: FunilLeadsTable). */
+export function ChipFiltro({ children, onRemove, removeLabel }: { children: ReactNode; onRemove: () => void; removeLabel: string }) {
   return (
     <HStack
       gap={1}
@@ -68,6 +69,7 @@ export function BarraTabela({
   filtros,
   onFiltroChange,
   onLimparTudo,
+  chipsExtras,
 }: {
   ordenaveis: ColunaOrdenavel[];
   filtraveis: ColunaFiltravel[];
@@ -76,12 +78,14 @@ export function BarraTabela({
   filtros: FiltroColuna[];
   onFiltroChange: (key: string, valores: string[] | null) => void;
   onLimparTudo: () => void;
+  /** Chips de filtros que vivem FORA das colunas (ex.: blocos do dia no funil). */
+  chipsExtras?: ReactNode;
 }) {
   const [modalFiltro, setModalFiltro] = useState(false);
 
   const ativos = filtros.filter((f) => f.valores.length > 0);
   const temControles = ordenaveis.length > 0 || filtraveis.length > 0;
-  const temChips = ativos.length > 0 || sort != null;
+  const temChips = ativos.length > 0 || sort != null || chipsExtras != null;
   if (!temControles && !temChips) return null;
 
   const rotuloDe = (key: string) =>
@@ -89,15 +93,16 @@ export function BarraTabela({
 
   const chips = temChips ? (
     <HStack px={3} py={1.5} gap={1.5} flexWrap="wrap" borderBottomWidth="1px" borderColor="var(--admin-divider)">
+      {chipsExtras}
       {ativos.map((f) => (
-        <Chip key={f.key} onRemove={() => onFiltroChange(f.key, null)} removeLabel={`Tirar filtro de ${rotuloDe(f.key)}`}>
+        <ChipFiltro key={f.key} onRemove={() => onFiltroChange(f.key, null)} removeLabel={`Tirar filtro de ${rotuloDe(f.key)}`}>
           {rotuloDe(f.key)}: {f.valores.length === 1 ? rotuloDoValor(f.valores[0]) : `${f.valores.length} valores`}
-        </Chip>
+        </ChipFiltro>
       ))}
       {sort ? (
-        <Chip onRemove={() => onSortChange(null)} removeLabel="Voltar à ordem padrão">
+        <ChipFiltro onRemove={() => onSortChange(null)} removeLabel="Voltar à ordem padrão">
           Ordem: {rotuloDe(sort.key)} {sort.dir === "asc" ? "↑" : "↓"}
-        </Chip>
+        </ChipFiltro>
       ) : null}
       {ativos.length + (sort ? 1 : 0) >= 2 ? (
         <Button size="xs" tone="ghost" onClick={onLimparTudo}>

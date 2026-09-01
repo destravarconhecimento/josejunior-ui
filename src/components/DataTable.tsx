@@ -127,6 +127,7 @@ export function DataTable<T>({
   defaultFiltros,
   filtros: filtrosProp,
   onFiltrosChange,
+  chipsExtras,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -180,6 +181,8 @@ export function DataTable<T>({
   /** Filtros CONTROLADOS — a PRESENÇA da prop liga o modo controlado. */
   filtros?: FiltroColuna[];
   onFiltrosChange?: (filtros: FiltroColuna[]) => void;
+  /** Chips extras na linha de chips (filtros que vivem fora das colunas). */
+  chipsExtras?: ReactNode;
 }) {
   const [page, setPage] = useState(0);
   const [dragKey, setDragKey] = useState<string | number | null>(null);
@@ -335,7 +338,7 @@ export function DataTable<T>({
   const temChips = sortAtivo != null || filtrosAtivos.some((f) => f.valores.length > 0);
 
   const toolbarNode =
-    toolbar || temChips || ordenaveis.length > 0 || filtraveis.length > 0 ? (
+    toolbar || temChips || chipsExtras != null || ordenaveis.length > 0 || filtraveis.length > 0 ? (
       <Box
         ref={medirToolbar}
         flexShrink={0}
@@ -364,6 +367,7 @@ export function DataTable<T>({
             mudarFiltros([]);
             mudarSort(null);
           }}
+          chipsExtras={chipsExtras}
         />
       </Box>
     ) : null;

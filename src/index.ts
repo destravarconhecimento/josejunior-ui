@@ -182,6 +182,41 @@ export {
 } from "./components/table/filtros";
 export { type PresetTabela, lerPresets, gravarPresets } from "./components/table/presets";
 export { AcoesLinha, type AcaoLinha } from "./components/table/AcoesLinha";
+export { ChipFiltro } from "./components/table/BarraTabela";
+export { FunilLeadsTable } from "./components/funil/FunilLeadsTable";
+export {
+  CONTATO_META,
+  type LinhaFunil,
+  type EtapaFunilOpcao,
+  type FunilCallbacks,
+  type EstadoContatoFunil,
+  type EnvioFunil,
+  type HandoffFunil,
+  type PropostaResumo,
+  type OrcamentoResumo,
+} from "./components/funil/types";
+export {
+  BLOCO_META,
+  BLOCOS_DIA,
+  type BlocoDia,
+  type SinalFunil,
+  noBloco,
+  sinalDe,
+  ordemDoDia,
+  encerraDe,
+  diaLocal,
+  fimDeHoje,
+  fmtDia,
+  fmtData,
+} from "./components/funil/blocos";
+export {
+  PassoModal,
+  ContatoModal,
+  NotaModal,
+  ChamarJoseModal,
+  CANAIS_CONTATO,
+  MOTIVOS_CONTATO,
+} from "./components/funil/modais";
 export { Pagination } from "./components/Pagination";
 export { Modal } from "./components/Modal";
 export { ImageCropper } from "./components/ImageCropper";
