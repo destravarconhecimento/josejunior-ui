@@ -63,6 +63,12 @@ export type AtendimentoItem = {
   atendido: boolean;
   /** A MESMA ficha do funil, pronta (montada no servidor). */
   ficha: FichaLeadDados;
+  venda?: {
+    site: string | null;
+    ramo: string | null;
+    segmento: string | null;
+    propostaToken: string | null;
+  } | null;
 };
 
 const CANAL_META: Record<AtendimentoCanal, { label: string; hint: string; bg: string; color: string; Icon: typeof Globe }> = {
