@@ -138,7 +138,7 @@ export function ContatoModal({
               })
             }
           >
-            <PhoneCall size={15} /> {falou ? "Falei" : "Tentei e não consegui"}
+            <PhoneCall size={15} /> {falou ? "Falei / mandei mensagem" : "Tentei e não consegui"}
           </Button>
         </HStack>
       }
@@ -158,7 +158,7 @@ export function ContatoModal({
       </HStack>
       <HStack gap={2}>
         <Button size="sm" tone={falou ? "primary" : "outline"} onClick={() => setFalou(true)}>
-          Falei com ele
+          Falei ou mandei mensagem
         </Button>
         <Button size="sm" tone={!falou ? "primary" : "outline"} onClick={() => setFalou(false)}>
           Tentei e não consegui
@@ -200,12 +200,12 @@ export function ContatoModal({
         label="Observação (opcional)"
         rows={2}
         value={obs}
-        placeholder={falou ? "Ex.: pediu pra ligar depois das 14h" : "Ex.: caixa postal direto"}
+        placeholder={falou ? "Ex.: mandei msg no WhatsApp, ainda não respondeu" : "Ex.: caixa postal direto"}
         onChange={(e) => setObs(e.currentTarget.value.slice(0, 500))}
       />
       <Text fontSize="xs" color="var(--admin-text-soft)">
         {falou
-          ? 'A conta sai de "Novo" e, se não tiver próximo passo, ganha "Cobrar retorno" em 2 dias.'
+          ? 'Vale pra ligação atendida e pra mensagem enviada. A conta sai de "Novo" e, se não tiver próximo passo, ganha "Cobrar retorno" em 2 dias.'
           : 'Se não tiver próximo passo, a conta ganha "Tentar de novo" pra amanhã.'}
       </Text>
     </Modal>

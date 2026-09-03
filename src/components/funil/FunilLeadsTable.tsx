@@ -534,7 +534,7 @@ export function FunilLeadsTable({
               <Box onClick={stop}>
                 <AcaoIcone
                   tone="confirmar"
-                  title="Registrar contato — falei ou tentei"
+                  title="Registrar contato — falei, mandei mensagem ou tentei"
                   onClick={() => setPainel({ modo: "contato", linha: l })}
                 >
                   <PhoneCall size={14} />
@@ -551,66 +551,67 @@ export function FunilLeadsTable({
       headerLabel: "Próximo passo",
       value: (l) => (l.proximaAcaoEm ? new Date(l.proximaAcaoEm) : null),
       render: (l) => {
-        if (l.naEspera) {
-          return (
-            <HStack gap={1.5} title={esperaTooltip} minW={0}>
-              <Hourglass size={13} color="#a16207" style={{ flexShrink: 0 }} />
-              <Stack gap={0} minW={0}>
-                <Text fontSize="sm" color="var(--admin-text)">
-                  Esperando a vez
-                </Text>
-                <Text fontSize="xs" color="var(--admin-text-soft)" lineClamp={1}>
-                  {l.handoff?.plano || "Entra na fila assim que abrir vaga."}
-                </Text>
-              </Stack>
-            </HStack>
-          );
-        }
-        if (!l.proximaAcaoEm) {
-          return callbacks.onMarcarPasso ? (
-            <Box onClick={stop} w="fit-content">
-              <Button size="xs" tone="ghost" onClick={() => setPainel({ modo: "passo", linha: l })}>
-                <Box as="span" color="#b91c1c" display="inline-flex" alignItems="center" gap="4px">
-                  <AlertTriangle size={13} /> Marcar o que fazer
-                </Box>
-              </Button>
-            </Box>
-          ) : (
-            <Text fontSize="xs" color="var(--admin-text-soft)">
-              —
+        const espera = l.naEspera ? (
+          <HStack gap={1} title={esperaTooltip} minW={0}>
+            <Hourglass size={12} color="#a16207" style={{ flexShrink: 0 }} />
+            <Text fontSize="xs" color="#a16207" lineClamp={1}>
+              Esperando a vez{l.handoff?.plano ? ` · ${l.handoff.plano}` : ""}
             </Text>
+          </HStack>
+        ) : null;
+        if (!l.proximaAcaoEm) {
+          return (
+            <Stack gap={0.5} minW={0}>
+              {espera}
+              {callbacks.onMarcarPasso ? (
+                <Box onClick={stop} w="fit-content">
+                  <Button size="xs" tone="ghost" onClick={() => setPainel({ modo: "passo", linha: l })}>
+                    <Box as="span" color="#b91c1c" display="inline-flex" alignItems="center" gap="4px">
+                      <AlertTriangle size={13} /> Marcar o que fazer
+                    </Box>
+                  </Button>
+                </Box>
+              ) : (
+                <Text fontSize="xs" color="var(--admin-text-soft)">
+                  —
+                </Text>
+              )}
+            </Stack>
           );
         }
         const atrasado = new Date(l.proximaAcaoEm).getTime() <= limite;
         return (
-          <HStack gap={1.5} minW={0}>
-            <Stack gap={0} minW={0}>
-              <Text fontSize="sm" lineClamp={1} color="var(--admin-text)" title={l.proximaAcao ?? undefined}>
-                {l.proximaAcao || "—"}
-              </Text>
-              <Text fontSize="xs" fontWeight={atrasado ? 700 : 400} color={atrasado ? "#b91c1c" : "var(--admin-text-soft)"}>
-                {atrasado ? "pra hoje · " : ""}
-                {fmtDia(l.proximaAcaoEm)}
-              </Text>
-            </Stack>
-            {callbacks.onConcluirPasso ? (
-              <Box onClick={stop}>
-                <AcaoIcone
-                  tone="confirmar"
-                  title="Já fiz — registra e libera o próximo passo"
-                  disabled={ocupado}
-                  onClick={() =>
-                    rodar(() => callbacks.onConcluirPasso!(l.id), {
-                      fecha: false,
-                      remendo: [l.id, { proximaAcao: null, proximaAcaoEm: null }],
-                    })
-                  }
-                >
-                  <Check size={14} />
-                </AcaoIcone>
-              </Box>
-            ) : null}
-          </HStack>
+          <Stack gap={0.5} minW={0}>
+            {espera}
+            <HStack gap={1.5} minW={0}>
+              <Stack gap={0} minW={0}>
+                <Text fontSize="sm" lineClamp={1} color="var(--admin-text)" title={l.proximaAcao ?? undefined}>
+                  {l.proximaAcao || "—"}
+                </Text>
+                <Text fontSize="xs" fontWeight={atrasado ? 700 : 400} color={atrasado ? "#b91c1c" : "var(--admin-text-soft)"}>
+                  {atrasado ? "pra hoje · " : ""}
+                  {fmtDia(l.proximaAcaoEm)}
+                </Text>
+              </Stack>
+              {callbacks.onConcluirPasso ? (
+                <Box onClick={stop}>
+                  <AcaoIcone
+                    tone="confirmar"
+                    title="Já fiz — registra e libera o próximo passo"
+                    disabled={ocupado}
+                    onClick={() =>
+                      rodar(() => callbacks.onConcluirPasso!(l.id), {
+                        fecha: false,
+                        remendo: [l.id, { proximaAcao: null, proximaAcaoEm: null }],
+                      })
+                    }
+                  >
+                    <Check size={14} />
+                  </AcaoIcone>
+                </Box>
+              ) : null}
+            </HStack>
+          </Stack>
         );
       },
     },
