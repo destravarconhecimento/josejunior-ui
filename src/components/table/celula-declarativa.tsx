@@ -6,6 +6,7 @@ import { ExternalLink } from "lucide-react";
 import { Tag, estiloDeStatus } from "../Badge";
 import { formatarData, formatarDataHora, formatarMoeda, type FormatoUi } from "../../format";
 import type { UiTextos } from "../../textos";
+import { useUiEnums } from "../../provider/textos";
 
 export type KindCelula =
   | "text"
@@ -96,6 +97,8 @@ export function EnumTag({
   enums?: CatalogoEnumsUi;
   semValor?: string;
 }) {
+  const doContexto = useUiEnums();
+  enums = enums ?? doContexto;
   if (valor == null || valor === "") return <>{semValor}</>;
   const bruto = String(valor);
   const rotulo = rotuloEnum(kind, bruto, enums);
