@@ -26,11 +26,6 @@ const TREND: Record<KpiTrendTone, string> = {
   neutral: "var(--admin-text-soft)",
 };
 
-/**
- * Card de indicador (KPI): valor grande, rótulo, variação e descrição, com um
- * ícone em caixa tonal. Reutilizável em qualquer painel. Sem cores hardcoded
- * fora do mapa de tons.
- */
 export function KpiCard({
   label,
   value,
@@ -48,7 +43,6 @@ export function KpiCard({
   trendTone?: KpiTrendTone;
   icon?: ReactNode;
   tone?: KpiTone;
-  /** `sm` = compacto (telas com tabela: menos altura/fonte, sobra espaço pra planilha). */
   size?: "sm" | "md";
 }) {
   const t = TONES[tone];
@@ -120,103 +114,97 @@ export function KpiCard({
 export type KpiRowItem = {
   label: ReactNode;
   value: ReactNode;
-  /** Colore só o valor (o número é o que se lê primeiro). */
   tone?: KpiTone;
-  /** Ícone pequeno, na frente do rótulo. Opcional — a faixa vive bem sem ele. */
   icon?: ReactNode;
-  /**
-   * KPI que FILTRA: clicar aplica o recorte na lista abaixo (e clicar de novo
-   * tira). Sem `onClick` o item é só leitura, como sempre foi.
-   */
+  hint?: string;
   onClick?: () => void;
-  /** O recorte deste KPI está aplicado agora — desenha o item marcado. */
   active?: boolean;
+  atributos?: Record<`data-${string}`, string | number | undefined>;
 };
 
-/**
- * FAIXA de indicadores — a mesma informação do grid de `KpiCard`, em UMA LINHA.
- *
- * Existe porque em tela pequena a grade de cards comia metade da altura antes de
- * a tabela começar: 4 KPIs viravam 2 ou 4 fileiras de ~90px e sobrava uma
- * janelinha pro que interessa. Aqui a régua é a linha de métricas do funil
- * ("pra você hoje: 3 · fila: 12 · e-mails hoje: 40 de 60"): um card raso, os
- * números lado a lado, ~40px no total em qualquer largura.
- *
- * Não substitui o `KpiCard` — dashboard, onde o indicador É a tela, continua com
- * os cards. A faixa é pra tela de TABELA, onde o KPI é contexto e a lista é o
- * assunto.
- *
- * Em largura curta ela rola na horizontal em vez de quebrar: uma linha é uma
- * linha, e esconder métrica atrás de um swipe é melhor que roubar altura da lista.
- */
-export function KpiRow({ items }: { items: KpiRowItem[] }) {
-  if (items.length === 0) return null;
+export function KpiRow({
+  items,
+  acoes,
+}: {
+  items: Array<KpiRowItem | null | undefined | false>;
+  acoes?: ReactNode;
+}) {
+  const lista = items.filter((item): item is KpiRowItem => Boolean(item));
+  if (lista.length === 0 && !acoes) return null;
   return (
-    <Box className="admin-card admin-scroll" px={3} py={2} overflowX="auto" overflowY="hidden">
-      <HStack gap={0} align="center" minW="max-content">
-        {items.map((item, i) => {
-          const t = TONES[item.tone ?? "neutral"];
-          const clicavel = Boolean(item.onClick);
-          return (
-            <HStack
-              key={i}
-              gap={2}
-              align="baseline"
-              flexShrink={0}
-              px={3}
-              py={clicavel ? 1 : 0}
-              borderLeftWidth={i === 0 ? 0 : "1px"}
-              borderColor="var(--admin-divider)"
-              cursor={clicavel ? "pointer" : undefined}
-              role={clicavel ? "button" : undefined}
-              tabIndex={clicavel ? 0 : undefined}
-              aria-pressed={clicavel ? Boolean(item.active) : undefined}
-              onClick={item.onClick}
-              onKeyDown={
-                clicavel
-                  ? (e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        item.onClick?.();
+    <HStack className="admin-card" px={3} py={2} gap={3} align="center" flexWrap={{ base: "wrap", md: "nowrap" }}>
+      <Box className="admin-scroll" flex="1 1 auto" minW={0} overflowX="auto" overflowY="hidden">
+        <HStack gap={0} align="center" minW="max-content">
+          {lista.map((item, i) => {
+            const t = TONES[item.tone ?? "neutral"];
+            const clicavel = Boolean(item.onClick);
+            return (
+              <HStack
+                key={i}
+                {...item.atributos}
+                gap={2}
+                align="baseline"
+                flexShrink={0}
+                px={3}
+                py={clicavel ? 1 : 0}
+                borderLeftWidth={i === 0 ? 0 : "1px"}
+                borderColor="var(--admin-divider)"
+                cursor={clicavel ? "pointer" : undefined}
+                role={clicavel ? "button" : undefined}
+                tabIndex={clicavel ? 0 : undefined}
+                aria-pressed={clicavel ? Boolean(item.active) : undefined}
+                onClick={item.onClick}
+                onKeyDown={
+                  clicavel
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          item.onClick?.();
+                        }
                       }
-                    }
-                  : undefined
-              }
-              borderRadius="md"
-              bg={item.active ? t.soft : undefined}
-              boxShadow={item.active ? `inset 0 0 0 1px ${t.strong}` : undefined}
-              _hover={clicavel && !item.active ? { bg: "var(--admin-surface-2, rgba(0,0,0,0.04))" } : undefined}
-              title={clicavel ? (item.active ? "Tirar o filtro" : "Filtrar por este indicador") : undefined}
-            >
-              {item.icon ? (
-                <Box color={t.strong} flexShrink={0} alignSelf="center" display="flex">
-                  {item.icon}
-                </Box>
-              ) : null}
-              <Text
-                fontSize="10px"
-                fontWeight="600"
-                color="var(--admin-text-soft)"
-                textTransform="uppercase"
-                letterSpacing="0.04em"
-                whiteSpace="nowrap"
+                    : undefined
+                }
+                borderRadius="md"
+                bg={item.active ? t.soft : undefined}
+                boxShadow={item.active ? `inset 0 0 0 1px ${t.strong}` : undefined}
+                _hover={clicavel && !item.active ? { bg: "var(--admin-surface-2, rgba(0,0,0,0.04))" } : undefined}
+                title={item.hint ?? (clicavel ? (item.active ? "Tirar o filtro" : "Filtrar por este indicador") : undefined)}
               >
-                {item.label}
-              </Text>
-              <Text
-                fontSize="md"
-                fontWeight="700"
-                lineHeight="1.2"
-                color={item.tone && item.tone !== "neutral" ? t.strong : "var(--admin-text)"}
-                fontFamily="var(--admin-font-heading)"
-                whiteSpace="nowrap"
-              >
-                {item.value}
-              </Text>
-            </HStack>
-          );
-        })}
-      </HStack>
-    </Box>
+                {item.icon ? (
+                  <Box color={t.strong} flexShrink={0} alignSelf="center" display="flex">
+                    {item.icon}
+                  </Box>
+                ) : null}
+                <Text
+                  fontSize="10px"
+                  fontWeight="600"
+                  color="var(--admin-text-soft)"
+                  textTransform="uppercase"
+                  letterSpacing="0.04em"
+                  whiteSpace="nowrap"
+                >
+                  {item.label}
+                </Text>
+                <Text
+                  fontSize="md"
+                  fontWeight="700"
+                  lineHeight="1.2"
+                  color={item.tone && item.tone !== "neutral" ? t.strong : "var(--admin-text)"}
+                  fontFamily="var(--admin-font-heading)"
+                  whiteSpace="nowrap"
+                >
+                  {item.value}
+                </Text>
+              </HStack>
+            );
+          })}
+        </HStack>
+      </Box>
+      {acoes ? (
+        <HStack gap={2} flexShrink={0} ml="auto" flexWrap="wrap" justify="flex-end">
+          {acoes}
+        </HStack>
+      ) : null}
+    </HStack>
   );
 }
