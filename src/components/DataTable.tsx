@@ -50,9 +50,11 @@ export type Column<T> = ColunaCelula & {
   /**
    * Coluna PRESA na borda enquanto a tabela rola na horizontal. Só tem efeito
    * onde existe rolagem lateral (tela cheia / modo mini) — no modo página a
-   * tabela cabe em 100% e a prop é inocua.
+   * tabela cabe em 100% e a prop é inócua.
    */
   sticky?: "start" | "end";
+  /** Cabeçalho quebra em duas linhas em vez de cortar com reticência. */
+  headerWrap?: boolean;
 };
 
 /**
@@ -152,6 +154,9 @@ export function DataTable<T>({
   cards = true,
   renderCard,
   filtrosEmSheet = true,
+  rowProps,
+  secaoDaLinha,
+  alturaMax,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -211,12 +216,25 @@ export function DataTable<T>({
   textos?: Partial<UiTextos>;
   /** Carregando NAO e vazio: sem linha ainda, mostra o aviso em vez do EmptyState. */
   carregando?: boolean;
-  /** false = no mobile continua tabela (nao vira lista de cards). */
+  /** false = no mobile continua tabela (não vira lista de cards). */
   cards?: boolean;
-  /** Card do mobile por conta da tela (substitui a lista rotulo/valor). */
+  /** Card do mobile por conta da tela (substitui a lista rótulo/valor). */
   renderCard?: (row: T) => ReactNode;
-  /** false = as colunas em acordeao abrem na pagina, nao num modal. */
+  /** false = as colunas em acordeão abrem na página, não num modal. */
   filtrosEmSheet?: boolean;
+  /** Props extras no elemento da linha (estado visual que a tela conhece). */
+  rowProps?: (row: T, index: number) => Record<string, unknown> | undefined;
+  /**
+   * Linha que é RÓTULO DE SEÇÃO (agrupa o que vem abaixo) em vez de dado:
+   * devolva o rótulo e a linha ocupa a largura toda, sem células.
+   */
+  secaoDaLinha?: (row: T) => ReactNode;
+  /**
+   * Teto de altura da área rolável, só no modo mini (`fillHeight={false}`).
+   * NÃO é o offset legado: é altura fixa de bloco embutido (`"14rem"`), não
+   * conta de viewport. No modo página quem rola é a janela e a prop é inócua.
+   */
+  alturaMax?: string;
 }) {
   const textos = useUiTextos(textosProp);
   const formato = useUiFormato();
@@ -527,7 +545,11 @@ export function DataTable<T>({
   const footer = (
     <HStack
       justify="space-between"
-      px={4}
+      pl={4}
+      // `--admin-rodape-reserva`: o que o app tem FIXO no canto inferior direito
+      // (botão flutuante) e que o rodapé grudado não pode deixar por baixo. Sem
+      // a var declarada a reserva é zero, e o rodapé fica como sempre foi.
+      pr="calc(1rem + var(--admin-rodape-reserva, 0px))"
       py={2.5}
       borderTopWidth="1px"
       borderColor="var(--admin-divider)"
@@ -617,7 +639,7 @@ export function DataTable<T>({
         overflowY={modoPagina && !expandido ? undefined : "auto"}
         overflowX={modoPagina && !expandido ? undefined : "auto"}
         flex={expandido ? "1" : undefined}
-        maxH={magicOffset !== null ? `calc(100vh - ${magicOffset}px)` : undefined}
+        maxH={magicOffset !== null ? `calc(100vh - ${magicOffset}px)` : mini ? alturaMax : undefined}
         minH={expandido ? 0 : magicOffset !== null ? "200px" : undefined}
         // Sem scroll horizontal no modo página, texto longo QUEBRA em vez de
         // empurrar a tabela pra fora do card. Quem precisa de largura usa o expandir.
@@ -655,6 +677,9 @@ export function DataTable<T>({
                 const ordenavel = !!c.value && c.sortable !== false;
                 const filtravel = !!c.value && c.filterable !== false;
                 const ordem = sortAtivo && sortAtivo.key === c.key ? sortAtivo.dir : null;
+                const rotuloProps = c.headerWrap
+                  ? {}
+                  : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const };
                 return (
                   <Table.ColumnHeader
                     key={c.key}
@@ -665,9 +690,9 @@ export function DataTable<T>({
                     textTransform="uppercase"
                     letterSpacing="0.04em"
                     color="var(--admin-text-soft)"
-                    whiteSpace="nowrap"
-                    overflow={ordenavel || filtravel ? undefined : "hidden"}
-                    textOverflow={ordenavel || filtravel ? undefined : "ellipsis"}
+                    whiteSpace={c.headerWrap ? "normal" : "nowrap"}
+                    overflow={c.headerWrap || ordenavel || filtravel ? undefined : "hidden"}
+                    textOverflow={c.headerWrap || ordenavel || filtravel ? undefined : "ellipsis"}
                     aria-sort={ordem ? (ordem === "asc" ? "ascending" : "descending") : undefined}
                     {...hideProps(c)}
                     {...presoProps(c, true)}
@@ -697,7 +722,7 @@ export function DataTable<T>({
                             _hover={{ color: "var(--admin-primary)" }}
                             title={fmtTexto(textos.ordenarPor, { coluna: rotuloColuna(c) })}
                           >
-                            <Box as="span" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
+                            <Box as="span" {...rotuloProps}>
                               {c.header}
                             </Box>
                             <Box as="span" display="inline-flex" flexShrink={0} opacity={ordem ? 1 : 0.6}>
@@ -711,7 +736,7 @@ export function DataTable<T>({
                             </Box>
                           </Box>
                         ) : (
-                          <Box as="span" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap" minW={0}>
+                          <Box as="span" {...rotuloProps} minW={0}>
                             {c.header}
                           </Box>
                         )}
@@ -761,6 +786,22 @@ export function DataTable<T>({
               const checked = selection?.selectedKeys.has(rowKey) ?? false;
               const sel = (selectedKey != null && rowKey === selectedKey) || checked;
               const isOver = onReorder != null && dragKey != null && overKey === rowKey && dragKey !== rowKey;
+              const extras = rowProps?.(row, i) ?? {};
+              const secao = secaoDaLinha?.(row);
+              if (secao != null) {
+                return (
+                  <Table.Row key={rowKey} bg="var(--admin-surface-2)" {...extras}>
+                    <Table.Cell
+                      colSpan={columns.length + (selection ? 1 : 0) + (onReorder ? 1 : 0) + (actions ? 1 : 0)}
+                      fontSize="xs"
+                      fontWeight="600"
+                      color="var(--admin-text-soft)"
+                    >
+                      {secao}
+                    </Table.Cell>
+                  </Table.Row>
+                );
+              }
               return (
               <Table.Row
                 key={rowKey}
@@ -776,6 +817,7 @@ export function DataTable<T>({
                       onDrop: () => handleDrop(rowKey),
                     }
                   : {})}
+                {...extras}
               >
                 {selection ? (
                   <Table.Cell width="40px" onClick={(e) => e.stopPropagation()}>
@@ -849,6 +891,24 @@ export function DataTable<T>({
           const rowKey = getRowKey(row, i);
           const checked = selection?.selectedKeys.has(rowKey) ?? false;
           const hi = (selectedKey != null && rowKey === selectedKey) || checked;
+          const extras = rowProps?.(row, i) ?? {};
+          const secao = secaoDaLinha?.(row);
+          if (secao != null) {
+            return (
+              <Box
+                key={rowKey}
+                px={4}
+                pt={i ? 4 : 3}
+                pb={1}
+                fontSize="xs"
+                fontWeight="600"
+                color="var(--admin-text-soft)"
+                {...extras}
+              >
+                {secao}
+              </Box>
+            );
+          }
           return (
           <Box
             key={rowKey}
@@ -860,6 +920,7 @@ export function DataTable<T>({
             cursor={onRowClick ? "pointer" : undefined}
             bg={hi ? "rgba(202,138,4,0.10)" : undefined}
             _active={onRowClick ? { bg: "var(--admin-nav-hover)" } : undefined}
+            {...extras}
           >
             {renderCard ? (
               renderCard(row)

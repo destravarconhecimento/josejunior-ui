@@ -19,24 +19,31 @@ import { ColorModeSwitchableProvider } from "./color-mode";
  * - `forceMode`: trava o tema (forcedTheme) vs só o default (defaultTheme).
  *   Com `forceMode={false}` a troca de tema fica LIGADA e os shells passam a
  *   mostrar o `ColorModeButton` (via contexto, sem prop nas telas).
+ * - `seguirSistema`: `enableSystem` do next-themes. Padrão `false` (o painel
+ *   nasce claro); `true` faz o tema partir da preferência do sistema
+ *   operacional enquanto ninguém tiver escolhido.
  */
 export function UiProvider({
   children,
   system,
   mode = "light",
   forceMode = true,
+  seguirSistema = false,
 }: {
   children: ReactNode;
   system?: UiSystem;
   mode?: "light" | "dark";
   forceMode?: boolean;
+  seguirSistema?: boolean;
 }) {
   const sys = useMemo(() => system ?? getUiSystem(), [system]);
   return (
     <ThemeProvider
       attribute="class"
-      enableSystem={false}
-      {...(forceMode ? { forcedTheme: mode } : { defaultTheme: mode })}
+      enableSystem={seguirSistema}
+      {...(forceMode
+        ? { forcedTheme: mode }
+        : { defaultTheme: seguirSistema ? "system" : mode })}
       disableTransitionOnChange
     >
       <ChakraProvider value={sys}>
