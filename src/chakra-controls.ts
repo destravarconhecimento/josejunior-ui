@@ -39,6 +39,16 @@ import {
   Button as CButton,
   Accordion as CAccordion,
   Tooltip as CTooltip,
+  Popover as CPopover,
+  Menu as CMenu,
+  Dialog as CDialog,
+  Circle as CCircle,
+  Combobox as CCombobox,
+  Toast as CToast,
+  createToaster as CcreateToaster,
+  useFilter as CuseFilter,
+  useListCollection as CuseListCollection,
+  useBreakpointValue as CuseBreakpointValue,
   chakra as Cchakra,
 } from "@chakra-ui/react";
 
@@ -72,5 +82,15 @@ export const ChakraLink = CLink;
 export const ChakraButton = CButton;
 export const ChakraAccordion = CAccordion;
 export const ChakraTooltip = CTooltip;
+export const Popover = CPopover;
+export const Menu = CMenu;
+export const Dialog = CDialog;
+export const Circle = CCircle;
+export const Combobox = CCombobox;
+export const Toast = CToast;
+export const createToaster = CcreateToaster;
+export const useFilter = CuseFilter;
+export const useListCollection = CuseListCollection;
+export const useBreakpointValue = CuseBreakpointValue;
 /** factory de styled-components do Chakra (sem equivalente no ui). */
 export const chakra = Cchakra;
