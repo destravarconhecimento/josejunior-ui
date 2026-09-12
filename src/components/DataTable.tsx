@@ -546,9 +546,6 @@ export function DataTable<T>({
     <HStack
       justify="space-between"
       pl={4}
-      // `--admin-rodape-reserva`: o que o app tem FIXO no canto inferior direito
-      // (botão flutuante) e que o rodapé grudado não pode deixar por baixo. Sem
-      // a var declarada a reserva é zero, e o rodapé fica como sempre foi.
       pr="calc(1rem + var(--admin-rodape-reserva, 0px))"
       py={2.5}
       borderTopWidth="1px"
