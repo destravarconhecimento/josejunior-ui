@@ -66,6 +66,15 @@ const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }
   estornado: { bg: "rgba(168,85,247,0.12)", color: "#7c3aed", label: "Estornado" },
 };
 
+/**
+ * Estilo do vocabulário de status (cor de fundo/texto/rótulo pt) ou `undefined`
+ * quando o código não está no catálogo — diferente do `StatusBadge`, que cai no
+ * "Cancelado" quando não conhece o valor.
+ */
+export function estiloDeStatus(status: string): { bg: string; color: string; label: string } | undefined {
+  return STATUS_STYLES[status];
+}
+
 /** Badge de status com mapeamento padrão (ou `label` custom). */
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
   const s = STATUS_STYLES[status] ?? STATUS_STYLES.canceled;

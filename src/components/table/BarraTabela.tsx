@@ -8,6 +8,8 @@ import { Modal } from "../Modal";
 import { Accordion } from "../Accordion";
 import { FacetasLazy } from "./FiltroColunaMenu";
 import { rotuloDoValor, type FiltroColuna, type ValorFaceta } from "./filtros";
+import { useUiTextos } from "../../provider/textos";
+import { fmtTexto, type UiTextos } from "../../textos";
 import type { SortState } from "./sort";
 
 export type ColunaOrdenavel = { key: string; rotulo: string };
@@ -70,6 +72,8 @@ export function BarraTabela({
   onFiltroChange,
   onLimparTudo,
   chipsExtras,
+  textos,
+  filtrosEmSheet = true,
 }: {
   ordenaveis: ColunaOrdenavel[];
   filtraveis: ColunaFiltravel[];
@@ -80,7 +84,12 @@ export function BarraTabela({
   onLimparTudo: () => void;
   /** Chips de filtros que vivem FORA das colunas (ex.: blocos do dia no funil). */
   chipsExtras?: ReactNode;
+  /** Strings já resolvidas pela DataTable; sem elas vem do contexto/pt-BR. */
+  textos?: UiTextos;
+  /** false = as colunas em acordeão abrem NA PÁGINA, não num modal. */
+  filtrosEmSheet?: boolean;
 }) {
+  const t = useUiTextos(textos);
   const [modalFiltro, setModalFiltro] = useState(false);
 
   const ativos = filtros.filter((f) => f.valores.length > 0);
@@ -95,18 +104,21 @@ export function BarraTabela({
     <HStack px={3} py={1.5} gap={1.5} flexWrap="wrap" borderBottomWidth="1px" borderColor="var(--admin-divider)">
       {chipsExtras}
       {ativos.map((f) => (
-        <ChipFiltro key={f.key} onRemove={() => onFiltroChange(f.key, null)} removeLabel={`Tirar filtro de ${rotuloDe(f.key)}`}>
-          {rotuloDe(f.key)}: {f.valores.length === 1 ? rotuloDoValor(f.valores[0]) : `${f.valores.length} valores`}
+        <ChipFiltro key={f.key} onRemove={() => onFiltroChange(f.key, null)} removeLabel={fmtTexto(t.tirarFiltroDe, { coluna: rotuloDe(f.key) })}>
+          {rotuloDe(f.key)}:{" "}
+          {f.valores.length === 1
+            ? rotuloDoValor(f.valores[0], undefined, t)
+            : fmtTexto(t.valoresContagem, { n: f.valores.length })}
         </ChipFiltro>
       ))}
       {sort ? (
-        <ChipFiltro onRemove={() => onSortChange(null)} removeLabel="Voltar à ordem padrão">
-          Ordem: {rotuloDe(sort.key)} {sort.dir === "asc" ? "↑" : "↓"}
+        <ChipFiltro onRemove={() => onSortChange(null)} removeLabel={t.ordemPadraoVoltar}>
+          {fmtTexto(t.ordemChip, { coluna: rotuloDe(sort.key), seta: sort.dir === "asc" ? "↑" : "↓" })}
         </ChipFiltro>
       ) : null}
       {ativos.length + (sort ? 1 : 0) >= 2 ? (
         <Button size="xs" tone="ghost" onClick={onLimparTudo}>
-          Limpar tudo
+          {t.limparTudo}
         </Button>
       ) : null}
     </HStack>
@@ -124,7 +136,7 @@ export function BarraTabela({
       {ordenaveis.length > 0 ? (
         <NativeSelect.Root size="sm" flex="1" minW={0}>
           <NativeSelect.Field
-            aria-label="Ordenar"
+            aria-label={t.ordenar}
             value={sort ? `${sort.key}:${sort.dir}` : ""}
             onChange={(e) => {
               const v = e.target.value;
@@ -136,7 +148,7 @@ export function BarraTabela({
             color="var(--admin-text)"
             fontSize="sm"
           >
-            <option value="">Ordem padrão</option>
+            <option value="">{t.ordemPadrao}</option>
             {ordenaveis.map((c) => (
               <optgroup key={c.key} label={c.rotulo}>
                 <option value={`${c.key}:asc`}>{c.rotulo} ↑</option>
@@ -153,41 +165,58 @@ export function BarraTabela({
       )}
       {filtraveis.length > 0 ? (
         <Button size="sm" tone="outline" onClick={() => setModalFiltro(true)}>
-          <ListFilter size={14} /> Filtrar{ativos.length > 0 ? ` (${ativos.length})` : ""}
+          <ListFilter size={14} />{" "}
+          {ativos.length > 0 ? fmtTexto(t.filtrarContagem, { n: ativos.length }) : t.filtrar}
         </Button>
       ) : null}
     </HStack>
   ) : null;
 
+  const acordeao = (
+    <Accordion
+      items={filtraveis.map((c) => {
+        const ativo = filtros.find((f) => f.key === c.key)?.valores ?? null;
+        return {
+          value: c.key,
+          title: c.rotulo,
+          meta:
+            ativo && ativo.length > 0 ? (
+              <Text as="span" fontSize="xs" color="var(--admin-primary)" fontWeight={700}>
+                {ativo.length}
+              </Text>
+            ) : undefined,
+          content: (
+            <FacetasLazy
+              facetas={c.facetas}
+              ativo={ativo && ativo.length > 0 ? ativo : null}
+              onChange={(valores) => onFiltroChange(c.key, valores)}
+              textos={t}
+            />
+          ),
+        };
+      })}
+    />
+  );
+
   return (
     <>
       {controlesMobile}
-      {chips}
       {/* Só monta aberto: as facetas varrem as linhas inteiras (lazy de verdade). */}
-      {modalFiltro ? (
-        <Modal open onClose={() => setModalFiltro(false)} title="Filtrar" size="sm">
-          <Accordion
-            items={filtraveis.map((c) => {
-              const ativo = filtros.find((f) => f.key === c.key)?.valores ?? null;
-              return {
-                value: c.key,
-                title: c.rotulo,
-                meta:
-                  ativo && ativo.length > 0 ? (
-                    <Text as="span" fontSize="xs" color="var(--admin-primary)" fontWeight={700}>
-                      {ativo.length}
-                    </Text>
-                  ) : undefined,
-                content: (
-                  <FacetasLazy
-                    facetas={c.facetas}
-                    ativo={ativo && ativo.length > 0 ? ativo : null}
-                    onChange={(valores) => onFiltroChange(c.key, valores)}
-                  />
-                ),
-              };
-            })}
-          />
+      {modalFiltro && !filtrosEmSheet ? (
+        <Box
+          display={{ base: "block", md: "none" }}
+          px={3}
+          py={2}
+          borderBottomWidth="1px"
+          borderColor="var(--admin-divider)"
+        >
+          {acordeao}
+        </Box>
+      ) : null}
+      {chips}
+      {modalFiltro && filtrosEmSheet ? (
+        <Modal open onClose={() => setModalFiltro(false)} title={t.filtrar} size="sm">
+          {acordeao}
         </Modal>
       ) : null}
     </>

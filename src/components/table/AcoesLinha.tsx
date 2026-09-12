@@ -5,6 +5,7 @@ import { HStack } from "@chakra-ui/react";
 import { MoreVertical } from "lucide-react";
 import { Button, type ButtonTone } from "../Button";
 import { ActionMenu, type ActionMenuItem } from "../ActionMenu";
+import { useUiTextos } from "../../provider/textos";
 
 export type AcaoLinha = {
   /** Nome da ação. Vira `aria-label`/`title` do botão-ícone e o rótulo no menu. */
@@ -45,6 +46,7 @@ export function AcoesLinha({
   acoes: Array<AcaoLinha | null | undefined | false>;
   max?: number;
 }) {
+  const textos = useUiTextos();
   const lista = acoes.filter((a): a is AcaoLinha => !!a && !a.oculta);
   if (lista.length === 0) return null;
 
@@ -92,7 +94,7 @@ export function AcoesLinha({
         );
       })}
       {itens.length > 0 ? (
-        <ActionMenu label="" icon={<MoreVertical size={14} />} ariaLabel="Mais ações" size="xs" tone="ghost" items={itens} />
+        <ActionMenu label="" icon={<MoreVertical size={14} />} ariaLabel={textos.maisAcoes} size="xs" tone="ghost" items={itens} />
       ) : null}
     </HStack>
   );

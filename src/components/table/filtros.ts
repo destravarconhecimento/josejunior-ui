@@ -6,6 +6,10 @@
 // nunca por milissegundo).
 
 import { compararValores, type ValorCelula } from "./sort";
+import { UI_TEXTOS_PT, type UiTextos } from "../../textos";
+
+/** Só os rótulos que o funil precisa — o resto do `UiTextos` não entra aqui. */
+export type TextosFaceta = Pick<UiTextos, "valorVazio" | "sim" | "nao">;
 
 export type FiltroColuna = {
   key: string;
@@ -26,14 +30,18 @@ export function chaveDoValor(v: ValorCelula): string {
 }
 
 /** Chave → rótulo humano (menu do funil e chips). `exemplo` refina data/booleano. */
-export function rotuloDoValor(chave: string, exemplo?: ValorCelula): string {
-  if (chave === "") return "(Vazio)";
+export function rotuloDoValor(
+  chave: string,
+  exemplo?: ValorCelula,
+  textos: TextosFaceta = UI_TEXTOS_PT,
+): string {
+  if (chave === "") return textos.valorVazio;
   if (exemplo instanceof Date || /^\d{4}-\d{2}-\d{2}$/.test(chave)) {
     const [y, m, d] = chave.split("-");
     return `${d}/${m}/${y.slice(2)}`;
   }
   if (typeof exemplo === "boolean" || chave === "true" || chave === "false") {
-    return chave === "true" ? "Sim" : "Não";
+    return chave === "true" ? textos.sim : textos.nao;
   }
   return chave;
 }
@@ -68,14 +76,18 @@ export type ValorFaceta = { chave: string; rotulo: string; n: number };
  * (só ao abrir o menu) — varre as linhas inteiras. Ordena pelo collator do
  * sort; "(Vazio)" vai pro fim.
  */
-export function valoresDistintos<T>(rows: T[], value: (row: T) => ValorCelula): ValorFaceta[] {
+export function valoresDistintos<T>(
+  rows: T[],
+  value: (row: T) => ValorCelula,
+  textos: TextosFaceta = UI_TEXTOS_PT,
+): ValorFaceta[] {
   const m = new Map<string, ValorFaceta>();
   for (const r of rows) {
     const v = value(r);
     const chave = chaveDoValor(v);
     const e = m.get(chave);
     if (e) e.n++;
-    else m.set(chave, { chave, rotulo: rotuloDoValor(chave, v), n: 1 });
+    else m.set(chave, { chave, rotulo: rotuloDoValor(chave, v, textos), n: 1 });
   }
   return [...m.values()].sort((a, b) => {
     if (a.chave === "") return 1;

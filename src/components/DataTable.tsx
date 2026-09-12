@@ -18,8 +18,11 @@ import { ordenarLinhas, proximoSort, type SortState, type ValorCelula } from "./
 import { aplicarFiltros, valoresDistintos, type FiltroColuna } from "./table/filtros";
 import { FiltroColunaMenu } from "./table/FiltroColunaMenu";
 import { BarraTabela } from "./table/BarraTabela";
+import { renderCelulaDeclarativa, type ColunaCelula } from "./table/celula-declarativa";
+import { useUiEnums, useUiFormato, useUiTextos } from "../provider/textos";
+import { fmtTexto, plural, type UiTextos } from "../textos";
 
-export type Column<T> = {
+export type Column<T> = ColunaCelula & {
   key: string;
   header: ReactNode;
   render?: (row: T) => ReactNode;
@@ -40,6 +43,16 @@ export type Column<T> = {
   filterable?: boolean;
   /** Nome da coluna em chips/menus quando `header` é JSX (senão usa o texto). */
   headerLabel?: string;
+  /** Esconde a coluna ABAIXO do breakpoint (`hideOnMobile` continua valendo). */
+  hideBelow?: "sm" | "md" | "lg";
+  /** Célula que não quebra linha (código, data, valor). */
+  nowrap?: boolean;
+  /**
+   * Coluna PRESA na borda enquanto a tabela rola na horizontal. Só tem efeito
+   * onde existe rolagem lateral (tela cheia / modo mini) — no modo página a
+   * tabela cabe em 100% e a prop é inocua.
+   */
+  sticky?: "start" | "end";
 };
 
 /**
@@ -64,6 +77,12 @@ export function TableCard({ children }: { children: ReactNode }) {
 }
 
 const PAGE_SIZE = 25;
+
+const DISPLAY_ACIMA = {
+  sm: { base: "none", sm: "table-cell" },
+  md: { base: "none", md: "table-cell" },
+  lg: { base: "none", lg: "table-cell" },
+} as const;
 
 /**
  * Tabela PADRÃO do painel:
@@ -128,6 +147,11 @@ export function DataTable<T>({
   filtros: filtrosProp,
   onFiltrosChange,
   chipsExtras,
+  textos: textosProp,
+  carregando = false,
+  cards = true,
+  renderCard,
+  filtrosEmSheet = true,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -183,7 +207,20 @@ export function DataTable<T>({
   onFiltrosChange?: (filtros: FiltroColuna[]) => void;
   /** Chips extras na linha de chips (filtros que vivem fora das colunas). */
   chipsExtras?: ReactNode;
+  /** Sobrescreve as strings desta tabela (o resto vem do `UiTextosProvider`). */
+  textos?: Partial<UiTextos>;
+  /** Carregando NAO e vazio: sem linha ainda, mostra o aviso em vez do EmptyState. */
+  carregando?: boolean;
+  /** false = no mobile continua tabela (nao vira lista de cards). */
+  cards?: boolean;
+  /** Card do mobile por conta da tela (substitui a lista rotulo/valor). */
+  renderCard?: (row: T) => ReactNode;
+  /** false = as colunas em acordeao abrem na pagina, nao num modal. */
+  filtrosEmSheet?: boolean;
 }) {
+  const textos = useUiTextos(textosProp);
+  const formato = useUiFormato();
+  const enums = useUiEnums();
   const [page, setPage] = useState(0);
   const [dragKey, setDragKey] = useState<string | number | null>(null);
   const [overKey, setOverKey] = useState<string | number | null>(null);
@@ -305,7 +342,7 @@ export function DataTable<T>({
         size="sm"
         checked={selection.selectedKeys.has(rowKey)}
         onCheckedChange={(e) => selection.onToggle(rowKey, e.checked === true)}
-        aria-label="Selecionar linha"
+        aria-label={textos.selecionarLinha}
       >
         <Checkbox.HiddenInput />
         <Checkbox.Control />
@@ -334,8 +371,47 @@ export function DataTable<T>({
   // Facetas LAZY (só ao abrir o menu/modal): valores da coluna X contados sobre
   // as linhas filtradas por TODAS as OUTRAS colunas — a conta do Excel.
   const facetasDe = (c: Column<T>) => () =>
-    valoresDistintos(aplicarFiltros(rows, filtrosAtivos, valueDe, c.key), c.value!);
+    valoresDistintos(aplicarFiltros(rows, filtrosAtivos, valueDe, c.key), c.value!, textos);
   const temChips = sortAtivo != null || filtrosAtivos.some((f) => f.valores.length > 0);
+
+  const hideProps = (c: Column<T>) => (c.hideBelow ? { display: DISPLAY_ACIMA[c.hideBelow] } : {});
+
+  // Coluna presa só faz sentido onde a tabela ROLA na horizontal: no modo página
+  // ela cabe em 100% e não há de quem se soltar. Por isso a prop é inócua nas
+  // telas que já existem — só acorda na tela cheia e no modo mini.
+  const rolaX = !modoPagina || expandido;
+  const presasInicio = rolaX ? columns.filter((c) => c.sticky === "start") : [];
+  const presasFim = rolaX ? columns.filter((c) => c.sticky === "end") : [];
+  const somaLarguras = (partes: string[]) =>
+    partes.length === 0 ? "0px" : `calc(${partes.join(" + ")})`;
+  const offsetPresa = (c: Column<T>) => {
+    if (c.sticky === "start") {
+      const partes = [...(selection ? ["40px"] : []), ...(onReorder ? ["34px"] : [])];
+      for (const outra of presasInicio) {
+        if (outra.key === c.key) break;
+        partes.push(outra.width ?? "0px");
+      }
+      return somaLarguras(partes);
+    }
+    const partes = actions ? [actionsWidth ?? "0px"] : [];
+    const idx = presasFim.findIndex((outra) => outra.key === c.key);
+    for (let i = presasFim.length - 1; i > idx; i--) partes.push(presasFim[i].width ?? "0px");
+    return somaLarguras(partes);
+  };
+  const presoProps = (c: Column<T>, cabecalho: boolean, sel = false) => {
+    if (!rolaX || !c.sticky) return {};
+    const offset = offsetPresa(c);
+    return {
+      position: "sticky" as const,
+      ...(c.sticky === "start" ? { left: offset } : { right: offset }),
+      zIndex: cabecalho ? 3 : 1,
+      bg: !cabecalho && sel ? "rgba(202,138,4,0.10)" : "var(--admin-surface)",
+      boxShadow:
+        c.sticky === "start"
+          ? "inset -1px 0 0 var(--admin-divider)"
+          : "inset 1px 0 0 var(--admin-divider)",
+    };
+  };
 
   const toolbarNode =
     toolbar || temChips || chipsExtras != null || ordenaveis.length > 0 || filtraveis.length > 0 ? (
@@ -368,6 +444,8 @@ export function DataTable<T>({
             mudarSort(null);
           }}
           chipsExtras={chipsExtras}
+          textos={textos}
+          filtrosEmSheet={filtrosEmSheet}
         />
       </Box>
     ) : null;
@@ -384,7 +462,15 @@ export function DataTable<T>({
         p={0}
       >
         {toolbarNode}
-        <Box p={6}>{empty ?? <EmptyState title="Nada por aqui ainda." />}</Box>
+        <Box p={6}>
+          {carregando ? (
+            <Text fontSize="sm" color="var(--admin-text-soft)">
+              {textos.carregando}
+            </Text>
+          ) : (
+            empty ?? <EmptyState title={textos.vazioTitulo} />
+          )}
+        </Box>
       </Box>
     );
   }
@@ -402,8 +488,8 @@ export function DataTable<T>({
         {toolbarNode}
         <Box p={6}>
           <EmptyState
-            title="Nenhuma linha passa nos filtros."
-            description={`${rows.length} ${rows.length === 1 ? "linha escondida" : "linhas escondidas"} pelos filtros da tabela.`}
+            title={textos.filtradoVazioTitulo}
+            description={plural(rows.length, textos.filtradoVazioUma, textos.filtradoVazioMuitas)}
             action={
               <Button
                 size="sm"
@@ -413,7 +499,7 @@ export function DataTable<T>({
                   mudarSort(null);
                 }}
               >
-                Limpar filtros
+                {textos.limparFiltros}
               </Button>
             }
           />
@@ -422,8 +508,12 @@ export function DataTable<T>({
     );
   }
 
-  const cell = (c: Column<T>, row: T) =>
-    c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? "");
+  const cell = (c: Column<T>, row: T) => {
+    if (c.render) return c.render(row);
+    const linha = row as Record<string, unknown>;
+    if (c.kind) return renderCelulaDeclarativa(c, linha[c.key], linha, { textos, formato, enums });
+    return String(linha[c.key] ?? "");
+  };
 
   // Só faz sentido expandir o que tem altura de verdade: mini embutida fica fora.
   const mostraExpandir = expansivel && !mini;
@@ -452,13 +542,15 @@ export function DataTable<T>({
       zIndex={stickyRodape ? 3 : undefined}
     >
       <Text fontSize="xs" color="var(--admin-text-soft)">
-        {from}–{to} de {linhasVisiveis.length}
-        {linhasVisiveis.length !== rows.length ? ` · filtrado de ${rows.length}` : ""}
+        {fmtTexto(textos.rodapeFaixa, { de: from, ate: to, total: linhasVisiveis.length })}
+        {linhasVisiveis.length !== rows.length
+          ? fmtTexto(textos.rodapeFiltradoDe, { total: rows.length })
+          : ""}
       </Text>
       <HStack gap={1}>
         {pages > 1 ? (
           <>
-            <Button size="xs" tone="ghost" disabled={current === 0} onClick={() => setPage(current - 1)} aria-label="Página anterior">
+            <Button size="xs" tone="ghost" disabled={current === 0} onClick={() => setPage(current - 1)} aria-label={textos.paginaAnterior}>
               <ChevronLeft size={14} />
             </Button>
             {/* Salto direto: 80 páginas de leads não se atravessam de chevron em
@@ -472,7 +564,7 @@ export function DataTable<T>({
               min={1}
               max={pages}
               defaultValue={current + 1}
-              aria-label="Ir para a página"
+              aria-label={textos.irParaPagina}
               onBlur={(e) => irParaPagina(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") irParaPagina((e.target as HTMLInputElement).value);
@@ -481,7 +573,7 @@ export function DataTable<T>({
             <Text fontSize="xs" color="var(--admin-text-soft)" pr={1}>
               /{pages}
             </Text>
-            <Button size="xs" tone="ghost" disabled={current >= pages - 1} onClick={() => setPage(current + 1)} aria-label="Próxima página">
+            <Button size="xs" tone="ghost" disabled={current >= pages - 1} onClick={() => setPage(current + 1)} aria-label={textos.paginaProxima}>
               <ChevronRight size={14} />
             </Button>
           </>
@@ -491,8 +583,8 @@ export function DataTable<T>({
             size="xs"
             tone="ghost"
             onClick={() => setExpandido((v) => !v)}
-            aria-label={expandido ? "Sair da tela cheia" : "Expandir para tela cheia"}
-            title={expandido ? "Sair da tela cheia (Esc)" : "Expandir para tela cheia"}
+            aria-label={expandido ? textos.recolher : textos.expandir}
+            title={expandido ? textos.recolherDica : textos.expandir}
           >
             {expandido ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           </Button>
@@ -521,7 +613,7 @@ export function DataTable<T>({
       {toolbarNode}
       {/* Desktop: tabela. Modo página = sem overflow NENHUM (senão mata o sticky). */}
       <Box
-        display={{ base: "none", md: "block" }}
+        display={cards ? { base: "none", md: "block" } : "block"}
         overflowY={modoPagina && !expandido ? undefined : "auto"}
         overflowX={modoPagina && !expandido ? undefined : "auto"}
         flex={expandido ? "1" : undefined}
@@ -551,7 +643,7 @@ export function DataTable<T>({
                     size="sm"
                     checked={allChecked ? true : someChecked ? "indeterminate" : false}
                     onCheckedChange={(e) => selection.onToggleAll(allKeys, e.checked === true)}
-                    aria-label="Selecionar todos"
+                    aria-label={textos.selecionarTodos}
                   >
                     <Checkbox.HiddenInput />
                     <Checkbox.Control />
@@ -577,6 +669,8 @@ export function DataTable<T>({
                     overflow={ordenavel || filtravel ? undefined : "hidden"}
                     textOverflow={ordenavel || filtravel ? undefined : "ellipsis"}
                     aria-sort={ordem ? (ordem === "asc" ? "ascending" : "descending") : undefined}
+                    {...hideProps(c)}
+                    {...presoProps(c, true)}
                   >
                     {ordenavel || filtravel ? (
                       <HStack
@@ -601,7 +695,7 @@ export function DataTable<T>({
                             letterSpacing="inherit"
                             color={ordem ? "var(--admin-primary)" : "inherit"}
                             _hover={{ color: "var(--admin-primary)" }}
-                            title={`Ordenar por ${rotuloColuna(c)}`}
+                            title={fmtTexto(textos.ordenarPor, { coluna: rotuloColuna(c) })}
                           >
                             <Box as="span" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
                               {c.header}
@@ -627,6 +721,7 @@ export function DataTable<T>({
                             ativo={ativoDe(c.key)}
                             facetas={facetasDe(c)}
                             onChange={(valores) => mudarFiltroColuna(c.key, valores)}
+                            textos={textos}
                           />
                         ) : null}
                       </HStack>
@@ -655,7 +750,7 @@ export function DataTable<T>({
                   bg="var(--admin-surface)"
                   boxShadow="inset 1px 0 0 var(--admin-divider)"
                 >
-                  Ações
+                  {textos.acoes}
                 </Table.ColumnHeader>
               ) : null}
             </Table.Row>
@@ -696,13 +791,19 @@ export function DataTable<T>({
                     onDragEnd={() => { setDragKey(null); setOverKey(null); }}
                     cursor="grab"
                     color="var(--admin-text-soft)"
-                    title="Arraste para reordenar"
+                    title={textos.arrasteParaReordenar}
                   >
                     <GripVertical size={15} />
                   </Table.Cell>
                 ) : null}
                 {columns.map((c) => (
-                  <Table.Cell key={c.key} textAlign={c.align}>
+                  <Table.Cell
+                    key={c.key}
+                    textAlign={c.align}
+                    whiteSpace={c.nowrap ? "nowrap" : undefined}
+                    {...hideProps(c)}
+                    {...presoProps(c, false, sel)}
+                  >
                     {cell(c, row)}
                   </Table.Cell>
                 ))}
@@ -735,6 +836,7 @@ export function DataTable<T>({
       </Box>
 
       {/* Mobile: cards empilhados (sem scroll lateral) */}
+      {cards ? (
       <Stack
         display={{ base: "flex", md: "none" }}
         gap={0}
@@ -759,6 +861,9 @@ export function DataTable<T>({
             bg={hi ? "rgba(202,138,4,0.10)" : undefined}
             _active={onRowClick ? { bg: "var(--admin-nav-hover)" } : undefined}
           >
+            {renderCard ? (
+              renderCard(row)
+            ) : (
             <Stack gap={1.5}>
               {/* primeira coluna = título do card (com checkbox de seleção à esquerda) */}
               {selection ? (
@@ -769,7 +874,7 @@ export function DataTable<T>({
               ) : (
                 <Box>{cell(columns[0], row)}</Box>
               )}
-              {columns.slice(1).filter((c) => !c.hideOnMobile).map((c) => (
+              {columns.slice(1).filter((c) => !c.hideOnMobile && !c.hideBelow).map((c) => (
                 <HStack key={c.key} gap={2} fontSize="sm" align="baseline">
                   <Text fontSize="xs" color="var(--admin-text-soft)" minW="90px" flexShrink={0}>
                     {c.header}
@@ -783,10 +888,12 @@ export function DataTable<T>({
                 </HStack>
               ) : null}
             </Stack>
+            )}
           </Box>
           );
         })}
       </Stack>
+      ) : null}
 
       {footer}
     </Box>
@@ -816,18 +923,20 @@ export function DataTable<T>({
         p={{ base: 2, md: 3 }}
         role="dialog"
         aria-modal="true"
-        aria-label={titulo ? `${titulo} em tela cheia` : "Tabela em tela cheia"}
+        aria-label={titulo ? fmtTexto(textos.telaCheiaDe, { titulo }) : textos.tabelaTelaCheia}
       >
         <HStack justify="space-between" px={1} flexShrink={0}>
           <Text fontSize="sm" fontWeight="600" lineClamp={1}>
-            {titulo ?? "Tabela"}{" "}
+            {titulo ?? textos.tabela}{" "}
             <Text as="span" color="var(--admin-text-soft)" fontWeight="400">
-              · {linhasVisiveis.length} {linhasVisiveis.length === 1 ? "item" : "itens"}
-              {linhasVisiveis.length !== rows.length ? ` (de ${rows.length})` : ""}
+              · {plural(linhasVisiveis.length, textos.umItem, textos.muitosItens)}
+              {linhasVisiveis.length !== rows.length
+                ? fmtTexto(textos.itensDeTotal, { total: rows.length })
+                : ""}
             </Text>
           </Text>
           <Button size="xs" tone="ghost" onClick={() => setExpandido(false)}>
-            <Minimize2 size={14} /> Fechar (Esc)
+            <Minimize2 size={14} /> {textos.fechar}
           </Button>
         </HStack>
         {cartao}

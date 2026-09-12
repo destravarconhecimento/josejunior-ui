@@ -68,7 +68,7 @@ export { AcaoIcone, type AcaoTone } from "./components/AcaoIcone";
 export { TextoCopiavel } from "./components/TextoCopiavel";
 // Telefone de linha de lista: selo "tem WhatsApp?" + o número clicável pra copiar
 export { NumeroWhats, type SituacaoWhats } from "./components/NumeroWhats";
-export { Tag, StatusBadge, DeliveryBadge } from "./components/Badge";
+export { Tag, StatusBadge, DeliveryBadge, estiloDeStatus } from "./components/Badge";
 // A ficha do lead — a MESMA nos dois painéis (José e representante)
 export {
   FichaLead,
@@ -196,6 +196,32 @@ export {
 export { type PresetTabela, lerPresets, gravarPresets } from "./components/table/presets";
 export { AcoesLinha, type AcaoLinha } from "./components/table/AcoesLinha";
 export { ChipFiltro } from "./components/table/BarraTabela";
+export {
+  type KindCelula,
+  type ColunaCelula,
+  type PaletaEnum,
+  type CatalogoEnumsUi,
+  CORES_ENUM,
+  EnumTag,
+  humanizarEnum,
+  chavePaletaEnum,
+  rotuloEnum,
+  paletaEnum,
+  renderCelulaDeclarativa,
+} from "./components/table/celula-declarativa";
+export { type UiTextos, UI_TEXTOS_PT, fmtTexto, plural } from "./textos";
+export {
+  type FormatoUi,
+  FORMATO_PT,
+  FUSO_OPERACAO,
+  localeIntl,
+  formatarMoeda,
+  formatarNumero,
+  formatarPercentual,
+  formatarData,
+  formatarDataHora,
+} from "./format";
+export { UiTextosProvider, useUiTextos, useUiFormato, useUiEnums } from "./provider/textos";
 export { FunilLeadsTable } from "./components/funil/FunilLeadsTable";
 export {
   CONTATO_META,

@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { Box, Checkbox, HStack, Input, Popover, Portal, Stack, Text } from "@chakra-ui/react";
 import { Filter } from "lucide-react";
 import { norm } from "../../search";
+import { useUiTextos } from "../../provider/textos";
+import { fmtTexto, type UiTextos } from "../../textos";
 import type { ValorFaceta } from "./filtros";
 
 /**
@@ -18,13 +20,17 @@ export function ListaFacetas({
   facetas,
   ativo,
   onChange,
+  textos,
 }: {
   /** Facetas JÁ computadas (quem monta decide a hora — sempre lazy). */
   facetas: ValorFaceta[];
   /** Chaves marcadas; `null` = sem filtro nesta coluna. */
   ativo: string[] | null;
   onChange: (valores: string[] | null) => void;
+  /** Strings já resolvidas pela DataTable; sem elas vem do contexto/pt-BR. */
+  textos?: UiTextos;
 }) {
+  const t = useUiTextos(textos);
   const [busca, setBusca] = useState("");
   const visiveis = useMemo(() => {
     const q = norm(busca.trim());
@@ -99,7 +105,7 @@ export function ListaFacetas({
         <Input
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar valor…"
+          placeholder={t.buscarValor}
           size="sm"
           bg="var(--admin-surface)"
           color="var(--admin-text)"
@@ -110,7 +116,7 @@ export function ListaFacetas({
       {linha({
         checked: ativo == null ? true : "indeterminate",
         onCheck: () => onChange(null),
-        rotulo: "Selecionar tudo",
+        rotulo: t.selecionarTudo,
         n: total,
         forte: true,
       })}
@@ -128,7 +134,7 @@ export function ListaFacetas({
         )}
         {visiveis.length === 0 ? (
           <Text fontSize="sm" color="var(--admin-text-soft)" px={2} py={2}>
-            Nenhum valor com &quot;{busca}&quot;.
+            {fmtTexto(t.nenhumValorCom, { busca })}
           </Text>
         ) : null}
       </Stack>
@@ -146,13 +152,17 @@ export function FiltroColunaMenu({
   ativo,
   facetas,
   onChange,
+  textos,
 }: {
   rotulo: string;
   ativo: string[] | null;
   /** Callback (não lista): computado só quando o popover abre. */
   facetas: () => ValorFaceta[];
   onChange: (valores: string[] | null) => void;
+  /** Strings já resolvidas pela DataTable; sem elas vem do contexto/pt-BR. */
+  textos?: UiTextos;
 }) {
+  const t = useUiTextos(textos);
   const [open, setOpen] = useState(false);
   const temFiltro = ativo != null && ativo.length > 0;
 
@@ -167,8 +177,8 @@ export function FiltroColunaMenu({
       <Popover.Trigger asChild>
         <Box
           as="button"
-          aria-label={`Filtrar ${rotulo}`}
-          title={`Filtrar ${rotulo}`}
+          aria-label={fmtTexto(t.filtrarColuna, { coluna: rotulo })}
+          title={fmtTexto(t.filtrarColuna, { coluna: rotulo })}
           // O th em volta é o botão de ordenar — o clique aqui não pode subir.
           onClick={(e) => e.stopPropagation()}
           p="3px"
@@ -194,7 +204,7 @@ export function FiltroColunaMenu({
             <Text fontSize="xs" fontWeight={600} textTransform="uppercase" letterSpacing="0.04em" color="var(--admin-text-soft)" px={2} pb={1.5}>
               {rotulo}
             </Text>
-            <FacetasLazy facetas={facetas} ativo={ativo} onChange={onChange} />
+            <FacetasLazy facetas={facetas} ativo={ativo} onChange={onChange} textos={t} />
           </Popover.Content>
         </Popover.Positioner>
       </Portal>
@@ -207,11 +217,13 @@ export function FacetasLazy({
   facetas,
   ativo,
   onChange,
+  textos,
 }: {
   facetas: () => ValorFaceta[];
   ativo: string[] | null;
   onChange: (valores: string[] | null) => void;
+  textos?: UiTextos;
 }) {
   const [lista] = useState(() => facetas());
-  return <ListaFacetas facetas={lista} ativo={ativo} onChange={onChange} />;
+  return <ListaFacetas facetas={lista} ativo={ativo} onChange={onChange} textos={textos} />;
 }
