@@ -4,6 +4,7 @@ import { ChakraProvider } from "@chakra-ui/react";
 import { ThemeProvider } from "next-themes";
 import { useMemo, type ReactNode } from "react";
 import { getUiSystem, type UiSystem } from "./system";
+import { ColorModeSwitchableProvider } from "./color-mode";
 
 /**
  * Provider único de UI do design-system: faz a fiação `next-themes` + Chakra
@@ -16,6 +17,8 @@ import { getUiSystem, type UiSystem } from "./system";
  *
  * - `mode`: "light" | "dark" (padrão light).
  * - `forceMode`: trava o tema (forcedTheme) vs só o default (defaultTheme).
+ *   Com `forceMode={false}` a troca de tema fica LIGADA e os shells passam a
+ *   mostrar o `ColorModeButton` (via contexto, sem prop nas telas).
  */
 export function UiProvider({
   children,
@@ -34,8 +37,11 @@ export function UiProvider({
       attribute="class"
       enableSystem={false}
       {...(forceMode ? { forcedTheme: mode } : { defaultTheme: mode })}
+      disableTransitionOnChange
     >
-      <ChakraProvider value={sys}>{children}</ChakraProvider>
+      <ChakraProvider value={sys}>
+        <ColorModeSwitchableProvider value={!forceMode}>{children}</ColorModeSwitchableProvider>
+      </ChakraProvider>
     </ThemeProvider>
   );
 }

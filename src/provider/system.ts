@@ -20,6 +20,7 @@
 // garantida pelo bundler em vez de confiada a cada call site. Ninguém chama o
 // system no servidor: os `makeSystem` dos apps só rodam no render do Provider.
 import { createSystem, defaultConfig, defineConfig } from "@chakra-ui/react";
+import { PAINEL_CONFIG } from "../theme/painel-config";
 
 /**
  * Fábrica do `system` do Chakra para os apps — assim `createSystem`/`defineConfig`
@@ -58,3 +59,14 @@ export function getUiSystem(): UiSystem {
     },
   }));
 }
+
+/**
+ * System do PAINEL — `defaultConfig` + base compartilhada (`PAINEL_CONFIG`) +
+ * a config do app encadeada por último (a marca do app ganha). LAZY: é função.
+ * A landing (`apps/web`) NÃO usa esta base — segue em `createUiSystem`.
+ */
+export function createPainelSystem(config?: Parameters<typeof defineConfig>[0]): UiSystem {
+  return createSystem(defaultConfig, PAINEL_CONFIG, defineConfig(config ?? {}));
+}
+
+export { PAINEL_CONFIG };

@@ -10,7 +10,20 @@ export * from "./chakra-controls";
 
 // Provider único de UI (next-themes + Chakra) + fábrica de system (cor do chamador)
 export { UiProvider } from "./provider/UiProvider";
-export { createUiSystem, getUiSystem, type UiSystem } from "./provider/system";
+export {
+  createUiSystem,
+  createPainelSystem,
+  getUiSystem,
+  PAINEL_CONFIG,
+  type UiSystem,
+} from "./provider/system";
+export {
+  ColorModeProvider,
+  ColorModeButton,
+  useColorMode,
+  useColorModeSwitchable,
+  type ColorMode,
+} from "./provider/color-mode";
 
 // Tema / shell visual
 export {

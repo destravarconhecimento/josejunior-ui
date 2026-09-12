@@ -8,6 +8,7 @@ import { ChevronsUpDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { BottomNav } from "./BottomNav";
 import { NavSearch } from "./NavSearch";
 import { UserMenu, SiteLinkItem } from "./UserMenu";
+import { ColorModeButton, useColorModeSwitchable } from "../provider/color-mode";
 import { isActiveHref } from "./ActiveLink";
 import { AdminBrandLogo, AdminCrest, initialsFrom } from "../theme/AdminThemeShell";
 import { UserAvatar } from "../components/UserAvatar";
@@ -113,10 +114,13 @@ export function AppShell({
   // Atalhos do rodapé numa fileira só: sino/e-mail + idioma. O seletor tinha linha
   // própria e virava uma pílula solta boiando acima do avatar. Mesma ordem da topbar
   // mobile (sino → idioma → usuário). `wrap` porque recolhido a sidebar tem 84px.
+  const podeTrocarTema = useColorModeSwitchable();
+  const botaoTema = podeTrocarTema ? <ColorModeButton onDark /> : null;
   const utilities =
-    utilitiesSlot || localeSlot ? (
+    utilitiesSlot || localeSlot || botaoTema ? (
       <HStack gap={1.5} justify="center" flexWrap="wrap">
         {utilitiesSlot}
+        {botaoTema}
         {localeSlot}
       </HStack>
     ) : null;
@@ -442,6 +446,7 @@ export function AppShell({
                 a sidebar não existe aqui). No staff/sistema seguem só na sidebar.
                 Ordem: sino → idioma → usuário. */}
             {onBrandTopbar ? utilitiesSlot : null}
+            {podeTrocarTema ? <ColorModeButton onDark={onBrandTopbar} /> : null}
             {localeSlot}
             <UserMenu
               user={user}

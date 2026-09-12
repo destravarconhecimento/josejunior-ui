@@ -28,7 +28,37 @@ export type AdminPalette = {
   navActive: string;
   /** Sombra dos cards. */
   cardShadow: string;
+  /**
+   * Liga o MODO ESCURO do painel: o claro segue exatamente esta paleta e, sob
+   * `:root.dark`, os campos NEUTROS (texto, superfícies, borda, fundo, sombra)
+   * passam a ler os tokens semânticos do Chakra (`createPainelSystem`). A cor
+   * de MARCA (primary/accent/dark, nav, fontes) continua vindo daqui nos dois
+   * modos. Opt-in: paleta que não liga não muda em nada.
+   */
+  dualMode?: boolean;
 };
+
+/**
+ * Neutros do `--admin-*` lidos dos tokens semânticos do Chakra (só no escuro).
+ *
+ * O seletor leva `.dark body` junto do `:root.dark` de propósito: a condição
+ * escura do Chakra compila para `.dark &`, e o `&` no topo do arquivo global
+ * pode resolver tanto para o PRÓPRIO `.dark` quanto para um DESCENDENTE dele.
+ * Se fosse só `:root.dark`, na segunda leitura o `var(--chakra-colors-*)` seria
+ * substituído no `<html>`, onde só existe o valor CLARO — o painel "escuro"
+ * sairia com superfície branca. Declarando também no `<body>`, que é
+ * descendente em qualquer leitura, o valor certo é o que todo mundo herda.
+ */
+const NEUTROS_NO_ESCURO = `:root.dark,.dark body{
+  --admin-text:var(--chakra-colors-fg);
+  --admin-text-soft:var(--chakra-colors-fg-muted);
+  --admin-surface:var(--chakra-colors-bg-panel);
+  --admin-surface-2:var(--chakra-colors-bg-inset);
+  --admin-border:var(--chakra-colors-border);
+  --admin-divider:var(--chakra-colors-border-muted);
+  --admin-bg:var(--chakra-colors-bg-subtle);
+  --admin-card-shadow:var(--chakra-shadows-card);
+}`;
 
 /** Monta o bloco `:root{ --admin-* }` a partir da paleta. */
 export function buildAdminTokensCss(p: AdminPalette): string {
@@ -51,5 +81,6 @@ export function buildAdminTokensCss(p: AdminPalette): string {
   --admin-nav-hover:${p.navHover};
   --admin-nav-active:${p.navActive};
   --admin-card-shadow:${p.cardShadow};
-}`;
+}${p.dualMode ? `
+${NEUTROS_NO_ESCURO}` : ""}`;
 }

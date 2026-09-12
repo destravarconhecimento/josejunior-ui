@@ -10,6 +10,7 @@ import { NavSearch } from "./NavSearch";
 import { TopNav } from "./TopNav";
 import { UserMenu } from "./UserMenu";
 import { AdminBrandLogo, AdminCrest, initialsFrom } from "../theme/AdminThemeShell";
+import { ColorModeButton, useColorModeSwitchable } from "../provider/color-mode";
 import type { AppUser, Brand, NavSection } from "./types";
 
 /**
@@ -67,6 +68,7 @@ export function TopBarShell({
   children: ReactNode;
 }) {
   const onBrand = topbarVariant === "brand";
+  const podeTrocarTema = useColorModeSwitchable();
   // Só o ÍCONE da marca (o `logoUrl` já é a variante ícone — o horizontal com
   // nome é o `wideLogoUrl`). O nome sai do header de propósito: ele se repete no
   // título da aba e a topbar precisa do espaço horizontal pros grupos.
@@ -147,6 +149,7 @@ export function TopBarShell({
           </Box>
           {searchSlot}
           {utilitiesSlot}
+          {podeTrocarTema ? <ColorModeButton onDark={onBrand} /> : null}
           {localeSlot}
           <UserMenu
             user={user}
