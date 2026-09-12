@@ -15,6 +15,7 @@ import {
 import { EmptyState } from "./EmptyState";
 import { Button } from "./Button";
 import { ordenarLinhas, proximoSort, type SortState, type ValorCelula } from "./table/sort";
+import { AcoesLinha, larguraAcoesLinha, type AcoesDeclaradas } from "./table/AcoesLinha";
 import { aplicarFiltros, valoresDistintos, type FiltroColuna } from "./table/filtros";
 import { FiltroColunaMenu } from "./table/FiltroColunaMenu";
 import { BarraTabela } from "./table/BarraTabela";
@@ -130,6 +131,7 @@ export function DataTable<T>({
   selectedKey,
   actions,
   actionsWidth,
+  acoesDaLinha,
   pageSize = PAGE_SIZE,
   // Default = modo PÁGINA (sem scroll interno; quem rola é a janela). `false` =
   // mini/natural; `number` = offset legado (evite). Ver o bloco ALTURA no doc acima.
@@ -177,6 +179,7 @@ export function DataTable<T>({
    * Com a reserva, a coluna tem piso e quem cede largura é o texto.
    */
   actionsWidth?: string;
+  acoesDaLinha?: (row: T) => AcoesDeclaradas;
   pageSize?: number;
   /** Altura. Default (`true`) = modo PÁGINA: altura natural, sem scroll interno,
    *  sticky na toolbar/`thead`/rodapé. `false` = mini/natural (tabela secundária
@@ -236,6 +239,13 @@ export function DataTable<T>({
    */
   alturaMax?: string;
 }) {
+  const acoesPorLinha = acoesDaLinha ? rows.map((r) => acoesDaLinha(r)) : null;
+  const celulaAcoes = acoesDaLinha
+    ? acoesPorLinha?.some((l) => l.some((a) => a && !a.oculta))
+      ? (row: T) => <AcoesLinha acoes={acoesDaLinha(row)} />
+      : undefined
+    : actions;
+  const larguraAcoes = actionsWidth ?? (acoesPorLinha ? larguraAcoesLinha(acoesPorLinha, { dense }) : undefined);
   const textos = useUiTextos(textosProp);
   const formato = useUiFormato();
   const enums = useUiEnums();
@@ -411,7 +421,7 @@ export function DataTable<T>({
       }
       return somaLarguras(partes);
     }
-    const partes = actions ? [actionsWidth ?? "0px"] : [];
+    const partes = celulaAcoes ? [larguraAcoes ?? "0px"] : [];
     const idx = presasFim.findIndex((outra) => outra.key === c.key);
     for (let i = presasFim.length - 1; i > idx; i--) partes.push(presasFim[i].width ?? "0px");
     return somaLarguras(partes);
@@ -753,7 +763,7 @@ export function DataTable<T>({
                   </Table.ColumnHeader>
                 );
               })}
-              {actions ? (
+              {celulaAcoes ? (
                 // CONGELADA à direita: some o problema de "ações fora da tela" quando
                 // a tabela rola na horizontal (sem overflow, fica igual a antes).
                 <Table.ColumnHeader
@@ -764,8 +774,8 @@ export function DataTable<T>({
                   letterSpacing="0.04em"
                   color="var(--admin-text-soft)"
                   whiteSpace="nowrap"
-                  width={actionsWidth}
-                  minW={actionsWidth}
+                  width={larguraAcoes}
+                  minW={larguraAcoes}
                   position="sticky"
                   right={0}
                   zIndex={2}
@@ -789,7 +799,7 @@ export function DataTable<T>({
                 return (
                   <Table.Row key={rowKey} bg="var(--admin-surface-2)" {...extras}>
                     <Table.Cell
-                      colSpan={columns.length + (selection ? 1 : 0) + (onReorder ? 1 : 0) + (actions ? 1 : 0)}
+                      colSpan={columns.length + (selection ? 1 : 0) + (onReorder ? 1 : 0) + (celulaAcoes ? 1 : 0)}
                       fontSize="xs"
                       fontWeight="600"
                       color="var(--admin-text-soft)"
@@ -846,15 +856,15 @@ export function DataTable<T>({
                     {cell(c, row)}
                   </Table.Cell>
                 ))}
-                {actions ? (
+                {celulaAcoes ? (
                   <Table.Cell
                     textAlign="end"
                     onClick={(e) => e.stopPropagation()}
                     position="sticky"
                     right={0}
                     zIndex={1}
-                    width={actionsWidth}
-                    minW={actionsWidth}
+                    width={larguraAcoes}
+                    minW={larguraAcoes}
                     // O `overflowWrap: anywhere` do modo página vale pra TODA
                     // `td`; aqui ele quebraria a fila de botões. Ações não são
                     // texto — não quebram, não encolhem.
@@ -863,7 +873,7 @@ export function DataTable<T>({
                     boxShadow="inset 1px 0 0 var(--admin-divider)"
                   >
                     <HStack gap={1} justify="flex-end" flexWrap="nowrap" css={{ "& > *": { flexShrink: 0 } }}>
-                      {actions(row)}
+                      {celulaAcoes(row)}
                     </HStack>
                   </Table.Cell>
                 ) : null}
@@ -940,9 +950,9 @@ export function DataTable<T>({
                   <Box minW={0}>{cell(c, row)}</Box>
                 </HStack>
               ))}
-              {actions ? (
+              {celulaAcoes ? (
                 <HStack gap={1} pt={1} onClick={(e) => e.stopPropagation()}>
-                  {actions(row)}
+                  {celulaAcoes(row)}
                 </HStack>
               ) : null}
             </Stack>

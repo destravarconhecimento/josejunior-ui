@@ -194,7 +194,14 @@ export {
   valoresDistintos,
 } from "./components/table/filtros";
 export { type PresetTabela, lerPresets, gravarPresets } from "./components/table/presets";
-export { AcoesLinha, type AcaoLinha } from "./components/table/AcoesLinha";
+export {
+  AcoesLinha,
+  repartirAcoesLinha,
+  larguraAcoesLinha,
+  MAX_SLOTS_ACOES,
+  type AcaoLinha,
+  type AcoesDeclaradas,
+} from "./components/table/AcoesLinha";
 export { ChipFiltro } from "./components/table/BarraTabela";
 export {
   type KindCelula,
