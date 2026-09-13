@@ -1,19 +1,12 @@
 "use client";
 
 import { type ReactNode } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Box, Flex, Text, VStack } from "@chakra-ui/react";
 import { MoreHorizontal } from "lucide-react";
 import { MobileNav } from "./MobileNav";
-import { isActiveHref } from "./ActiveLink";
+import { isItemActive, useShellNav } from "./ShellNav";
 import type { Brand, NavItem, NavSection } from "./types";
 
-/**
- * Destinos primários da barra inferior (mobile). Para cada slot, usa o primeiro
- * href disponível conforme os módulos/RBAC do tenant (cai pro próximo). O 4º
- * slot é sempre "Menu" → abre o drawer completo do MobileNav.
- */
 const PRIMARY_HREFS: string[][] = [
   ["/dashboard"],
   ["/conversas", "/pendencias"],
@@ -31,7 +24,6 @@ function pickItems(sections: NavSection[]): NavItem[] {
 
   const out: NavItem[] = [];
   const used = new Set<string>();
-  // 1) Preferência CURADA (cartório/staff): mantém a ordem escolhida à mão.
   for (const prefs of PRIMARY_HREFS) {
     const href = prefs.find((h) => byHref.has(h));
     if (href && !used.has(href)) {
@@ -39,10 +31,6 @@ function pickItems(sections: NavSection[]): NavItem[] {
       used.add(href);
     }
   }
-  // 2) Completa até 3 com os PRIMEIROS itens do menu do tenant (qualquer persona:
-  //    aluno, host, etc.). Sem isto, tenants cujas rotas não batem com a lista
-  //    curada (ex.: portal do aluno: /aluno, /hub…) ficavam com o dock vazio — só
-  //    o "Menu". Agora o dock sempre traz as ações principais.
   for (const it of ordered) {
     if (out.length >= 3) break;
     if (!used.has(it.href)) {
@@ -53,7 +41,6 @@ function pickItems(sections: NavSection[]): NavItem[] {
   return out.slice(0, 3);
 }
 
-/** Conteúdo interno de um slot (ícone + rótulo), com estado ativo. */
 function SlotInner({
   icon,
   label,
@@ -101,22 +88,26 @@ function SlotInner({
   );
 }
 
-/**
- * Barra de navegação inferior — SÓ mobile. 3 destinos principais + "Menu" (abre
- * o drawer). Fixa no rodapé; herda as cores do tenant via `--admin-*`. Alvos de
- * toque ≥ 48px (cada slot ocupa 1/4 da largura × 62px de altura).
- */
 export function BottomNav({
   brand,
   sections,
   logoutSlot,
+  items: itemsOverride,
+  onMenuClick,
 }: {
   brand: Brand;
   sections: NavSection[];
   logoutSlot?: ReactNode;
+  items?: NavItem[];
+  onMenuClick?: () => void;
 }) {
-  const pathname = usePathname();
-  const items = pickItems(sections);
+  const { Link, pathname, textos } = useShellNav();
+  const items = itemsOverride ? itemsOverride.slice(0, 4) : pickItems(sections);
+  const menuButton = (
+    <Box as="button" flex="1" minW={0} aria-label={textos.abrirMenu} onClick={onMenuClick}>
+      <SlotInner icon={<MoreHorizontal size={22} />} label={textos.menu} />
+    </Box>
+  );
   return (
     <Flex
       as="nav"
@@ -135,25 +126,20 @@ export function BottomNav({
       bg="var(--admin-surface)"
     >
       {items.map((item) => {
-        const active = isActiveHref(pathname, item.href);
+        const active = isItemActive(pathname, item);
         return (
           <Box asChild key={item.href} flex="1" minW={0}>
-            <Link href={item.href} aria-label={item.label}>
+            <Link href={item.href} aria-label={item.label} aria-current={active ? "page" : undefined}>
               <SlotInner icon={item.icon} label={item.label} active={active} badge={item.badge} />
             </Link>
           </Box>
         );
       })}
-      <MobileNav
-        brand={brand}
-        sections={sections}
-        logoutSlot={logoutSlot}
-        trigger={
-          <Box as="button" flex="1" minW={0} aria-label="Abrir menu">
-            <SlotInner icon={<MoreHorizontal size={22} />} label="Menu" />
-          </Box>
-        }
-      />
+      {onMenuClick ? (
+        menuButton
+      ) : (
+        <MobileNav brand={brand} sections={sections} logoutSlot={logoutSlot} trigger={menuButton} />
+      )}
     </Flex>
   );
 }

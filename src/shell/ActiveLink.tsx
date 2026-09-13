@@ -1,17 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Box, HStack, Text } from "@chakra-ui/react";
+import { isItemActive, useShellNav } from "./ShellNav";
 import type { NavItem } from "./types";
 
-export function isActiveHref(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(href + "/");
-}
+export { isActiveHref } from "./ShellNav";
 
-/** Item de navegação (dropdown / drawer) com estado ativo por rota.
- *  `dense` = tile compacto p/ grade de 2 colunas (mobile): ícone + rótulo
- *  truncado, altura mínima de toque, sem descrição. */
 export function ActiveLink({
   item,
   onNavigate,
@@ -21,14 +15,15 @@ export function ActiveLink({
   onNavigate?: () => void;
   dense?: boolean;
 }) {
-  const pathname = usePathname();
-  const active = isActiveHref(pathname, item.href);
+  const { Link, pathname } = useShellNav();
+  const active = isItemActive(pathname, item);
 
   if (dense) {
     return (
       <Link
         href={item.href}
         onClick={onNavigate}
+        aria-current={active ? "page" : undefined}
         style={{ display: "block", textDecoration: "none", minWidth: 0 }}
       >
         <HStack
@@ -70,6 +65,7 @@ export function ActiveLink({
     <Link
       href={item.href}
       onClick={onNavigate}
+      aria-current={active ? "page" : undefined}
       style={{ display: "block", textDecoration: "none" }}
     >
       <HStack

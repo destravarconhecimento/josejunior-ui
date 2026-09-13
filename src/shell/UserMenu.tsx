@@ -1,20 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { Box, HStack, Menu, Portal, Stack, Text } from "@chakra-ui/react";
 import { ChevronDown, Globe, KeyRound } from "lucide-react";
 import { Button } from "../components/Button";
 import { UserAvatar } from "../components/UserAvatar";
+import { useShellNav } from "./ShellNav";
 import type { AppUser } from "./types";
 
-/**
- * Item "Ir para o site" dos menus do usuário (rodapé do sidebar + dropdown do
- * topo mobile). Sai do painel logado para a página pública SEM deslogar — a
- * sessão continua guardada (só uma navegação normal). Reusado nos dois lugares
- * para não divergir. `href` pode ser relativo (`/`) ou absoluto (outro domínio).
- */
 export function SiteLinkItem({ href, label }: { href: string; label?: string }) {
+  const { Link, textos } = useShellNav();
   return (
     <Button
       asChild
@@ -27,13 +22,12 @@ export function SiteLinkItem({ href, label }: { href: string; label?: string }) 
       _hover={{ bg: "var(--admin-nav-hover)", color: "var(--admin-primary)" }}
     >
       <Link href={href}>
-        <Globe size={15} style={{ marginRight: 8 }} /> {label ?? "Ir para o site"}
+        <Globe size={15} style={{ marginRight: 8 }} /> {label ?? textos.irParaSite}
       </Link>
     </Button>
   );
 }
 
-/** Bloco do usuário logado (Chakra Menu): iniciais + nome + dropdown com conta/logout. */
 export function UserMenu({
   user,
   logoutSlot,
@@ -47,23 +41,15 @@ export function UserMenu({
 }: {
   user: AppUser;
   logoutSlot?: ReactNode;
-  /** Item "Meu perfil" (ex.: abre modal de conta). Tem precedência sobre accountHref. */
   accountSlot?: ReactNode;
-  /** Link da área "Conta & senha" (ex.: /conta). Sem isso, o item não aparece. */
   accountHref?: string;
-  /** Link "Ir para o site" (página pública). Sem isso, o item não aparece. */
   siteHref?: string;
-  /** Rótulo do link do site (default "Ir para o site"). */
   siteLabel?: string;
-  /** Versão do app, discreta no rodapé do dropdown (fora da topbar, que ficava poluída). */
   version?: string;
-  /** Está sobre fundo colorido (topbar de marca) → nome/seta claros. O
-   *  `admin-navbtn` pinta de texto escuro, então sai de cena aqui. */
   onDark?: boolean;
-  /** Só avatar + seta, sem o nome. Para topbar cheia (o nome já está dentro do
-   *  dropdown) — devolve espaço horizontal pros grupos do menu. */
   compact?: boolean;
 }) {
+  const { Link, textos } = useShellNav();
   return (
     <Menu.Root positioning={{ placement: "bottom-end" }}>
       <Menu.Trigger asChild>
@@ -128,7 +114,7 @@ export function UserMenu({
                     _hover={{ bg: "var(--admin-nav-hover)", color: "var(--admin-primary)" }}
                   >
                     <Link href={accountHref}>
-                      <KeyRound size={15} style={{ marginRight: 8 }} /> Conta &amp; senha
+                      <KeyRound size={15} style={{ marginRight: 8 }} /> {textos.contaSenha}
                     </Link>
                   </Button>
                 </Box>
@@ -144,7 +130,7 @@ export function UserMenu({
                 </Box>
               ) : null}
               {version ? (
-                <Text fontSize="10px" color="var(--admin-text-soft)" textAlign="center" title={`Versão ${version}`}>
+                <Text fontSize="10px" color="var(--admin-text-soft)" textAlign="center" title={`v${version}`}>
                   v{version}
                 </Text>
               ) : null}

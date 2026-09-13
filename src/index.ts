@@ -51,6 +51,17 @@ export { UserMenu } from "./shell/UserMenu";
 export { MobileNav } from "./shell/MobileNav";
 export { BottomNav } from "./shell/BottomNav";
 export { ActiveLink, isActiveHref } from "./shell/ActiveLink";
+export {
+  ShellNavProvider,
+  useShellNav,
+  isItemActive,
+  chunkByGroup,
+  SHELL_TEXTOS_PT,
+  type ShellTextos,
+  type ShellLinkComponent,
+  type ShellNavConfig,
+  type NavItemChunk,
+} from "./shell/ShellNav";
 export type { NavItem, NavSection, Brand, AppUser } from "./shell/types";
 
 // Primitivos

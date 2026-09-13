@@ -1,23 +1,20 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { Box, HStack, Menu, Portal, Stack, Text } from "@chakra-ui/react";
 import { Bell } from "lucide-react";
+import { useShellNav } from "./ShellNav";
 
 export type NotificationTone = "info" | "atencao" | "critico";
 
 export type NotificationItem = {
   id: string;
-  /** Linha principal (ex.: "3 leads novos na captação"). */
   title: string;
-  /** Apoio opcional (ex.: nome do lead, hora). */
   description?: string;
-  /** Pra onde o "Ir para" leva. */
   href: string;
   tone?: NotificationTone;
-  /** Ícone JÁ renderizado (o Server Component não passa função). */
   icon?: ReactNode;
+  count?: number;
 };
 
 const TONE_COLOR: Record<NotificationTone, string> = {
@@ -26,39 +23,32 @@ const TONE_COLOR: Record<NotificationTone, string> = {
   critico: "#dc2626",
 };
 
-/**
- * Sino da topbar: badge com o total e popover com as notificações.
- *
- * NÃO é o inbox de e-mail — e-mail tem o próprio atalho (`NavBadgeLink`). Aqui
- * entra o que exige AÇÃO em outra tela: atendimento em risco, lead novo,
- * candidatura de representante. Cada item leva pra tela dona do assunto.
- *
- * Sem fetch: os itens vêm prontos do layout (Server Component) e atualizam na
- * navegação — mesmo contrato do `NavBadgeLink`, e sem pôr um poll no topo de
- * todas as telas.
- */
 export function NotificationBell({
   items,
   onDark = false,
-  emptyLabel = "Nada pendente por aqui.",
+  emptyLabel,
+  title,
 }: {
   items: NotificationItem[];
   onDark?: boolean;
   emptyLabel?: string;
+  title?: string;
 }) {
-  const count = items.length;
+  const { Link, textos } = useShellNav();
+  const titulo = title ?? textos.notificacoes;
+  const count = items.reduce((total, n) => total + (n.count ?? 1), 0);
   const shown = count > 99 ? "99+" : String(count);
 
   return (
-    <Menu.Root positioning={{ placement: "bottom-end" }}>
+    <Menu.Root positioning={{ placement: "bottom-end" }} lazyMount unmountOnExit>
       <Menu.Trigger asChild>
         <Box
           as="button"
           position="relative"
           display="inline-flex"
           flexShrink={0}
-          aria-label={count > 0 ? `Notificações (${count})` : "Notificações"}
-          title="Notificações"
+          aria-label={count > 0 ? `${titulo} (${count})` : titulo}
+          title={titulo}
         >
           <Box
             className={onDark ? undefined : "admin-navbtn"}
@@ -100,12 +90,12 @@ export function NotificationBell({
         <Menu.Positioner>
           <Menu.Content className="admin-dropdown" minW="320px" maxW="380px" p={2} borderRadius="14px">
             <Text px={2} pt={1} pb={2} fontSize="xs" fontWeight="700" color="var(--admin-text-soft)">
-              Notificações
+              {titulo}
             </Text>
 
-            {count === 0 ? (
+            {items.length === 0 ? (
               <Text px={2} pb={2} fontSize="sm" color="var(--admin-text-soft)">
-                {emptyLabel}
+                {emptyLabel ?? textos.nadaPendente}
               </Text>
             ) : (
               <Stack gap={0.5} maxH="60vh" overflowY="auto" className="admin-scroll">
@@ -128,9 +118,26 @@ export function NotificationBell({
                             </Text>
                           ) : null}
                         </Box>
-                        <Text fontSize="xs" fontWeight="700" color="var(--admin-primary)" flexShrink={0} mt="2px">
-                          Ir para
-                        </Text>
+                        {n.count != null ? (
+                          <Text
+                            flexShrink={0}
+                            mt="2px"
+                            minW="22px"
+                            px={1.5}
+                            borderRadius="full"
+                            textAlign="center"
+                            fontSize="xs"
+                            fontWeight="800"
+                            color="white"
+                            bg={TONE_COLOR[n.tone ?? "info"]}
+                          >
+                            {n.count > 99 ? "99+" : n.count}
+                          </Text>
+                        ) : (
+                          <Text fontSize="xs" fontWeight="700" color="var(--admin-primary)" flexShrink={0} mt="2px">
+                            {textos.irPara}
+                          </Text>
+                        )}
                       </HStack>
                     </Link>
                   </Menu.Item>

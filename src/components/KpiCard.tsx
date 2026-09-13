@@ -117,6 +117,8 @@ export type KpiRowItem = {
   tone?: KpiTone;
   icon?: ReactNode;
   hint?: string;
+  trend?: ReactNode;
+  trendTone?: KpiTrendTone;
   onClick?: () => void;
   active?: boolean;
   atributos?: Record<`data-${string}`, string | number | undefined>;
@@ -195,6 +197,11 @@ export function KpiRow({
                 >
                   {item.value}
                 </Text>
+                {item.trend != null && item.trend !== "" ? (
+                  <Text fontSize="xs" fontWeight="700" color={TREND[item.trendTone ?? "neutral"]} whiteSpace="nowrap">
+                    {item.trend}
+                  </Text>
+                ) : null}
               </HStack>
             );
           })}
