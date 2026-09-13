@@ -25,6 +25,7 @@ import { PageBody } from "./PageBody";
  */
 export function Screen({
   title,
+  rawTitle,
   titleAfter,
   subtitle,
   count,
@@ -36,6 +37,7 @@ export function Screen({
   fill = false,
 }: {
   title: string;
+  rawTitle?: boolean;
   /** Controle colado ao título, na MESMA linha (ex.: seletor de contas do e-mail/
    *  redes sociais). Repassado ao `PageHeader`. */
   titleAfter?: ReactNode;
@@ -100,6 +102,7 @@ export function Screen({
     >
       <PageHeader
         title={title}
+        rawTitle={rawTitle}
         titleAfter={titleAfter}
         subtitle={subtitle}
         count={count}

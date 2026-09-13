@@ -28,6 +28,8 @@ export type AdminPalette = {
   navActive: string;
   /** Sombra dos cards. */
   cardShadow: string;
+  titleTransform?: string;
+  titleLetterSpacing?: string;
   /**
    * Liga o MODO ESCURO do painel: o claro segue exatamente esta paleta e, sob
    * `:root.dark`, os campos NEUTROS (texto, superfícies, borda, fundo, sombra)
@@ -81,6 +83,8 @@ export function buildAdminTokensCss(p: AdminPalette): string {
   --admin-nav-hover:${p.navHover};
   --admin-nav-active:${p.navActive};
   --admin-card-shadow:${p.cardShadow};
+  --admin-title-transform:${p.titleTransform ?? "none"};
+  --admin-title-ls:${p.titleLetterSpacing ?? "var(--admin-heading-ls, -0.2px)"};
 }${p.dualMode ? `
 ${NEUTROS_NO_ESCURO}` : ""}`;
 }

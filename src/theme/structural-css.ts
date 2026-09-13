@@ -15,6 +15,14 @@ export const ADMIN_STRUCTURAL_CSS = `
   font-family: var(--admin-font-heading);
   letter-spacing: var(--admin-heading-ls, -0.2px);
 }
+.admin-shell .admin-titulo-tela {
+  text-transform: var(--admin-title-transform, none);
+  letter-spacing: var(--admin-title-ls, var(--admin-heading-ls, -0.2px));
+}
+.admin-shell .admin-titulo-tela[data-cru] {
+  text-transform: none;
+  letter-spacing: var(--admin-heading-ls, -0.2px);
+}
 /* ── Painel ACOPLADO (o FAB encostado na direita) ──────────────────────────
    Encostado, o painel não pode TAPAR a página: o shell reserva a coluna com
    \`padding-right: var(--jj-fab-dock)\` e a página encolhe. A reserva só liga em

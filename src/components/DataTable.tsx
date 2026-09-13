@@ -122,6 +122,19 @@ const DISPLAY_ACIMA = {
  *    um offset chutado (`calc(100vh - Npx)`). O guardrail proíbe número novo.
  *  - `fill` / `fillHeight={true}`: hoje são o próprio padrão (modo página).
  */
+const CORES_LINHA = {
+  "--jj-zebra": "color-mix(in srgb, var(--admin-text) 3.5%, var(--admin-surface))",
+  "--jj-hover": "color-mix(in srgb, var(--admin-primary) 7%, var(--admin-surface))",
+  "--jj-sel": "color-mix(in srgb, #ca8a04 12%, var(--admin-surface))",
+  "--jj-sel-hover": "color-mix(in srgb, #ca8a04 18%, var(--admin-surface))",
+  "--jj-arraste": "color-mix(in srgb, var(--admin-primary) 12%, var(--admin-surface))",
+  "& tbody td": { borderColor: "var(--admin-divider)" },
+  _dark: {
+    "--jj-zebra": "color-mix(in srgb, var(--admin-text) 4.5%, var(--admin-surface))",
+    "--jj-hover": "color-mix(in srgb, var(--admin-primary) 14%, var(--admin-surface))",
+  },
+};
+
 export function DataTable<T>({
   columns,
   rows,
@@ -426,14 +439,28 @@ export function DataTable<T>({
     for (let i = presasFim.length - 1; i > idx; i--) partes.push(presasFim[i].width ?? "0px");
     return somaLarguras(partes);
   };
-  const presoProps = (c: Column<T>, cabecalho: boolean, sel = false) => {
+  const zebra: boolean[] = [];
+  {
+    let n = 0;
+    for (const row of visible) {
+      if (secaoDaLinha?.(row) != null) {
+        n = 0;
+        zebra.push(false);
+      } else {
+        zebra.push(n % 2 === 1);
+        n++;
+      }
+    }
+  }
+
+  const presoProps = (c: Column<T>, cabecalho: boolean) => {
     if (!rolaX || !c.sticky) return {};
     const offset = offsetPresa(c);
     return {
       position: "sticky" as const,
       ...(c.sticky === "start" ? { left: offset } : { right: offset }),
       zIndex: cabecalho ? 3 : 1,
-      bg: !cabecalho && sel ? "rgba(202,138,4,0.10)" : "var(--admin-surface)",
+      bg: cabecalho ? "var(--admin-surface)" : "var(--jj-linha, var(--admin-surface))",
       boxShadow:
         c.sticky === "start"
           ? "inset -1px 0 0 var(--admin-divider)"
@@ -656,7 +683,7 @@ export function DataTable<T>({
             : undefined
         }
       >
-        <Table.Root size={dense ? "sm" : "md"} width="full">
+        <Table.Root size={dense ? "sm" : "md"} width="full" css={CORES_LINHA}>
           <Table.Header
             position="sticky"
             // Gruda LOGO ABAIXO da toolbar (que já está grudada no topo da janela).
@@ -816,8 +843,18 @@ export function DataTable<T>({
                 cursor={onRowClick ? "pointer" : undefined}
                 opacity={dragKey === rowKey ? 0.4 : undefined}
                 boxShadow={isOver ? "inset 0 2px 0 var(--admin-primary)" : undefined}
-                bg={sel ? "rgba(202,138,4,0.10)" : isOver ? "var(--admin-nav-active)" : undefined}
-                _hover={onRowClick ? { bg: sel ? "rgba(202,138,4,0.14)" : "var(--admin-nav-hover)" } : undefined}
+                bg="var(--jj-linha)"
+                transition="background-color 120ms ease"
+                css={{
+                  "--jj-linha": sel
+                    ? "var(--jj-sel)"
+                    : isOver
+                      ? "var(--jj-arraste)"
+                      : zebra[i]
+                        ? "var(--jj-zebra)"
+                        : "var(--admin-surface)",
+                  "&:hover": { "--jj-linha": sel ? "var(--jj-sel-hover)" : "var(--jj-hover)" },
+                }}
                 {...(onReorder
                   ? {
                       onDragOver: (e: DragEvent) => { e.preventDefault(); setOverKey(rowKey); },
@@ -851,7 +888,7 @@ export function DataTable<T>({
                     textAlign={c.align}
                     whiteSpace={c.nowrap ? "nowrap" : undefined}
                     {...hideProps(c)}
-                    {...presoProps(c, false, sel)}
+                    {...presoProps(c, false)}
                   >
                     {cell(c, row)}
                   </Table.Cell>
@@ -869,7 +906,7 @@ export function DataTable<T>({
                     // `td`; aqui ele quebraria a fila de botões. Ações não são
                     // texto — não quebram, não encolhem.
                     whiteSpace="nowrap"
-                    bg={sel ? "rgba(202,138,4,0.10)" : "var(--admin-surface)"}
+                    bg="var(--jj-linha)"
                     boxShadow="inset 1px 0 0 var(--admin-divider)"
                   >
                     <HStack gap={1} justify="flex-end" flexWrap="nowrap" css={{ "& > *": { flexShrink: 0 } }}>
@@ -889,6 +926,7 @@ export function DataTable<T>({
       <Stack
         display={{ base: "flex", md: "none" }}
         gap={0}
+        css={CORES_LINHA}
         // No expandido o desktop some, então é esta lista que vira a área rolável.
         flex={expandido ? "1" : undefined}
         minH={expandido ? 0 : undefined}
@@ -925,7 +963,7 @@ export function DataTable<T>({
             borderColor="var(--admin-divider)"
             onClick={onRowClick ? () => onRowClick(row) : undefined}
             cursor={onRowClick ? "pointer" : undefined}
-            bg={hi ? "rgba(202,138,4,0.10)" : undefined}
+            bg={hi ? "var(--jj-sel)" : zebra[i] ? "var(--jj-zebra)" : undefined}
             _active={onRowClick ? { bg: "var(--admin-nav-hover)" } : undefined}
             {...extras}
           >

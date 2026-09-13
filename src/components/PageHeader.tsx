@@ -21,6 +21,7 @@ import { Box, HStack, Stack, Text } from "@chakra-ui/react";
  */
 export function PageHeader({
   title,
+  rawTitle,
   titleAfter,
   subtitle,
   description,
@@ -30,6 +31,7 @@ export function PageHeader({
   tabs,
 }: {
   title: string;
+  rawTitle?: boolean;
   /** Controle colado ao título, na MESMA linha (ex.: seletor de contas do e-mail).
    *  Fica depois do contador; some se não passar. */
   titleAfter?: ReactNode;
@@ -60,7 +62,8 @@ export function PageHeader({
         <HStack gap={2} minW={0} align="center">
           <Text
             as="h1"
-            className="admin-h"
+            className="admin-h admin-titulo-tela"
+            data-cru={rawTitle ? "" : undefined}
             fontSize={{ base: "18px", md: "20px" }}
             lineHeight="1.2"
             fontWeight="700"

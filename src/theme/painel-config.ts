@@ -64,6 +64,7 @@ export const PAINEL_CONFIG = defineConfig({
         graphite: {
           50: { value: "#f7f8fa" },
           100: { value: "#f1f2f5" },
+          150: { value: "#e9ecf0" },
           200: { value: "#e2e5ea" },
           300: { value: "#c7ccd4" },
           400: { value: "#98a0ac" },
@@ -223,6 +224,7 @@ export const PAINEL_CONFIG = defineConfig({
           emphasized: { value: { _light: "{colors.graphite.200}", _dark: "{colors.graphite.700}" } },
           panel: { value: { _light: "white", _dark: "{colors.graphite.800}" } },
           inset: { value: { _light: "{colors.graphite.100}", _dark: "{colors.graphite.750}" } },
+          canvas: { value: { _light: "{colors.graphite.150}", _dark: "{colors.graphite.950}" } },
         },
         border: {
           DEFAULT: { value: { _light: "{colors.hairline}", _dark: "{colors.hairline.onDark}" } },
