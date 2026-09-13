@@ -21,7 +21,10 @@ export function AdminThemeShell({
       {fontsHref ? <link rel="stylesheet" href={fontsHref} /> : null}
       <style
         dangerouslySetInnerHTML={{
-          __html: buildAdminTokensCss(palette) + ADMIN_STRUCTURAL_CSS,
+          __html:
+            buildAdminTokensCss(palette) +
+            ADMIN_STRUCTURAL_CSS +
+            (palette.fontesDoTema ? ".admin-shell,.admin-shell *{font-family:revert-layer;}" : ""),
         }}
       />
       <div className="admin-shell">{children}</div>

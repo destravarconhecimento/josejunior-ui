@@ -133,6 +133,7 @@ export function MobileNav({
   bottomSlot,
   collapsible = false,
   searchSuggestions,
+  search = true,
 }: {
   brand: Brand;
   sections: NavSection[];
@@ -144,6 +145,7 @@ export function MobileNav({
   bottomSlot?: ReactNode;
   collapsible?: boolean;
   searchSuggestions?: NavItem[];
+  search?: boolean;
 }) {
   const { pathname, textos } = useShellNav();
   const [openInner, setOpenInner] = useState(false);
@@ -198,9 +200,11 @@ export function MobileNav({
               </Drawer.Header>
               <Drawer.Body className="admin-scroll">
                 {topSlot ? <Box mb={3}>{topSlot}</Box> : null}
-                <Box mb={3}>
-                  <NavSearch sections={sections} onNavigate={close} suggestions={searchSuggestions} />
-                </Box>
+                {search ? (
+                  <Box mb={3}>
+                    <NavSearch sections={sections} onNavigate={close} suggestions={searchSuggestions} />
+                  </Box>
+                ) : null}
                 <DrawerSections sections={sections} collapsible={collapsible} onNavigate={close} />
                 {bottomSlot ? <Box mt={4}>{bottomSlot}</Box> : null}
               </Drawer.Body>

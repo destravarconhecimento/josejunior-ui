@@ -38,6 +38,7 @@ export type AdminPalette = {
    * modos. Opt-in: paleta que não liga não muda em nada.
    */
   dualMode?: boolean;
+  fontesDoTema?: boolean;
 };
 
 /**

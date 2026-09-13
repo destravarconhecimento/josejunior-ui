@@ -8,15 +8,17 @@ import type { NavItem, NavSection } from "./types";
 export function TopNav({
   sections,
   labelsFrom = "lg",
+  fontSize,
 }: {
   sections: NavSection[];
   labelsFrom?: "lg" | "xl";
+  fontSize?: string;
 }) {
   const { Link, pathname, textos, uppercase } = useShellNav();
   const labelDisplay = labelsFrom === "xl" ? { base: "none", xl: "inline" } : undefined;
   const labelCss = uppercase
-    ? { fontSize: "13px", textTransform: "uppercase" as const, letterSpacing: "0.03em" }
-    : { fontSize: "sm" };
+    ? { fontSize: fontSize ?? "13px", textTransform: "uppercase" as const, letterSpacing: "0.03em" }
+    : { fontSize: fontSize ?? "sm" };
 
   const renderItem = (item: NavItem) => {
     const isAct = isItemActive(pathname, item);

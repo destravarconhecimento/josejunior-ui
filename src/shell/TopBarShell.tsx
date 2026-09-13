@@ -41,6 +41,8 @@ export function TopBarShell({
   onMenuOpenChange,
   searchSuggestions,
   searchHotkey = false,
+  search = true,
+  navFontSize,
   rail,
   navUppercase,
   navLabelsFrom = "lg",
@@ -74,6 +76,8 @@ export function TopBarShell({
   onMenuOpenChange?: (open: boolean) => void;
   searchSuggestions?: NavItem[];
   searchHotkey?: boolean;
+  search?: boolean;
+  navFontSize?: string;
   rail?: { autoCollapseBelow?: number; collapsedRoutes?: string[] };
   navUppercase?: boolean;
   navLabelsFrom?: "lg" | "xl";
@@ -156,6 +160,7 @@ export function TopBarShell({
               bottomSlot={drawerBottomSlot}
               collapsible={mobileCollapsible}
               searchSuggestions={searchSuggestions}
+              search={search}
             />
           </Box>
 
@@ -164,14 +169,16 @@ export function TopBarShell({
           </HomeLink>
 
           <Box display={{ base: "none", lg: "block" }} ml={2} minW={0}>
-            <TopNav sections={sections} labelsFrom={navLabelsFrom} />
+            <TopNav sections={sections} labelsFrom={navLabelsFrom} fontSize={navFontSize} />
           </Box>
 
           <HStack ml="auto" gap={2} align="center" flexShrink={0}>
             {contextSlot}
-            <Box display={{ base: "none", md: "block" }} w={{ md: "200px", xl: "260px" }}>
-              <NavSearch sections={sections} onDark={onBrand} suggestions={searchSuggestions} hotkey={searchHotkey} />
-            </Box>
+            {search ? (
+              <Box display={{ base: "none", md: "block" }} w={{ md: "200px", xl: "260px" }}>
+                <NavSearch sections={sections} onDark={onBrand} suggestions={searchSuggestions} hotkey={searchHotkey} />
+              </Box>
+            ) : null}
             {searchSlot}
             {utilitiesSlot}
             {podeTrocarTema ? <ColorModeButton onDark={onBrand} /> : null}
