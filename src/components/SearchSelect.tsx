@@ -46,6 +46,7 @@ export function SearchSelect({
   disabled,
   clearable,
   id,
+  testId,
 }: {
   label?: React.ReactNode;
   help?: React.ReactNode;
@@ -61,6 +62,7 @@ export function SearchSelect({
   /** Mostra "x" para limpar (default: quando não é `required`). */
   clearable?: boolean;
   id?: string;
+  testId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -172,6 +174,7 @@ export function SearchSelect({
       <Box
         ref={triggerRef}
         id={id}
+        data-testid={testId}
         role="combobox"
         aria-haspopup="listbox"
         aria-expanded={open}
