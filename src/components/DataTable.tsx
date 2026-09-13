@@ -172,6 +172,9 @@ export function DataTable<T>({
   rowProps,
   secaoDaLinha,
   alturaMax,
+  busca,
+  filtrosDaTela,
+  filtrosDaTelaAtivos,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -251,6 +254,9 @@ export function DataTable<T>({
    * conta de viewport. No modo página quem rola é a janela e a prop é inócua.
    */
   alturaMax?: string;
+  busca?: ReactNode;
+  filtrosDaTela?: ReactNode;
+  filtrosDaTelaAtivos?: number;
 }) {
   const acoesPorLinha = acoesDaLinha ? rows.map((r) => acoesDaLinha(r)) : null;
   const celulaAcoes = acoesDaLinha
@@ -468,8 +474,17 @@ export function DataTable<T>({
     };
   };
 
+  const unificado = busca != null || filtrosDaTela != null;
+  const painelDaTela =
+    filtrosDaTela != null || (unificado && toolbar) ? (
+      <>
+        {filtrosDaTela}
+        {toolbar}
+      </>
+    ) : undefined;
+
   const toolbarNode =
-    toolbar || temChips || chipsExtras != null || ordenaveis.length > 0 || filtraveis.length > 0 ? (
+    unificado || toolbar || temChips || chipsExtras != null || ordenaveis.length > 0 || filtraveis.length > 0 ? (
       <Box
         ref={medirToolbar}
         flexShrink={0}
@@ -482,7 +497,27 @@ export function DataTable<T>({
         zIndex={stickyToolbar ? 3 : undefined}
         bg="var(--admin-surface)"
       >
-        {toolbar ? (
+        {unificado ? (
+          <Box
+            display={{ base: "none", md: "block" }}
+            px={3}
+            py={2.5}
+            borderBottomWidth="1px"
+            borderColor="var(--admin-divider)"
+          >
+            <HStack gap={2} flexWrap="wrap" align="center">
+              {busca != null ? (
+                <Box flex="1" minW="14rem" maxW="sm">
+                  {busca}
+                </Box>
+              ) : null}
+              <HStack gap={2} flexWrap="wrap" align="center" ml="auto" justify="flex-end">
+                {filtrosDaTela}
+                {toolbar}
+              </HStack>
+            </HStack>
+          </Box>
+        ) : toolbar ? (
           <Box px={3} py={2.5} borderBottomWidth="1px" borderColor="var(--admin-divider)">
             {toolbar}
           </Box>
@@ -501,6 +536,9 @@ export function DataTable<T>({
           chipsExtras={chipsExtras}
           textos={textos}
           filtrosEmSheet={filtrosEmSheet}
+          busca={busca}
+          filtrosDaTela={painelDaTela}
+          filtrosDaTelaAtivos={filtrosDaTelaAtivos}
         />
       </Box>
     ) : null;

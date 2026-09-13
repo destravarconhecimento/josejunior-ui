@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Box, HStack, NativeSelect, Text } from "@chakra-ui/react";
+import { Box, HStack, NativeSelect, Stack, Text } from "@chakra-ui/react";
 import { ArrowDownUp, ListFilter, X } from "lucide-react";
 import { Button } from "../Button";
 import { Modal } from "../Modal";
@@ -74,6 +74,9 @@ export function BarraTabela({
   chipsExtras,
   textos,
   filtrosEmSheet = true,
+  busca,
+  filtrosDaTela,
+  filtrosDaTelaAtivos = 0,
 }: {
   ordenaveis: ColunaOrdenavel[];
   filtraveis: ColunaFiltravel[];
@@ -88,12 +91,16 @@ export function BarraTabela({
   textos?: UiTextos;
   /** false = as colunas em acordeão abrem NA PÁGINA, não num modal. */
   filtrosEmSheet?: boolean;
+  busca?: ReactNode;
+  filtrosDaTela?: ReactNode;
+  filtrosDaTelaAtivos?: number;
 }) {
   const t = useUiTextos(textos);
   const [modalFiltro, setModalFiltro] = useState(false);
 
   const ativos = filtros.filter((f) => f.valores.length > 0);
-  const temControles = ordenaveis.length > 0 || filtraveis.length > 0;
+  const unificado = busca != null || filtrosDaTela != null;
+  const temControles = ordenaveis.length > 0 || filtraveis.length > 0 || unificado;
   const temChips = ativos.length > 0 || sort != null || chipsExtras != null;
   if (!temControles && !temChips) return null;
 
@@ -124,7 +131,38 @@ export function BarraTabela({
     </HStack>
   ) : null;
 
-  const controlesMobile = temControles ? (
+  const selectOrdenar =
+    ordenaveis.length > 0 ? (
+      <NativeSelect.Root size="sm" flex="1" minW={0}>
+        <NativeSelect.Field
+          aria-label={t.ordenar}
+          value={sort ? `${sort.key}:${sort.dir}` : ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (!v) return onSortChange(null);
+            const idx = v.lastIndexOf(":");
+            onSortChange({ key: v.slice(0, idx), dir: v.slice(idx + 1) as "asc" | "desc" });
+          }}
+          bg="var(--admin-surface)"
+          color="var(--admin-text)"
+          fontSize="sm"
+        >
+          <option value="">{t.ordemPadrao}</option>
+          {ordenaveis.map((c) => (
+            <optgroup key={c.key} label={c.rotulo}>
+              <option value={`${c.key}:asc`}>{c.rotulo} ↑</option>
+              <option value={`${c.key}:desc`}>{c.rotulo} ↓</option>
+            </optgroup>
+          ))}
+        </NativeSelect.Field>
+        <NativeSelect.Indicator />
+      </NativeSelect.Root>
+    ) : null;
+
+  const qtdFiltros = ativos.length + filtrosDaTelaAtivos;
+  const temPainel = filtrosDaTela != null || ordenaveis.length > 0 || filtraveis.length > 0;
+
+  const controlesMobile = unificado ? (
     <HStack
       display={{ base: "flex", md: "none" }}
       px={3}
@@ -133,32 +171,26 @@ export function BarraTabela({
       borderBottomWidth="1px"
       borderColor="var(--admin-divider)"
     >
-      {ordenaveis.length > 0 ? (
-        <NativeSelect.Root size="sm" flex="1" minW={0}>
-          <NativeSelect.Field
-            aria-label={t.ordenar}
-            value={sort ? `${sort.key}:${sort.dir}` : ""}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (!v) return onSortChange(null);
-              const idx = v.lastIndexOf(":");
-              onSortChange({ key: v.slice(0, idx), dir: v.slice(idx + 1) as "asc" | "desc" });
-            }}
-            bg="var(--admin-surface)"
-            color="var(--admin-text)"
-            fontSize="sm"
-          >
-            <option value="">{t.ordemPadrao}</option>
-            {ordenaveis.map((c) => (
-              <optgroup key={c.key} label={c.rotulo}>
-                <option value={`${c.key}:asc`}>{c.rotulo} ↑</option>
-                <option value={`${c.key}:desc`}>{c.rotulo} ↓</option>
-              </optgroup>
-            ))}
-          </NativeSelect.Field>
-          <NativeSelect.Indicator />
-        </NativeSelect.Root>
-      ) : (
+      <Box flex="1" minW={0}>
+        {busca}
+      </Box>
+      {temPainel ? (
+        <Button size="md" tone="outline" flexShrink={0} onClick={() => setModalFiltro((v) => !v)}>
+          <ListFilter size={16} />{" "}
+          {qtdFiltros > 0 ? fmtTexto(t.filtrarContagem, { n: qtdFiltros }) : t.filtrar}
+        </Button>
+      ) : null}
+    </HStack>
+  ) : temControles ? (
+    <HStack
+      display={{ base: "flex", md: "none" }}
+      px={3}
+      py={2}
+      gap={2}
+      borderBottomWidth="1px"
+      borderColor="var(--admin-divider)"
+    >
+      {selectOrdenar ?? (
         <Box color="var(--admin-text-soft)" display="inline-flex">
           <ArrowDownUp size={14} />
         </Box>
@@ -198,6 +230,27 @@ export function BarraTabela({
     />
   );
 
+  const conteudo = unificado ? (
+    <Stack gap={4}>
+      {filtrosDaTela != null ? (
+        <Stack gap={2} css={{ "& > *": { width: "100%", maxWidth: "100%" } }}>
+          {filtrosDaTela}
+        </Stack>
+      ) : null}
+      {selectOrdenar ? (
+        <Box>
+          <Text fontSize="xs" color="var(--admin-text-soft)" mb={1.5}>
+            {t.ordenar}
+          </Text>
+          <HStack>{selectOrdenar}</HStack>
+        </Box>
+      ) : null}
+      {filtraveis.length > 0 ? acordeao : null}
+    </Stack>
+  ) : (
+    acordeao
+  );
+
   return (
     <>
       {controlesMobile}
@@ -210,13 +263,13 @@ export function BarraTabela({
           borderBottomWidth="1px"
           borderColor="var(--admin-divider)"
         >
-          {acordeao}
+          {conteudo}
         </Box>
       ) : null}
       {chips}
       {modalFiltro && filtrosEmSheet ? (
         <Modal open onClose={() => setModalFiltro(false)} title={t.filtrar} size="sm">
-          {acordeao}
+          {conteudo}
         </Modal>
       ) : null}
     </>

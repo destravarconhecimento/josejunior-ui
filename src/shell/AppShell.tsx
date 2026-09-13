@@ -489,7 +489,7 @@ export function AppShell({
             // aqui interessa só o que TAMPA a janela — a topbar em cima e o dock
             // embaixo —, sem os paddings do <main>.
             "--admin-sticky-top": "calc(56px + env(safe-area-inset-top))",
-            "--admin-sticky-bottom": "calc(78px + env(safe-area-inset-bottom))",
+            "--admin-sticky-bottom": "calc(62px + env(safe-area-inset-bottom))",
             "@media (min-width: 48em)": {
               // Tablet: `py` sobe pra 20px, mas o dock CONTINUA lá.
               "--admin-content-h":

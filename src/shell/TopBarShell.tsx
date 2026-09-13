@@ -220,7 +220,7 @@ export function TopBarShell({
               "--admin-content-h":
                 "calc(100dvh - var(--admin-topbar-h) - 16px - 78px - env(safe-area-inset-bottom))",
               "--admin-sticky-top": "var(--admin-topbar-h)",
-              "--admin-sticky-bottom": "calc(78px + env(safe-area-inset-bottom))",
+              "--admin-sticky-bottom": "calc(62px + env(safe-area-inset-bottom))",
               "@media (min-width: 48em)": {
                 "--admin-content-h":
                   "calc(100dvh - var(--admin-topbar-h) - 20px - 78px - env(safe-area-inset-bottom))",
