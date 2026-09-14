@@ -1,12 +1,7 @@
 import type { ReactNode } from "react";
 import { buildAdminTokensCss, type AdminPalette } from "./tokens";
-import { ADMIN_STRUCTURAL_CSS } from "./structural-css";
+import { ADMIN_FONTE_UNIVERSAL, ADMIN_STRUCTURAL_CSS } from "./structural-css";
 
-/**
- * Wrapper visual do painel: injeta os tokens da marca (do app) + o CSS
- * estrutural compartilhado, e envolve o conteúdo em `.admin-shell`.
- * `fontsHref` opcional carrega Google Fonts (o site usa; o sistema usa next/font).
- */
 export function AdminThemeShell({
   palette,
   fontsHref,
@@ -23,8 +18,9 @@ export function AdminThemeShell({
         dangerouslySetInnerHTML={{
           __html:
             buildAdminTokensCss(palette) +
-            ADMIN_STRUCTURAL_CSS +
-            (palette.fontesDoTema ? ".admin-shell,.admin-shell *{font-family:revert-layer;}" : ""),
+            (palette.fontesDoTema
+              ? ADMIN_STRUCTURAL_CSS.replace(ADMIN_FONTE_UNIVERSAL, ".admin-shell { font-family: var(--admin-font-body); }")
+              : ADMIN_STRUCTURAL_CSS),
         }}
       />
       <div className="admin-shell">{children}</div>
