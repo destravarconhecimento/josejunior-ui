@@ -33,6 +33,7 @@ export {
   initialsFrom,
 } from "./theme/AdminThemeShell";
 export { buildAdminTokensCss, type AdminPalette } from "./theme/tokens";
+export { PALETA_PAINEL, PAINEL_FONTES_HREF, PainelPadraoShell } from "./theme/paleta-painel";
 export { ADMIN_STRUCTURAL_CSS } from "./theme/structural-css";
 
 // Shell — `AppShell` (sidebar escura) ou `TopBarShell` (header horizontal)
