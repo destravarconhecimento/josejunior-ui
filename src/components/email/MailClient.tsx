@@ -2070,7 +2070,7 @@ function DomainManager({
                 </HStack>
 
                 {openId === d.id ? (
-                  <Box mt={4} overflowX="auto">
+                  <Box mt={4}>
                     <Text fontSize="xs" color="var(--admin-text-soft)" mb={2}>
                       {callbacks.onPublishDns
                         ? "Se a zona for nossa, o botão Criar no DNS publica tudo isto (mais o DMARC) sozinho. Fora dela, cole os registros no provedor do domínio e clique em Verificar."

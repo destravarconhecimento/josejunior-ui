@@ -29,6 +29,16 @@ export const MAX_SLOTS_ACOES = 4;
 
 const SLOT_PX = 28;
 const GAP_PX = 4;
+const CHAR_PX = 6.8;
+const PADDING_TEXTO_PX = 18;
+const SLOT_TEXTO_MAX_PX = 160;
+
+export const LARGURA_ACOES_MINIMA = `${SLOT_PX + 24}px`;
+
+function larguraDoSlot(a: AcaoLinha) {
+  if (a.icon != null) return SLOT_PX;
+  return Math.min(SLOT_TEXTO_MAX_PX, Math.round(a.label.length * CHAR_PX) + PADDING_TEXTO_PX);
+}
 
 export function repartirAcoesLinha(
   acoes: AcoesDeclaradas,
@@ -50,16 +60,17 @@ export function repartirAcoesLinha(
 export function larguraAcoesLinha(
   porLinha: AcoesDeclaradas[],
   { dense = false, max = MAX_SLOTS_ACOES }: { dense?: boolean; max?: number } = {},
-): string | undefined {
-  let slots = 0;
+): string {
+  let maior = 0;
   for (const acoes of porLinha) {
     const { visiveis, menu } = repartirAcoesLinha(acoes, max);
-    if (visiveis.some((a) => a.icon == null)) return undefined;
-    slots = Math.max(slots, visiveis.length + (menu.length > 0 ? 1 : 0));
+    const slots = [...visiveis.map(larguraDoSlot), ...(menu.length > 0 ? [SLOT_PX] : [])];
+    if (slots.length === 0) continue;
+    const soma = slots.reduce((t, w) => t + w, 0) + (slots.length - 1) * GAP_PX;
+    maior = Math.max(maior, soma);
   }
-  if (slots === 0) return undefined;
-  const respiro = dense ? 16 : 24;
-  return `${slots * SLOT_PX + (slots - 1) * GAP_PX + respiro}px`;
+  if (maior === 0) return LARGURA_ACOES_MINIMA;
+  return `${maior + (dense ? 16 : 24)}px`;
 }
 
 export function AcoesLinha({ acoes, max = MAX_SLOTS_ACOES }: { acoes: AcoesDeclaradas; max?: number }) {

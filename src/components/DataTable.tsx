@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type ReactNode,
+} from "react";
 import { Box, Checkbox, HStack, Input, Portal, Stack, Table, Text } from "@chakra-ui/react";
 import {
   ArrowDown,
@@ -15,7 +23,12 @@ import {
 import { EmptyState } from "./EmptyState";
 import { Button } from "./Button";
 import { ordenarLinhas, proximoSort, type SortState, type ValorCelula } from "./table/sort";
-import { AcoesLinha, larguraAcoesLinha, type AcoesDeclaradas } from "./table/AcoesLinha";
+import {
+  AcoesLinha,
+  larguraAcoesLinha,
+  LARGURA_ACOES_MINIMA,
+  type AcoesDeclaradas,
+} from "./table/AcoesLinha";
 import { aplicarFiltros, valoresDistintos, type FiltroColuna } from "./table/filtros";
 import { FiltroColunaMenu } from "./table/FiltroColunaMenu";
 import { BarraTabela } from "./table/BarraTabela";
@@ -70,10 +83,14 @@ export type Selection = {
   onToggleAll: (keys: Array<string | number>, checked: boolean) => void;
 };
 
-/** Container de tabela (card + scroll horizontal) p/ tabelas custom. */
+/**
+ * Card para grade fora do comum (nunca uma 2ª tabela de dados). `overflow: clip`
+ * e NÃO `auto`: scroll aqui viraria o scrollport mais próximo e mataria o sticky
+ * de qualquer `DataTable` colocada dentro.
+ */
 export function TableCard({ children }: { children: ReactNode }) {
   return (
-    <Box className="admin-card" overflowX="auto">
+    <Box className="admin-card" overflow="clip">
       {children}
     </Box>
   );
@@ -81,11 +98,57 @@ export function TableCard({ children }: { children: ReactNode }) {
 
 const PAGE_SIZE = 25;
 
+function ehAlturaConcreta(v: string | undefined): boolean {
+  if (!v) return false;
+  const s = v.trim().toLowerCase();
+  return s !== "" && s !== "none" && s !== "auto" && s !== "unset" && s !== "initial";
+}
+
+function scrollportAncestral(el: HTMLElement): HTMLElement | null {
+  let no = el.parentElement;
+  while (no && no !== document.body && no !== document.documentElement) {
+    const s = getComputedStyle(no);
+    const rola = (v: string) => v === "auto" || v === "scroll" || v === "hidden";
+    if (rola(s.overflowY) || rola(s.overflowX)) return no;
+    no = no.parentElement;
+  }
+  return null;
+}
+
 const DISPLAY_ACIMA = {
   sm: { base: "none", sm: "table-cell" },
   md: { base: "none", md: "table-cell" },
   lg: { base: "none", lg: "table-cell" },
 } as const;
+
+const CORES_LINHA = {
+  "--jj-fundo": "var(--admin-surface, #fff)",
+  "--jj-tinta": "var(--admin-text, #101828)",
+  "--jj-marca": "var(--admin-primary, #2563eb)",
+  "--jj-zebra": "color-mix(in srgb, var(--jj-tinta) 3.5%, var(--jj-fundo))",
+  "--jj-hover": "color-mix(in srgb, var(--jj-marca) 7%, var(--jj-fundo))",
+  "--jj-sel": "color-mix(in srgb, #ca8a04 12%, var(--jj-fundo))",
+  "--jj-sel-hover": "color-mix(in srgb, #ca8a04 18%, var(--jj-fundo))",
+  "--jj-arraste": "color-mix(in srgb, var(--jj-marca) 12%, var(--jj-fundo))",
+  "@supports not (color: color-mix(in srgb, red 50%, blue))": {
+    "--jj-zebra": "rgba(16,24,40,0.035)",
+    "--jj-hover": "rgba(37,99,235,0.07)",
+    "--jj-sel": "rgba(202,138,4,0.12)",
+    "--jj-sel-hover": "rgba(202,138,4,0.18)",
+    "--jj-arraste": "rgba(37,99,235,0.12)",
+  },
+  "& tbody td": { borderColor: "var(--admin-divider, rgba(16,24,40,0.12))" },
+  _dark: {
+    "--jj-fundo": "var(--admin-surface, #1a1d21)",
+    "--jj-tinta": "var(--admin-text, #ecedee)",
+    "--jj-zebra": "color-mix(in srgb, var(--jj-tinta) 4.5%, var(--jj-fundo))",
+    "--jj-hover": "color-mix(in srgb, var(--jj-marca) 14%, var(--jj-fundo))",
+    "@supports not (color: color-mix(in srgb, red 50%, blue))": {
+      "--jj-zebra": "rgba(255,255,255,0.045)",
+      "--jj-hover": "rgba(37,99,235,0.14)",
+    },
+  },
+};
 
 /**
  * Tabela PADRÃO do painel:
@@ -110,6 +173,25 @@ const DISPLAY_ACIMA = {
  *  (topbar do mobile, BottomNav) — nada de número mágico aqui. A altura da toolbar
  *  é MEDIDA, porque ela cresce quando os filtros quebram linha.
  *
+ * A TABELA É SOBERANA — ela se defende do que a tela fizer em volta:
+ *  - Se ALGUM ancestral virou scrollport (a tela pôs `overflow` em volta), o
+ *    componente DETECTA em runtime e passa a grudar em `0` — relativo àquele
+ *    scrollport — em vez do offset da topbar, que ali não significa nada. Em dev
+ *    ainda avisa no console apontando o elemento culpado quando esse ancestral
+ *    tem `overflow` mas não rola (aí o sticky ficaria inerte).
+ *  - `fillHeight={false}` SEM `alturaMax` concreta não liga mais scroll interno:
+ *    um `overflow: auto` sem teto de altura é um scrollport que nunca rola, e era
+ *    a causa de "gruda mas não sobe". Sem altura, mini = altura natural.
+ *  - Se a soma das colunas não cabe no card (a primeira coluna com conteúdo longo
+ *    demais empurrando o resto pra fora), o componente entra em modo APERTADO
+ *    — medido por ResizeObserver: `table-layout: fixed` + reticência nas células.
+ *    Ficam de fora (`data-jj-fixa`) seleção, reordenar, ações e a linha de seção.
+ *    Quem precisa ver o texto inteiro usa o `expandir`.
+ *  - A coluna de ações SEMPRE reserva largura (`larguraAcoesLinha` nunca devolve
+ *    vazio), senão ela é a última e é justamente a que o recorte come.
+ *  - A zebra tem fallback literal em toda cor: `color-mix` com uma var ausente é
+ *    declaração inválida, e isso apagava a zebra inteira fora do shell do painel.
+ *
  * EXPANDIR: botão no rodapé joga a tabela em tela cheia (`100dvh`, fora do fluxo
  *  da página) com scroll interno nos dois eixos e cabeçalho grudado. É o lugar de
  *  tabela larga e de "quero ver tudo de uma vez". ESC fecha. `expansivel={false}`
@@ -117,24 +199,12 @@ const DISPLAY_ACIMA = {
  *
  * MODOS ANTIGOS (retrocompat, nenhum call-site precisou mudar):
  *  - `fillHeight={false}`: mini/natural, sem sticky e sem expandir — tabela
- *    secundária embutida (várias empilhadas, dentro de card/modal).
+ *    secundária embutida (várias empilhadas, dentro de card/modal). Só ganha
+ *    scroll interno com `alturaMax` concreta.
  *  - `fillHeight={number}` (LEGADO, EVITE): scroll interno limitado à viewport por
  *    um offset chutado (`calc(100vh - Npx)`). O guardrail proíbe número novo.
  *  - `fill` / `fillHeight={true}`: hoje são o próprio padrão (modo página).
  */
-const CORES_LINHA = {
-  "--jj-zebra": "color-mix(in srgb, var(--admin-text) 3.5%, var(--admin-surface))",
-  "--jj-hover": "color-mix(in srgb, var(--admin-primary) 7%, var(--admin-surface))",
-  "--jj-sel": "color-mix(in srgb, #ca8a04 12%, var(--admin-surface))",
-  "--jj-sel-hover": "color-mix(in srgb, #ca8a04 18%, var(--admin-surface))",
-  "--jj-arraste": "color-mix(in srgb, var(--admin-primary) 12%, var(--admin-surface))",
-  "& tbody td": { borderColor: "var(--admin-divider)" },
-  _dark: {
-    "--jj-zebra": "color-mix(in srgb, var(--admin-text) 4.5%, var(--admin-surface))",
-    "--jj-hover": "color-mix(in srgb, var(--admin-primary) 14%, var(--admin-surface))",
-  },
-};
-
 export function DataTable<T>({
   columns,
   rows,
@@ -264,7 +334,9 @@ export function DataTable<T>({
       ? (row: T) => <AcoesLinha acoes={acoesDaLinha(row)} />
       : undefined
     : actions;
-  const larguraAcoes = actionsWidth ?? (acoesPorLinha ? larguraAcoesLinha(acoesPorLinha, { dense }) : undefined);
+  const larguraAcoes =
+    actionsWidth ??
+    (acoesPorLinha ? larguraAcoesLinha(acoesPorLinha, { dense }) : LARGURA_ACOES_MINIMA);
   const textos = useUiTextos(textosProp);
   const formato = useUiFormato();
   const enums = useUiEnums();
@@ -332,15 +404,13 @@ export function DataTable<T>({
   const from = linhasVisiveis.length === 0 ? 0 : current * effPageSize + 1;
   const to = Math.min(linhasVisiveis.length, (current + 1) * effPageSize);
 
-  // ALTURA — 3 modos. `fill` continua vencendo `fillHeight` (era o marcador de
-  // "esta enche"; hoje "encher" virou o padrão, então ele só anula os outros dois).
   const magicOffset = !fill && typeof fillHeight === "number" ? fillHeight : null;
   const mini = !fill && fillHeight === false;
-  /** Padrão: altura natural, zero scroll interno — quem rola é a janela. */
-  const modoPagina = !mini && magicOffset === null;
+  const alturaMini = mini && ehAlturaConcreta(alturaMax) ? alturaMax! : null;
+  const rolaDentro = expandido || magicOffset !== null || alturaMini !== null;
+  const modoPagina = !rolaDentro;
+  const modoJanela = modoPagina && !mini;
 
-  // A toolbar é MEDIDA (e não chutada) porque ela cresce quando os filtros quebram
-  // linha — é o offset de onde o `thead` gruda. Ref com cleanup (React 19).
   const [alturaToolbar, setAlturaToolbar] = useState(0);
   const medirToolbar = useCallback((el: HTMLDivElement | null) => {
     if (!el) return;
@@ -351,14 +421,82 @@ export function DataTable<T>({
     return () => ro.disconnect();
   }, []);
 
-  // Offsets do sticky. No modo página quem manda são as vars dos shells (topbar do
-  // mobile em cima, BottomNav embaixo); no expandido o scrollport é o overlay, e aí
-  // não há nada acima nem abaixo pra descontar.
-  const topoBase = expandido ? "0px" : "var(--admin-sticky-top, 0px)";
-  const stickyToolbar = modoPagina || expandido ? topoBase : undefined;
-  const stickyCabecalho =
-    modoPagina || expandido ? `calc(${topoBase} + ${alturaToolbar}px)` : 0;
-  const stickyRodape = modoPagina && !expandido ? "var(--admin-sticky-bottom, 0px)" : undefined;
+  const [emScrollport, setEmScrollport] = useState(false);
+  const medirContexto = useCallback((el: HTMLDivElement | null) => {
+    if (!el || typeof window === "undefined") return;
+    const sp = scrollportAncestral(el);
+    setEmScrollport(sp != null);
+    if (sp && process.env.NODE_ENV !== "production" && sp.scrollHeight <= sp.clientHeight + 1) {
+      console.warn(
+        "[DataTable] o ancestral abaixo tem overflow mas não rola: ele vira o scrollport e o cabeçalho não gruda. Tire o overflow (ou dê altura a ele).",
+        sp,
+      );
+    }
+  }, []);
+
+  const areaRef = useRef<HTMLDivElement | null>(null);
+  const [apertado, setApertado] = useState(false);
+  const apertadoRef = useRef(false);
+  const larguraNaturalRef = useRef(0);
+  apertadoRef.current = apertado;
+  const medirLargura = useCallback(() => {
+    const el = areaRef.current;
+    const tabela = el?.querySelector("table");
+    if (!el || !tabela) return;
+    const disponivel = el.clientWidth;
+    if (disponivel === 0) return;
+    if (!apertadoRef.current) {
+      if (tabela.scrollWidth > disponivel + 1) {
+        larguraNaturalRef.current = tabela.scrollWidth;
+        setApertado(true);
+      }
+    } else if (larguraNaturalRef.current > 0 && disponivel >= larguraNaturalRef.current) {
+      setApertado(false);
+    }
+  }, []);
+  const medirArea = useCallback(
+    (el: HTMLDivElement | null) => {
+      areaRef.current = el;
+      if (!el || typeof ResizeObserver === "undefined") return;
+      medirLargura();
+      const ro = new ResizeObserver(medirLargura);
+      ro.observe(el);
+      const tabela = el.querySelector("table");
+      if (tabela) ro.observe(tabela);
+      return () => ro.disconnect();
+    },
+    [medirLargura],
+  );
+
+  const topoBase = expandido || emScrollport ? "0px" : "var(--admin-sticky-top, 0px)";
+  const stickyToolbar = modoJanela || expandido ? topoBase : undefined;
+  const stickyCabecalho: string | number | undefined =
+    modoJanela || expandido
+      ? `calc(${topoBase} + ${alturaToolbar}px)`
+      : rolaDentro
+        ? 0
+        : undefined;
+  const stickyRodape = !modoJanela || expandido
+    ? undefined
+    : emScrollport
+      ? "0px"
+      : "var(--admin-sticky-bottom, 0px)";
+
+  const cssArea = useMemo(() => {
+    const regras: Record<string, Record<string, string | number>> = {};
+    if (!rolaDentro) regras["& tbody td"] = { overflowWrap: "anywhere" };
+    if (apertado) {
+      regras["& table"] = { tableLayout: "fixed", width: "100%" };
+      regras["& th:not([data-jj-fixa]), & td:not([data-jj-fixa])"] = {
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+        overflowWrap: "normal",
+      };
+      regras["& th:not([data-jj-fixa]) *, & td:not([data-jj-fixa]) *"] = { minWidth: 0 };
+    }
+    return regras;
+  }, [rolaDentro, apertado]);
 
   // Tela cheia: ESC fecha e a página de trás não rola junto.
   useEffect(() => {
@@ -426,7 +564,7 @@ export function DataTable<T>({
   // Coluna presa só faz sentido onde a tabela ROLA na horizontal: no modo página
   // ela cabe em 100% e não há de quem se soltar. Por isso a prop é inócua nas
   // telas que já existem — só acorda na tela cheia e no modo mini.
-  const rolaX = !modoPagina || expandido;
+  const rolaX = rolaDentro;
   const presasInicio = rolaX ? columns.filter((c) => c.sticky === "start") : [];
   const presasFim = rolaX ? columns.filter((c) => c.sticky === "end") : [];
   const somaLarguras = (partes: string[]) =>
@@ -544,14 +682,11 @@ export function DataTable<T>({
     ) : null;
 
   if (rows.length === 0) {
-    // Vazia não tem o que rolar: fica em altura natural e, no modo página, ainda
-    // marca `data-jj-table` pro `Screen fill` soltar o teto (senão sobraria um
-    // retângulo vazio do tamanho da tela).
     return (
       <Box
         className="admin-card"
-        data-jj-table={modoPagina ? "pagina" : undefined}
-        overflow={modoPagina ? "clip" : "hidden"}
+        data-jj-table={modoJanela ? "pagina" : undefined}
+        overflow={rolaDentro ? "hidden" : "clip"}
         p={0}
       >
         {toolbarNode}
@@ -569,13 +704,11 @@ export function DataTable<T>({
   }
 
   if (linhasVisiveis.length === 0) {
-    // TEM linha, mas os filtros de coluna esconderam todas — diferente de vazio
-    // de verdade: aqui a saída é limpar o filtro, e o botão faz isso.
     return (
       <Box
         className="admin-card"
-        data-jj-table={modoPagina ? "pagina" : undefined}
-        overflow={modoPagina ? "clip" : "hidden"}
+        data-jj-table={modoJanela ? "pagina" : undefined}
+        overflow={rolaDentro ? "hidden" : "clip"}
         p={0}
       >
         {toolbarNode}
@@ -689,42 +822,31 @@ export function DataTable<T>({
 
   const cartao = (
     <Box
+      ref={medirContexto}
       className="admin-card"
-      // Marcador lido pelo `Screen` (`:has([data-jj-table="pagina"])`): é ele que
-      // faz o `Screen fill` SOLTAR o teto de altura — sem isso a tabela em altura
-      // natural vazaria pra fora do box da tela. Nenhum call-site precisa mudar.
-      data-jj-table={expandido ? "expandido" : modoPagina ? "pagina" : undefined}
-      // ⚠️ `clip` (e NÃO `hidden`) no modo página: recorta o card do mesmo jeito
-      // mas não cria scroll container — é a única razão do sticky continuar de pé.
-      overflow={modoPagina && !expandido ? "clip" : "hidden"}
+      data-jj-table={expandido ? "expandido" : modoJanela ? "pagina" : undefined}
+      data-jj-apertado={apertado ? "sim" : undefined}
+      overflow={rolaDentro ? "hidden" : "clip"}
       p={0}
-      // Expandido: o card é a coluna que ocupa o overlay inteiro.
       display={expandido ? "flex" : undefined}
       flexDirection={expandido ? "column" : undefined}
       flex={expandido ? "1" : undefined}
       minH={expandido ? 0 : undefined}
     >
       {toolbarNode}
-      {/* Desktop: tabela. Modo página = sem overflow NENHUM (senão mata o sticky). */}
       <Box
+        ref={medirArea}
         display={cards ? { base: "none", md: "block" } : "block"}
-        overflowY={modoPagina && !expandido ? undefined : "auto"}
-        overflowX={modoPagina && !expandido ? undefined : "auto"}
+        overflowY={rolaDentro ? "auto" : undefined}
+        overflowX={rolaDentro ? "auto" : undefined}
         flex={expandido ? "1" : undefined}
-        maxH={magicOffset !== null ? `calc(100vh - ${magicOffset}px)` : mini ? alturaMax : undefined}
+        maxH={magicOffset !== null ? `calc(100vh - ${magicOffset}px)` : (alturaMini ?? undefined)}
         minH={expandido ? 0 : magicOffset !== null ? "200px" : undefined}
-        // Sem scroll horizontal no modo página, texto longo QUEBRA em vez de
-        // empurrar a tabela pra fora do card. Quem precisa de largura usa o expandir.
-        css={
-          modoPagina && !expandido
-            ? { "& tbody td": { overflowWrap: "anywhere" } }
-            : undefined
-        }
+        css={cssArea}
       >
         <Table.Root size={dense ? "sm" : "md"} width="full" css={CORES_LINHA}>
           <Table.Header
-            position="sticky"
-            // Gruda LOGO ABAIXO da toolbar (que já está grudada no topo da janela).
+            position={stickyCabecalho !== undefined ? "sticky" : undefined}
             top={stickyCabecalho}
             zIndex={2}
             bg="var(--admin-surface)"
@@ -732,7 +854,7 @@ export function DataTable<T>({
           >
             <Table.Row>
               {selection ? (
-                <Table.ColumnHeader width="40px">
+                <Table.ColumnHeader width="40px" data-jj-fixa="">
                   <Checkbox.Root
                     size="sm"
                     checked={allChecked ? true : someChecked ? "indeterminate" : false}
@@ -744,7 +866,7 @@ export function DataTable<T>({
                   </Checkbox.Root>
                 </Table.ColumnHeader>
               ) : null}
-              {onReorder ? <Table.ColumnHeader width="34px" /> : null}
+              {onReorder ? <Table.ColumnHeader width="34px" data-jj-fixa="" /> : null}
               {columns.map((c) => {
                 const ordenavel = !!c.value && c.sortable !== false;
                 const filtravel = !!c.value && c.filterable !== false;
@@ -829,9 +951,8 @@ export function DataTable<T>({
                 );
               })}
               {celulaAcoes ? (
-                // CONGELADA à direita: some o problema de "ações fora da tela" quando
-                // a tabela rola na horizontal (sem overflow, fica igual a antes).
                 <Table.ColumnHeader
+                  data-jj-fixa=""
                   textAlign="end"
                   fontSize="xs"
                   fontWeight="600"
@@ -864,6 +985,7 @@ export function DataTable<T>({
                 return (
                   <Table.Row key={rowKey} bg="var(--admin-surface-2)" {...extras}>
                     <Table.Cell
+                      data-jj-fixa=""
                       colSpan={columns.length + (selection ? 1 : 0) + (onReorder ? 1 : 0) + (celulaAcoes ? 1 : 0)}
                       fontSize="xs"
                       fontWeight="600"
@@ -902,13 +1024,14 @@ export function DataTable<T>({
                 {...extras}
               >
                 {selection ? (
-                  <Table.Cell width="40px" onClick={(e) => e.stopPropagation()}>
+                  <Table.Cell width="40px" data-jj-fixa="" onClick={(e) => e.stopPropagation()}>
                     {rowCheckbox(rowKey)}
                   </Table.Cell>
                 ) : null}
                 {onReorder ? (
                   <Table.Cell
                     width="34px"
+                    data-jj-fixa=""
                     onClick={(e) => e.stopPropagation()}
                     draggable
                     onDragStart={() => setDragKey(rowKey)}
@@ -933,6 +1056,7 @@ export function DataTable<T>({
                 ))}
                 {celulaAcoes ? (
                   <Table.Cell
+                    data-jj-fixa=""
                     textAlign="end"
                     onClick={(e) => e.stopPropagation()}
                     position="sticky"
@@ -940,9 +1064,6 @@ export function DataTable<T>({
                     zIndex={1}
                     width={larguraAcoes}
                     minW={larguraAcoes}
-                    // O `overflowWrap: anywhere` do modo página vale pra TODA
-                    // `td`; aqui ele quebraria a fila de botões. Ações não são
-                    // texto — não quebram, não encolhem.
                     whiteSpace="nowrap"
                     bg="var(--jj-linha)"
                     boxShadow="inset 1px 0 0 var(--admin-divider)"

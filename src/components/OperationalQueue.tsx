@@ -26,8 +26,17 @@ export type OperationalQueueItem = {
   menu?: ReactNode;
 };
 
+function alturaConcreta(v: string | number | undefined): string | number | undefined {
+  if (v == null) return undefined;
+  if (typeof v === "number") return v;
+  const s = v.trim().toLowerCase();
+  return s === "" || s === "none" || s === "auto" || s === "unset" || s === "initial" ? undefined : v;
+}
+
 /** "Fila de decisão": itens acionáveis priorizados. Ícone tonal pela prioridade,
- *  título/subtítulo, tags (origem/prioridade), tempo e ação. Sem visual cru. */
+ *  título/subtítulo, tags (origem/prioridade), tempo e ação. Sem visual cru.
+ *  O `overflow` só entra com altura concreta: sem teto ele seria um scrollport
+ *  que nunca rola, e isso mata o `sticky` de tudo que estiver dentro. */
 export function OperationalQueue({
   items,
   emptyLabel = "Nada aguardando sua decisão. 🎉",
@@ -43,13 +52,14 @@ export function OperationalQueue({
   if (items.length === 0) {
     return <EmptyState title={typeof emptyLabel === "string" ? emptyLabel : "Tudo em dia."} />;
   }
+  const teto = alturaConcreta(maxHeight);
   return (
     <Stack
       gap={0}
       flex={fill ? "1" : undefined}
       minH={fill ? 0 : undefined}
-      overflowY={fill || maxHeight ? "auto" : undefined}
-      maxH={maxHeight}
+      overflowY={fill || teto ? "auto" : undefined}
+      maxH={teto}
       className="admin-scroll"
     >
       {items.map((it, i) => {
