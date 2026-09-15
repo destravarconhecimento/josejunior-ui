@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Box, HStack } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { Screen } from "./Screen";
 import { KpiRow, type KpiRowItem } from "./KpiCard";
-import { Tabs, type TabDef } from "./Tabs";
+import { LayoutDeAbas } from "./LayoutDeAbas";
+import type { TabDef } from "./Tabs";
 
 export type AbaPainel = TabDef & { conteudo: ReactNode };
 
@@ -33,7 +34,6 @@ export function TelaDeAbas({
   abas: AbaPainel[];
   aba?: string;
   onAba?: (value: string) => void;
-  /** Rótulo no topo da sidebar. Omitido, usa o título da tela. */
   rotuloSidebar?: string;
   kpis?: Array<KpiRowItem | null | undefined | false>;
   kpisAcoes?: ReactNode;
@@ -59,25 +59,15 @@ export function TelaDeAbas({
       maxW={maxW}
       fill={fill}
     >
-      <HStack
-        align="flex-start"
-        gap={{ base: 4, md: 6 }}
-        flexDirection={{ base: "column", md: "row" }}
-        flex={fill ? "1" : undefined}
-        minH={fill ? 0 : undefined}
-        w="full"
+      <LayoutDeAbas
+        abas={abas.map(({ value, label, icon }) => ({ value, label, icon }))}
+        aba={abaAtual}
+        onAba={trocarAba}
+        rotuloSidebar={rotuloSidebar ?? titulo}
+        fill={fill}
       >
-        <Tabs
-          orientation="vertical"
-          value={abaAtual}
-          onChange={trocarAba}
-          sidebarLabel={rotuloSidebar ?? titulo}
-          items={abas.map(({ value, label, icon }) => ({ value, label, icon }))}
-        />
-        <Box flex="1" minW={0} minH={fill ? 0 : undefined} w="full">
-          {ativa ? <Box key={ativa.value}>{ativa.conteudo}</Box> : null}
-        </Box>
-      </HStack>
+        {ativa ? <Box key={ativa.value}>{ativa.conteudo}</Box> : null}
+      </LayoutDeAbas>
       {overlays}
     </Screen>
   );

@@ -72,6 +72,7 @@ export type { NavItem, NavSection, Brand, AppUser } from "./shell/types";
 // composição fora do padrão (workspace). Contrato em `packages/ui/CONTRATO-TELA.md`.
 export { TelaDeLista, type AcaoNova } from "./components/TelaDeLista";
 export { TelaDeAbas, type AbaPainel } from "./components/TelaDeAbas";
+export { LayoutDeAbas } from "./components/LayoutDeAbas";
 export { Screen } from "./components/Screen";
 export { PageHeader } from "./components/PageHeader";
 export { PageBody } from "./components/PageBody";
