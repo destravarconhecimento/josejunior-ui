@@ -17,6 +17,8 @@ export type AcaoNova = {
   onClick?: () => void;
   href?: string;
   icone?: ReactNode;
+  disabled?: boolean;
+  motivo?: string;
 };
 
 export function TelaDeLista<T>({
@@ -115,7 +117,7 @@ export function TelaDeLista<T>({
   }, [casa, termo, tabela.rows]);
 
   const botaoNovo = acaoNova ? (
-    acaoNova.href ? (
+    acaoNova.href && !acaoNova.disabled ? (
       <Button asChild tone="primary" size="sm">
         <a href={acaoNova.href}>
           {acaoNova.icone ?? <Plus size={16} />}
@@ -123,7 +125,13 @@ export function TelaDeLista<T>({
         </a>
       </Button>
     ) : (
-      <Button tone="primary" size="sm" onClick={acaoNova.onClick}>
+      <Button
+        tone="primary"
+        size="sm"
+        onClick={acaoNova.onClick}
+        disabled={acaoNova.disabled}
+        title={acaoNova.disabled ? acaoNova.motivo : undefined}
+      >
         {acaoNova.icone ?? <Plus size={16} />}
         {acaoNova.rotulo}
       </Button>
