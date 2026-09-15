@@ -66,8 +66,10 @@ export {
 export type { NavItem, NavSection, Brand, AppUser } from "./shell/types";
 
 // Primitivos
-// `Screen` = moldura única da tela (header + corpo). É o que as telas devem usar;
-// `PageHeader`/`PageBody` seguem exportados pra composição fora do padrão (workspace).
+// `TelaDeLista` = tela cujo assunto é uma lista (a maioria). `Screen` = moldura
+// crua, pra tela que não é lista. `PageHeader`/`PageBody` só pra composição fora
+// do padrão (workspace). Contrato em `packages/ui/CONTRATO-TELA.md`.
+export { TelaDeLista, type AcaoNova } from "./components/TelaDeLista";
 export { Screen } from "./components/Screen";
 export { PageHeader } from "./components/PageHeader";
 export { PageBody } from "./components/PageBody";
@@ -381,7 +383,6 @@ export { FaWhatsapp as WhatsAppIcon } from "react-icons/fa6";
 export { ColorPicker, type ColorScheme } from "./components/ColorPicker";
 export { Tabs, type TabDef } from "./components/Tabs";
 export { PanelTabs } from "./components/PanelTabs";
-export { PageTabs } from "./components/PageTabs";
 export { ChatMarkdown } from "./components/ChatMarkdown";
 export { AiAssistantFab } from "./components/AiAssistantFab";
 // Console do assistente (chat em tela cheia) — divide o miolo com o FAB.
