@@ -63,6 +63,14 @@ O que decorre disso, e não é negociável:
 | não é nenhum dos dois (dashboard, editor, chat, wizard) | **`Screen`** |
 | composição fora do padrão (workspace de 2 painéis) | `PageHeader` + `PageBody` |
 
+Caso à parte: **abas que navegam por rota**. Quando cada aba é uma URL e o
+conteúdo chega como `children` de um `layout.tsx`, não há array de painéis em
+estado — o `TelaDeAbas` não serve. Use o **`LayoutDeAbas`**, que é só a sidebar
++ corpo (é o que o `TelaDeAbas` monta por dentro): a tela passa `abas`, `aba`
+(a rota ativa), `onAba` (que faz `router.push`) e os `children`. Ver
+`apps/sistema/src/app/(app)/bot/whatsapp-subnav.tsx`. Montar `HStack` +
+`Tabs orientation="vertical"` + `Box flex="1"` à mão é regressão nos dois casos.
+
 `TelaDeLista` monta header + abas + KPIs + `DataTable` a partir de props. O
 `page.tsx` carrega e serializa; o wrapper fino liga as actions; a moldura é do
 pacote. Ele **não aceita filho solto** entre o cabeçalho e a tabela — quem
@@ -143,7 +151,8 @@ node scripts/check-topo-tela.mjs      # só o topo da tela
 ```
 
 O `check-topo-tela` é uma **régua que só encolhe**: ele carrega uma lista
-congelada da dívida que existia no dia em que nasceu (93 itens) e reprova os
+congelada da dívida que existia no dia em que nasceu (93 itens; o `DIVIDA` no
+arquivo é o número de hoje, e ele só desce) e reprova os
 dois lados — violação nova reprova, e item da lista que você consertou sem
 apagar da lista **também** reprova. Migrou uma tela? apague a linha dela do
 `DIVIDA` no mesmo commit. `--congelar` reimprime a lista (só para recongelar
