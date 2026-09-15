@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { HStack, Text } from "@chakra-ui/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "./Button";
+import { LinkDaUi } from "./LinkDaUi";
 
 /**
  * Paginação PADRÃO do painel (mesmo visual do rodapé do `DataTable`), porém
@@ -19,6 +20,8 @@ export function Pagination({
   pageSize,
   onPageChange,
   label,
+  hrefAnterior,
+  hrefProxima,
 }: {
   /** Página atual (base 0). */
   page: number;
@@ -28,9 +31,16 @@ export function Pagination({
   total?: number;
   /** Itens por página (para calcular o intervalo do contador). */
   pageSize?: number;
-  onPageChange: (page: number) => void;
+  onPageChange?: (page: number) => void;
   /** Texto do contador (sobrescreve o "x–y de z" padrão). */
   label?: ReactNode;
+  /**
+   * Paginação do SERVIDOR: a página anterior/próxima já é uma URL (a lista vem
+   * paginada do banco). Com href a seta vira link — abre em nova aba, o
+   * navegador pré-carrega, e a URL continua sendo a fonte da verdade.
+   */
+  hrefAnterior?: string;
+  hrefProxima?: string;
 }) {
   const current = Math.min(Math.max(page, 0), Math.max(0, pageCount - 1));
 
@@ -63,29 +73,52 @@ export function Pagination({
       )}
       {pageCount > 1 ? (
         <HStack gap={1}>
-          <Button
-            size="xs"
-            tone="ghost"
-            disabled={current === 0}
-            onClick={() => onPageChange(current - 1)}
-            aria-label="Página anterior"
-          >
-            <ChevronLeft size={14} />
-          </Button>
+          <Seta
+            aria="Página anterior"
+            icone={<ChevronLeft size={14} />}
+            href={hrefAnterior}
+            desabilitada={current === 0}
+            onClick={onPageChange ? () => onPageChange(current - 1) : undefined}
+          />
           <Text fontSize="xs" color="var(--admin-text-soft)" px={1}>
             {current + 1}/{pageCount}
           </Text>
-          <Button
-            size="xs"
-            tone="ghost"
-            disabled={current >= pageCount - 1}
-            onClick={() => onPageChange(current + 1)}
-            aria-label="Próxima página"
-          >
-            <ChevronRight size={14} />
-          </Button>
+          <Seta
+            aria="Próxima página"
+            icone={<ChevronRight size={14} />}
+            href={hrefProxima}
+            desabilitada={current >= pageCount - 1}
+            onClick={onPageChange ? () => onPageChange(current + 1) : undefined}
+          />
         </HStack>
       ) : null}
     </HStack>
+  );
+}
+
+function Seta({
+  aria,
+  icone,
+  href,
+  desabilitada,
+  onClick,
+}: {
+  aria: string;
+  icone: ReactNode;
+  href?: string;
+  desabilitada: boolean;
+  onClick?: () => void;
+}) {
+  if (href && !desabilitada) {
+    return (
+      <Button size="xs" tone="ghost" aria-label={aria} asChild>
+        <LinkDaUi href={href}>{icone}</LinkDaUi>
+      </Button>
+    );
+  }
+  return (
+    <Button size="xs" tone="ghost" aria-label={aria} disabled={desabilitada || !onClick} onClick={onClick}>
+      {icone}
+    </Button>
   );
 }

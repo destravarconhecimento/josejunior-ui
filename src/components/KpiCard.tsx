@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Box, HStack, Text, VStack } from "@chakra-ui/react";
+import { LinkDaUi } from "./LinkDaUi";
 
 export type KpiTone =
   | "primary"
@@ -35,6 +36,7 @@ export function KpiCard({
   icon,
   tone = "primary",
   size = "md",
+  href,
 }: {
   label: ReactNode;
   value: ReactNode;
@@ -44,10 +46,12 @@ export function KpiCard({
   icon?: ReactNode;
   tone?: KpiTone;
   size?: "sm" | "md";
+  /** Faz o cartão inteiro virar link (navegação injetada pelo shell). */
+  href?: string;
 }) {
   const t = TONES[tone];
   const sm = size === "sm";
-  return (
+  const cartao = (
     <Box
       className="admin-card"
       p={sm ? 3 : { base: 3, md: 5 }}
@@ -108,6 +112,13 @@ export function KpiCard({
         ) : null}
       </HStack>
     </Box>
+  );
+
+  if (!href) return cartao;
+  return (
+    <LinkDaUi href={href} style={{ display: "block", textDecoration: "none", color: "inherit" }}>
+      {cartao}
+    </LinkDaUi>
   );
 }
 

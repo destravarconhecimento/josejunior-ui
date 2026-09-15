@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, type MouseEvent, type ReactNode } from "react";
-import { Box, Text } from "@chakra-ui/react";
+import { Box, Flex, IconButton, Text } from "@chakra-ui/react";
 import { Check, Copy } from "lucide-react";
 import { toast } from "./Toast";
+import { Button } from "./Button";
 
 /**
  * Dado que se COPIA no próprio clique (e-mail, telefone, código). Existe porque
@@ -90,5 +91,135 @@ export function TextoCopiavel({
         {copiado ? <Check size={12} /> : <Copy size={12} />}
       </Box>
     </Box>
+  );
+}
+
+/**
+ * Copiar sem depender da área de transferência assíncrona: em contexto não
+ * seguro (http, webview antiga) `navigator.clipboard` nem existe, e o usuário
+ * ficava sem entender por que o botão não fazia nada.
+ */
+export async function copiarTexto(texto: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(texto);
+    return true;
+  } catch {
+    try {
+      const el = document.createElement("textarea");
+      el.value = texto;
+      el.setAttribute("readonly", "");
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(el);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+export function useCopiar(): (texto: string, rotulo?: string) => Promise<boolean> {
+  return async (texto: string, rotulo = "Copiado") => {
+    const ok = await copiarTexto(texto);
+    if (ok) toast.success(rotulo, texto.length > 60 ? undefined : texto);
+    else toast.error("Não deu pra copiar", "O navegador bloqueou a área de transferência.");
+    return ok;
+  };
+}
+
+/**
+ * Variante BOTÃO do copiar, pra quando o dado não está na tela (copiar o bloco
+ * inteiro, a chave, o link de convite). O botão confirma em si mesmo por um
+ * instante — o aviso passa, o botão fica onde a pessoa está olhando.
+ */
+export function BotaoCopiar({
+  texto,
+  rotulo,
+  rotuloCopiado = "Copiado",
+  size = "xs",
+  tone = "outline",
+  disabled,
+}: {
+  texto: string;
+  rotulo: ReactNode;
+  rotuloCopiado?: ReactNode;
+  size?: "2xs" | "xs" | "sm" | "md";
+  tone?: "primary" | "outline" | "ghost";
+  disabled?: boolean;
+}) {
+  const [copiado, setCopiado] = useState(false);
+  return (
+    <Button
+      size={size}
+      tone={copiado ? "primary" : tone}
+      disabled={disabled}
+      onClick={async () => {
+        if (!(await copiarTexto(texto))) {
+          toast.error("Não deu pra copiar", "O navegador bloqueou a área de transferência.");
+          return;
+        }
+        setCopiado(true);
+        setTimeout(() => setCopiado(false), 1600);
+      }}
+    >
+      {copiado ? <Check size={14} /> : <Copy size={14} />}
+      {copiado ? rotuloCopiado : rotulo}
+    </Button>
+  );
+}
+
+/**
+ * Linha rótulo/valor de ficha (chave de API, endereço, documento) com o copiar
+ * na ponta. É o `TextoCopiavel` quando o rótulo precisa aparecer junto.
+ */
+export function LinhaCopiavel({
+  rotulo,
+  valor,
+  vazio = "—",
+}: {
+  rotulo: string;
+  valor?: string | null;
+  vazio?: ReactNode;
+}) {
+  const copiar = useCopiar();
+  const v = valor?.trim() || "";
+  return (
+    <Flex
+      justify="space-between"
+      align="center"
+      gap={3}
+      py={2.5}
+      px={1}
+      borderBottomWidth="1px"
+      borderColor="var(--admin-divider)"
+    >
+      <Box minW={0}>
+        <Text
+          fontSize="10px"
+          fontWeight="600"
+          color="var(--admin-text-soft)"
+          textTransform="uppercase"
+          letterSpacing="0.04em"
+        >
+          {rotulo}
+        </Text>
+        <Text fontSize="sm" fontWeight="500" lineClamp={1}>
+          {v || vazio}
+        </Text>
+      </Box>
+      <IconButton
+        aria-label={`Copiar ${rotulo}`}
+        title={`Copiar ${rotulo}`}
+        size={{ base: "sm", md: "xs" }}
+        variant="ghost"
+        disabled={!v}
+        onClick={() => void copiar(v, `${rotulo} copiado`)}
+      >
+        <Copy size={14} />
+      </IconButton>
+    </Flex>
   );
 }

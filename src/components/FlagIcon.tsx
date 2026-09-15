@@ -3,7 +3,7 @@ import { Box, chakra } from "@chakra-ui/react";
 /**
  * Bandeira de país em SVG INLINE (sem lib, sem emoji). Emoji de bandeira não
  * renderiza no Windows; este componente desenha a bandeira igual em qualquer SO.
- * Suporta os países do catálogo de idiomas (pt/gb/es/jp/fr/de/it/cn) e cai num globo neutro
+ * Suporta os países do catálogo de idiomas (pt/br/gb/us/es/jp/fr/de/it/cn) e cai num globo neutro
  * pra qualquer outro código. Aspecto fixo 4:3, cantinho arredondado + hairline.
  * `en` usa a bandeira do REINO UNIDO (gb) — o inglês da plataforma é o britânico —
  * e `pt` usa a de PORTUGAL (o português da casa é o de Portugal, não o do Brasil).
@@ -62,6 +62,28 @@ const FLAGS: Record<string, React.ReactNode> = {
       <rect y={6} width={24} height={6} fill="#fff" />
       <rect x={10} width={4} height={18} fill="#C8102E" />
       <rect y={7} width={24} height={4} fill="#C8102E" />
+    </>
+  ),
+  // Estados Unidos: 13 listras, cantão azul com estrelas simplificadas em grade.
+  // Não é alias de `en` — quem mostra a americana pede `us` de propósito.
+  us: (
+    <>
+      <rect width={24} height={18} fill="#fff" />
+      {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+        <rect key={i} y={i * 2.77} width={24} height={1.38} fill="#B22234" />
+      ))}
+      <rect width={10} height={9.7} fill="#3C3B6E" />
+      {[0, 1, 2, 3].map((linha) =>
+        [0, 1, 2, 3, 4].map((col) => (
+          <circle
+            key={`${linha}-${col}`}
+            cx={1.2 + col * 2 + (linha % 2 === 0 ? 0 : 1)}
+            cy={1.5 + linha * 2.3}
+            r={0.52}
+            fill="#fff"
+          />
+        )),
+      )}
     </>
   ),
   // Japão (Hinomaru): campo branco, disco vermelho centralizado.

@@ -85,6 +85,43 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
   );
 }
 
+const PONTO_CORES = {
+  ok: "#15803d",
+  alerta: "#b45309",
+  inativo: "var(--admin-border-strong, #cbd5e1)",
+} as const;
+
+/**
+ * Ponto de estado: o status reduzido a uma bolinha, pra linha de lista onde a
+ * pílula do `StatusBadge` rouba a largura do dado. `oco` = estado que ainda não
+ * foi medido (contorno sem preenchimento), diferente de medido e inativo.
+ */
+export function PontoDeEstado({
+  tom,
+  oco = false,
+  title,
+}: {
+  tom: keyof typeof PONTO_CORES;
+  oco?: boolean;
+  title?: string;
+}) {
+  const cor = PONTO_CORES[tom];
+  return (
+    <Box
+      as="span"
+      title={title}
+      display="inline-block"
+      w="8px"
+      h="8px"
+      flexShrink={0}
+      borderRadius="full"
+      bg={oco ? "transparent" : cor}
+      borderWidth={oco ? "1.5px" : "0"}
+      borderColor={cor}
+    />
+  );
+}
+
 /** Modo de entrega do tenant (central / self-hosted). */
 export function DeliveryBadge({ mode }: { mode: string }) {
   const isCentral = mode === "central";
