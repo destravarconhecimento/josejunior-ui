@@ -137,9 +137,16 @@ telas com o texto invisível (passavam `description` numa versão que só lia
 
 ```bash
 npx turbo run typecheck               # validação primária
-node scripts/check-no-chakra.mjs      # @chakra-ui cru nos apps
-node scripts/check-single-table.mjs   # tabela crua / pseudo-tabela
+npm run verificar                     # os 4 guardrails (é o que o CI roda)
+node scripts/check-topo-tela.mjs      # só o topo da tela
 ```
+
+O `check-topo-tela` é uma **régua que só encolhe**: ele carrega uma lista
+congelada da dívida que existia no dia em que nasceu (93 itens) e reprova os
+dois lados — violação nova reprova, e item da lista que você consertou sem
+apagar da lista **também** reprova. Migrou uma tela? apague a linha dela do
+`DIVIDA` no mesmo commit. `--congelar` reimprime a lista (só para recongelar
+depois de uma mudança de regra, nunca para esconder violação nova).
 
 ⚠️ O ESLint do josejunior está quebrado (circular `@eslint/eslintrc`) — valide
 com typecheck + `next build`, nunca com lint. No 8899br o lint funciona
