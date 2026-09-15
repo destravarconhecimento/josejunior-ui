@@ -59,7 +59,8 @@ O que decorre disso, e não é negociável:
 | A tela é… | Use |
 |---|---|
 | uma lista (a maioria) | **`TelaDeLista`** |
-| não é lista (dashboard, editor, chat, wizard) | **`Screen`** |
+| um conjunto de painéis num menu lateral | **`TelaDeAbas`** |
+| não é nenhum dos dois (dashboard, editor, chat, wizard) | **`Screen`** |
 | composição fora do padrão (workspace de 2 painéis) | `PageHeader` + `PageBody` |
 
 `TelaDeLista` monta header + abas + KPIs + `DataTable` a partir de props. O
