@@ -85,7 +85,7 @@ export function PageHeader({
             className="admin-scroll"
             pb={{ base: 1, md: 0 }}
             css={{
-              "& > *": {
+              "& > *:not(style):not(script)": {
                 flexShrink: 0,
                 minHeight: "34px",
                 display: "inline-flex",

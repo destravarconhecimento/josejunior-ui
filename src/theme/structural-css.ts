@@ -12,6 +12,7 @@ export const ADMIN_STRUCTURAL_CSS = `
   100% { left: 100%; }
 }
 .admin-shell { background: var(--admin-bg); min-height: 100vh; color: var(--admin-text); }
+.admin-shell style, .admin-shell script, .admin-shell link { display: none !important; }
 ${ADMIN_FONTE_UNIVERSAL}
 .admin-shell h1, .admin-shell h2, .admin-shell .admin-h {
   font-family: var(--admin-font-heading);
