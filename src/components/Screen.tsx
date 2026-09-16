@@ -33,7 +33,8 @@ export function Screen({
   kpis?: ReactNode;
   /** Blocos próprios da tela, entre o cabeçalho e o conteúdo principal. */
   blocos?: ReactNode;
-  children: ReactNode;
+  /** Opcional: tela cujo conteúdo inteiro mora em `tabs`/`blocos` não tem corpo. */
+  children?: ReactNode;
   maxW?: string;
   fill?: boolean;
 }) {
