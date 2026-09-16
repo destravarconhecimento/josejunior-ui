@@ -39,6 +39,7 @@ export function TelaDeLista<T>({
   filtrosSelect,
   filtrosDaTela,
   filtrosDaTelaAtivos,
+  onLimparFiltrosDaTela,
   overlays,
   maxW,
   ...tabela
@@ -66,6 +67,9 @@ export function TelaDeLista<T>({
   /** Filtros que não são de coluna — desenhados pela tabela, junto da busca. */
   filtrosDaTela?: ReactNode;
   filtrosDaTelaAtivos?: number;
+  /** Zera os `filtrosDaTela`. A busca e os `filtrosSelect` a tela não precisa
+   *  zerar: são daqui e entram no "Limpar tudo" sozinhos. */
+  onLimparFiltrosDaTela?: () => void;
   /** Modais, gavetas e confirmações da tela — vão depois da tabela. */
   overlays?: ReactNode;
   maxW?: string;
@@ -115,6 +119,20 @@ export function TelaDeLista<T>({
     if (!casa || termo.trim() === "") return tabela.rows;
     return tabela.rows.filter((r) => casa(r, termo));
   }, [casa, termo, tabela.rows]);
+
+  const selectsAtivos = (filtrosSelect ?? []).filter(
+    (s) => s.options.length > 0 && s.value !== s.options[0].value,
+  );
+  const daTelaLimpaveis = onLimparFiltrosDaTela ? (filtrosDaTelaAtivos ?? 0) : 0;
+  const ativosDaTela = (termo.trim() === "" ? 0 : 1) + selectsAtivos.length + daTelaLimpaveis;
+  const limparDaTela =
+    ativosDaTela > 0
+      ? () => {
+          setTermo("");
+          for (const s of selectsAtivos) s.onChange(s.options[0].value);
+          onLimparFiltrosDaTela?.();
+        }
+      : undefined;
 
   const botaoNovo = acaoNova ? (
     acaoNova.href && !acaoNova.disabled ? (
@@ -177,7 +195,9 @@ export function TelaDeLista<T>({
           ) : undefined
         }
         filtrosDaTela={filtrosDaTela}
-        filtrosDaTelaAtivos={filtrosDaTelaAtivos}
+        filtrosDaTelaAtivos={ativosDaTela}
+        onLimparDaTela={limparDaTela}
+        totalSemFiltro={tabela.rows.length}
       />
       {overlays}
     </Screen>

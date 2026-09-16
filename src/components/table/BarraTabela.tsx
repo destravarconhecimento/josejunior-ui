@@ -77,6 +77,7 @@ export function BarraTabela({
   busca,
   filtrosDaTela,
   filtrosDaTelaAtivos = 0,
+  podeLimparDaTela = false,
 }: {
   ordenaveis: ColunaOrdenavel[];
   filtraveis: ColunaFiltravel[];
@@ -94,6 +95,9 @@ export function BarraTabela({
   busca?: ReactNode;
   filtrosDaTela?: ReactNode;
   filtrosDaTelaAtivos?: number;
+  /** `onLimparTudo` também zera a busca e os filtros da tela — então eles contam
+   *  para o botão aparecer. */
+  podeLimparDaTela?: boolean;
 }) {
   const t = useUiTextos(textos);
   const [modalFiltro, setModalFiltro] = useState(false);
@@ -101,7 +105,9 @@ export function BarraTabela({
   const ativos = filtros.filter((f) => f.valores.length > 0);
   const unificado = busca != null || filtrosDaTela != null;
   const temControles = ordenaveis.length > 0 || filtraveis.length > 0 || unificado;
-  const temChips = ativos.length > 0 || sort != null || chipsExtras != null;
+  const limpaveis = ativos.length + (sort ? 1 : 0) + (podeLimparDaTela ? filtrosDaTelaAtivos : 0);
+  const mostrarLimpar = limpaveis >= 2;
+  const temChips = ativos.length > 0 || sort != null || chipsExtras != null || mostrarLimpar;
   if (!temControles && !temChips) return null;
 
   const rotuloDe = (key: string) =>
@@ -123,7 +129,7 @@ export function BarraTabela({
           {fmtTexto(t.ordemChip, { coluna: rotuloDe(sort.key), seta: sort.dir === "asc" ? "↑" : "↓" })}
         </ChipFiltro>
       ) : null}
-      {ativos.length + (sort ? 1 : 0) >= 2 ? (
+      {mostrarLimpar ? (
         <Button size="xs" tone="ghost" onClick={onLimparTudo}>
           {t.limparTudo}
         </Button>

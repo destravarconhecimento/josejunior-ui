@@ -245,6 +245,8 @@ export function DataTable<T>({
   busca,
   filtrosDaTela,
   filtrosDaTelaAtivos,
+  onLimparDaTela,
+  totalSemFiltro,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -327,6 +329,18 @@ export function DataTable<T>({
   busca?: ReactNode;
   filtrosDaTela?: ReactNode;
   filtrosDaTelaAtivos?: number;
+  /**
+   * Zera a busca e os filtros DA TELA (os que entram por `busca`/`filtrosDaTela`
+   * e de que a tela é dona). Sem isto o "Limpar tudo" só apaga coluna e ordem, e
+   * a tela fica com resultado filtrado por um controle que o botão não alcança.
+   */
+  onLimparDaTela?: () => void;
+  /**
+   * Total ANTES do filtro da tela. Quando a tela filtra e só então entrega as
+   * linhas, `rows` já é o resultado — o "de N" do rodapé mentiria dizendo que o
+   * conjunto inteiro tem o tamanho do recorte.
+   */
+  totalSemFiltro?: number;
 }) {
   const acoesPorLinha = acoesDaLinha ? rows.map((r) => acoesDaLinha(r)) : null;
   const celulaAcoes = acoesDaLinha
@@ -670,7 +684,9 @@ export function DataTable<T>({
           onLimparTudo={() => {
             mudarFiltros([]);
             mudarSort(null);
+            onLimparDaTela?.();
           }}
+          podeLimparDaTela={onLimparDaTela != null}
           chipsExtras={chipsExtras}
           textos={textos}
           filtrosEmSheet={filtrosEmSheet}
@@ -681,7 +697,10 @@ export function DataTable<T>({
       </Box>
     ) : null;
 
-  if (rows.length === 0) {
+  const totalGeral = totalSemFiltro ?? rows.length;
+  const telaFiltrouTudo = onLimparDaTela != null && (filtrosDaTelaAtivos ?? 0) > 0;
+
+  if (rows.length === 0 && (carregando || !telaFiltrouTudo)) {
     return (
       <Box
         className="admin-card"
@@ -715,7 +734,11 @@ export function DataTable<T>({
         <Box p={6}>
           <EmptyState
             title={textos.filtradoVazioTitulo}
-            description={plural(rows.length, textos.filtradoVazioUma, textos.filtradoVazioMuitas)}
+            description={
+              rows.length > 0
+                ? plural(rows.length, textos.filtradoVazioUma, textos.filtradoVazioMuitas)
+                : undefined
+            }
             action={
               <Button
                 size="sm"
@@ -723,6 +746,7 @@ export function DataTable<T>({
                 onClick={() => {
                   mudarFiltros([]);
                   mudarSort(null);
+                  onLimparDaTela?.();
                 }}
               >
                 {textos.limparFiltros}
@@ -770,9 +794,7 @@ export function DataTable<T>({
     >
       <Text fontSize="xs" color="var(--admin-text-soft)">
         {fmtTexto(textos.rodapeFaixa, { de: from, ate: to, total: linhasVisiveis.length })}
-        {linhasVisiveis.length !== rows.length
-          ? fmtTexto(textos.rodapeFiltradoDe, { total: rows.length })
-          : ""}
+        {linhasVisiveis.length !== totalGeral ? fmtTexto(textos.rodapeFiltradoDe, { total: totalGeral }) : ""}
       </Text>
       <HStack gap={1}>
         {pages > 1 ? (
@@ -1195,9 +1217,7 @@ export function DataTable<T>({
             {titulo ?? textos.tabela}{" "}
             <Text as="span" color="var(--admin-text-soft)" fontWeight="400">
               · {plural(linhasVisiveis.length, textos.umItem, textos.muitosItens)}
-              {linhasVisiveis.length !== rows.length
-                ? fmtTexto(textos.itensDeTotal, { total: rows.length })
-                : ""}
+              {linhasVisiveis.length !== totalGeral ? fmtTexto(textos.itensDeTotal, { total: totalGeral }) : ""}
             </Text>
           </Text>
           <Button size="xs" tone="ghost" onClick={() => setExpandido(false)}>
