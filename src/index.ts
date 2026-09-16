@@ -345,6 +345,12 @@ export { rowMatchesQuery } from "./search";
 export { InlineSelect, type InlineSelectOption } from "./components/InlineSelect";
 export { SearchSelect, type SearchSelectOption } from "./components/SearchSelect";
 export { MonthPicker } from "./components/MonthPicker";
+export {
+  DateRangePicker,
+  type DateRangePreset,
+  type DateRangeValue,
+  type DateRangeTextos,
+} from "./components/DateRangePicker";
 export { AccountSelector, type AccountSelectorOption } from "./components/AccountSelector";
 export { ActionMenu, type ActionMenuItem } from "./components/ActionMenu";
 export { LocaleSelector, type LocaleOption } from "./components/LocaleSelector";

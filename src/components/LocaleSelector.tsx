@@ -17,8 +17,8 @@ export type LocaleOption = { code: string; label: string; short: string; flag?: 
  * a página re-renderiza no novo idioma (SSR, sem flip no cliente).
  *
  * TEMA (claro/escuro): o gatilho não decide cor — com `bare` ele HERDA a do header.
- * O menu não pode herdar (vai pro Portal, no <body>), então o DS expõe 3 ganchos
- * opcionais que o app define no `:root`; sem eles, tudo cai no claro de hoje:
+ * O menu não pode herdar (vai pro Portal, no <body>), então cai nos tokens do
+ * Chakra, que o Portal enxerga. Para sobrescrever, o app define 3 ganchos:
  *   --ui-menu-bg · --ui-menu-fg · --ui-menu-border
  */
 export function LocaleSelector({
@@ -177,13 +177,13 @@ export function LocaleSelector({
             minW="180px"
             zIndex={1600}
             p={1.5}
-            // Ganchos de tema do DS: o app OPTA por definir `--ui-menu-*` no :root
-            // (o menu vai pro Portal, no <body> — só var no :root o alcança). Sem
-            // definir, cai no claro de sempre → portal/painel ficam idênticos.
-            bg="var(--ui-menu-bg, #fff)"
-            color="var(--ui-menu-fg, #1f2937)"
+            // Ganchos de tema do DS: o app OPTA por definir `--ui-menu-*`. Sem
+            // definir, cai nos tokens do Chakra — que o Portal enxerga por ser
+            // filho do <body> (a condição escura compila para `.dark &`).
+            bg="var(--ui-menu-bg, var(--chakra-colors-bg-panel, #fff))"
+            color="var(--ui-menu-fg, var(--chakra-colors-fg, #1f2937))"
             borderWidth="1px"
-            borderColor="var(--ui-menu-border, rgba(0,0,0,0.10))"
+            borderColor="var(--ui-menu-border, var(--chakra-colors-border, rgba(0,0,0,0.10)))"
             borderRadius="12px"
             boxShadow="0 16px 40px rgba(15,23,42,0.18)"
             onClick={(e) => e.stopPropagation()}
