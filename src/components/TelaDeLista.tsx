@@ -160,7 +160,7 @@ export function TelaDeLista<T>({
     <Screen
       title={titulo}
       subtitle={subtitulo}
-      count={contador ?? linhas.length}
+      count={contador ?? tabela.rows.length}
       titleAfter={tituloDepois}
       maxW={maxW}
       actions={
