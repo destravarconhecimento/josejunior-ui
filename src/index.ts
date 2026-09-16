@@ -401,6 +401,7 @@ export { TETO_CORPO, erroDaResposta, lerJson, mb, reduzirImagem } from "./compon
 // Primitivos premium (KPIs, avatar, IA, timeline, ações rápidas)
 export { KpiCard, KpiRow, type KpiRowItem, type KpiTone, type KpiTrendTone } from "./components/KpiCard";
 export { ProgressBar, type ProgressTone } from "./components/ProgressBar";
+export { PontoDeEstado, type PontoTom } from "./components/PontoDeEstado";
 export {
   EntityAvatar,
   type EntityAvatarSize,
