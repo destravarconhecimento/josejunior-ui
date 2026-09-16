@@ -223,6 +223,7 @@ export {
   type AcaoLinha,
   type AcoesDeclaradas,
 } from "./components/table/AcoesLinha";
+export { AcoesDaTabela } from "./components/table/AcoesTabela";
 export { ChipFiltro } from "./components/table/BarraTabela";
 export {
   type KindCelula,

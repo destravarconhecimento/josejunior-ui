@@ -23,7 +23,7 @@ Toda tela logada tem a mesma pilha, sempre nesta ordem:
 ├──────────────────────────────────────────────────────┤
 │ blocos próprios da tela (raro)                       │  ← PageBody
 │ ┌──────────────────────────────────────────────────┐ │
-│ │ 🔍 buscar…            [filtros]                  │ │  ← DataTable
+│ │ 🔍 buscar…        [filtros] [Imprimir] [Ações ▾] │ │  ← DataTable
 │ ├──────────────────────────────────────────────────┤ │
 │ │ cabeçalho da tabela                              │ │
 │ │ linhas…                                          │ │
@@ -39,6 +39,15 @@ O que decorre disso, e não é negociável:
   `filters` do `Screen`/`PageHeader` é **legada** — existe só para as telas que
   ainda não migraram, e o docblock antigo que mandava pôr filtro no header
   estava errado.
+- **Ação que vale para a lista inteira é `acoesDaTabela`, e a barra é UMA
+  linha.** Imprimir a seleção, exportar, marcar tudo, testar impressão — tudo
+  isso é ação *da tabela*, não da página e não da linha. A `DataTable` recebe
+  `acoesDaTabela`, deixa solta só a que vier marcada `primaria` e joga **todo o
+  resto num único botão "Ações"**, no fim da mesma linha da busca e dos filtros.
+  Espalhar quatro botões pelo `toolbar` é regressão: foi assim que a barra do
+  Envios quebrou em duas linhas. Pelo mesmo motivo, controle com rótulo no
+  `toolbar` usa `aria-label`, não label visível — a barra não tem altura para
+  label. Se não couber, ela **rola de lado**; nunca quebra.
 - **KPI em tela de lista é faixa, não grade.** Uma `KpiRow` por tela, ~40 px,
   no slot `kpis`. Grade de `KpiCard` é coisa de dashboard, onde o indicador *é*
   a tela. KPI solto no corpo é regressão.

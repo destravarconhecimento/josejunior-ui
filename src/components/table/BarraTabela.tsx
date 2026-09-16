@@ -78,6 +78,7 @@ export function BarraTabela({
   filtrosDaTela,
   filtrosDaTelaAtivos = 0,
   podeLimparDaTela = false,
+  acoes,
 }: {
   ordenaveis: ColunaOrdenavel[];
   filtraveis: ColunaFiltravel[];
@@ -98,12 +99,14 @@ export function BarraTabela({
   /** `onLimparTudo` também zera a busca e os filtros da tela — então eles contam
    *  para o botão aparecer. */
   podeLimparDaTela?: boolean;
+  /** Botão "Ações" da tabela, já montado — fica no fim da linha de controles. */
+  acoes?: ReactNode;
 }) {
   const t = useUiTextos(textos);
   const [modalFiltro, setModalFiltro] = useState(false);
 
   const ativos = filtros.filter((f) => f.valores.length > 0);
-  const unificado = busca != null || filtrosDaTela != null;
+  const unificado = busca != null || filtrosDaTela != null || acoes != null;
   const temControles = ordenaveis.length > 0 || filtraveis.length > 0 || unificado;
   const limpaveis = ativos.length + (sort ? 1 : 0) + (podeLimparDaTela ? filtrosDaTelaAtivos : 0);
   const mostrarLimpar = limpaveis >= 2;
@@ -186,6 +189,7 @@ export function BarraTabela({
           {qtdFiltros > 0 ? fmtTexto(t.filtrarContagem, { n: qtdFiltros }) : t.filtrar}
         </Button>
       ) : null}
+      {acoes}
     </HStack>
   ) : temControles ? (
     <HStack

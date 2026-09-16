@@ -29,6 +29,7 @@ import {
   LARGURA_ACOES_MINIMA,
   type AcoesDeclaradas,
 } from "./table/AcoesLinha";
+import { AcoesDaTabela } from "./table/AcoesTabela";
 import { aplicarFiltros, valoresDistintos, type FiltroColuna } from "./table/filtros";
 import { FiltroColunaMenu } from "./table/FiltroColunaMenu";
 import { BarraTabela } from "./table/BarraTabela";
@@ -215,6 +216,7 @@ export function DataTable<T>({
   actions,
   actionsWidth,
   acoesDaLinha,
+  acoesDaTabela,
   pageSize = PAGE_SIZE,
   // Default = modo PÁGINA (sem scroll interno; quem rola é a janela). `false` =
   // mini/natural; `number` = offset legado (evite). Ver o bloco ALTURA no doc acima.
@@ -268,6 +270,9 @@ export function DataTable<T>({
    */
   actionsWidth?: string;
   acoesDaLinha?: (row: T) => AcoesDeclaradas;
+  /** Ações da lista inteira: as `primaria` ficam soltas e o resto vira um botão
+   *  "Ações" no fim da mesma linha da busca. Ver CONTRATO-TELA.md §1. */
+  acoesDaTabela?: AcoesDeclaradas;
   pageSize?: number;
   /** Altura. Default (`true`) = modo PÁGINA: altura natural, sem scroll interno,
    *  sticky na toolbar/`thead`/rodapé. `false` = mini/natural (tabela secundária
@@ -626,7 +631,12 @@ export function DataTable<T>({
     };
   };
 
-  const unificado = busca != null || filtrosDaTela != null;
+  const acoesNode =
+    acoesDaTabela != null && acoesDaTabela.some((a) => !!a && !a.oculta) ? (
+      <AcoesDaTabela acoes={acoesDaTabela} />
+    ) : null;
+
+  const unificado = busca != null || filtrosDaTela != null || acoesNode != null;
   const painelDaTela =
     filtrosDaTela != null || (unificado && toolbar) ? (
       <>
@@ -657,15 +667,25 @@ export function DataTable<T>({
             borderBottomWidth="1px"
             borderColor="var(--admin-divider)"
           >
-            <HStack gap={2} flexWrap="wrap" align="center">
+            <HStack gap={2} flexWrap="nowrap" align="center">
               {busca != null ? (
-                <Box flex="1" minW="14rem" maxW="sm">
+                <Box flex="1" minW="10rem" maxW="sm">
                   {busca}
                 </Box>
               ) : null}
-              <HStack gap={2} flexWrap="wrap" align="center" ml="auto" justify="flex-end">
+              <HStack
+                gap={2}
+                flexWrap="nowrap"
+                align="center"
+                ml="auto"
+                justify="flex-end"
+                minW={0}
+                overflowX="auto"
+                css={{ scrollbarWidth: "thin" }}
+              >
                 {filtrosDaTela}
                 {toolbar}
+                {acoesNode}
               </HStack>
             </HStack>
           </Box>
@@ -693,6 +713,7 @@ export function DataTable<T>({
           busca={busca}
           filtrosDaTela={painelDaTela}
           filtrosDaTelaAtivos={filtrosDaTelaAtivos}
+          acoes={acoesNode}
         />
       </Box>
     ) : null;
