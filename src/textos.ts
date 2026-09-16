@@ -20,13 +20,8 @@ export type UiTextos = {
   expandir: string;
   recolher: string;
   recolherDica: string;
-  fechar: string;
-  tabela: string;
   tabelaTelaCheia: string;
   telaCheiaDe: string;
-  umItem: string;
-  muitosItens: string;
-  itensDeTotal: string;
   ordenarPor: string;
   ordenar: string;
   ordemPadrao: string;
@@ -67,13 +62,8 @@ export const UI_TEXTOS_PT: UiTextos = {
   expandir: "Expandir para tela cheia",
   recolher: "Sair da tela cheia",
   recolherDica: "Sair da tela cheia (Esc)",
-  fechar: "Fechar (Esc)",
-  tabela: "Tabela",
   tabelaTelaCheia: "Tabela em tela cheia",
   telaCheiaDe: "{titulo} em tela cheia",
-  umItem: "{n} item",
-  muitosItens: "{n} itens",
-  itensDeTotal: " (de {total})",
   ordenarPor: "Ordenar por {coluna}",
   ordenar: "Ordenar",
   ordemPadrao: "Ordem padrão",

@@ -116,6 +116,20 @@ acabou com o scroll-dentro-de-scroll que espremia a lista em tela pequena.
 Tabela larga **não** ganha scroll horizontal: ganha o botão **expandir** (tela
 cheia). `expansivel={false}` tira o botão.
 
+### Expandida = a tabela e nada mais
+
+Na tela cheia a tabela vira o scrollport (é o único caso em que ela rola por
+dentro), e aí a geometria do sticky **inverte**: a toolbar passa a ser IRMÃ da
+área que rola, não filha dela, então o `thead` gruda em `top: 0` — somar a
+altura da toolbar aqui empurra o cabeçalho para dentro das linhas.
+
+Não há faixa de título por cima: quem fecha é o `ESC` ou o botão recolher que a
+própria tabela já carrega no rodapé. Enquanto ela está aberta, o `<html>` ganha
+`data-jj-tabela-cheia="1"`, e o CSS estrutural usa essa marca para **esconder
+todo `[data-jj-fab]`** e devolver a coluna do painel acoplado (`--jj-fab-dock`
+volta a `0px`). FAB novo, em qualquer app, precisa do atributo `data-jj-fab`
+para sumir junto — sem ele, ele flutua por cima da tela cheia.
+
 ### `fill`, `--admin-content-h` e o escape por `:has()`
 
 `Screen fill` trava a altura em `var(--admin-content-h, calc(100dvh - 132px))`

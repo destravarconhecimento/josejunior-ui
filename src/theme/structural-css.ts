@@ -35,6 +35,9 @@ ${ADMIN_FONTE_UNIVERSAL}
 @media (min-width: 62em) {
   html[data-fab-dock="1"] { --jj-fab-dock: var(--jj-fab-dock-w, 0px); }
 }
+html[data-jj-tabela-cheia="1"] [data-jj-fab] { display: none !important; }
+html[data-jj-tabela-cheia="1"],
+html[data-jj-tabela-cheia="1"][data-fab-dock="1"] { --jj-fab-dock: 0px; }
 .admin-card {
   background: var(--admin-surface);
   border: 1px solid var(--admin-border);

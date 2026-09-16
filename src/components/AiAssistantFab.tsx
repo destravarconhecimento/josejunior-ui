@@ -139,6 +139,7 @@ export function AiAssistantFab({
           setOpen(true);
         }}
         position="fixed"
+        data-jj-fab=""
         {...arrastoHandlers}
         style={{ background: accent, boxShadow: "0 8px 22px rgba(7,26,51,0.28)", ...arrastoStyle }}
         bottom={`${bottom}px`}
@@ -202,6 +203,7 @@ export function AiAssistantFab({
   return (
     <Box
       position="fixed"
+      data-jj-fab=""
       {...moldura}
       zIndex={1400}
       bg="white"

@@ -116,6 +116,30 @@ function scrollportAncestral(el: HTMLElement): HTMLElement | null {
   return null;
 }
 
+// Duas tabelas podem estar em tela cheia ao mesmo tempo (pelo teclado dá para
+// chegar ao "expandir" da segunda). Sem contagem, a primeira a fechar restaurava
+// o `overflow` e apagava a marca, devolvendo o scroll de fundo e os FABs por
+// cima da que continua aberta.
+let cheiasAbertas = 0;
+let overflowAntesDaCheia = "";
+
+function abrirTelaCheia() {
+  if (cheiasAbertas === 0) {
+    overflowAntesDaCheia = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.setAttribute("data-jj-tabela-cheia", "1");
+  }
+  cheiasAbertas += 1;
+}
+
+function fecharTelaCheia() {
+  cheiasAbertas = Math.max(0, cheiasAbertas - 1);
+  if (cheiasAbertas === 0) {
+    document.body.style.overflow = overflowAntesDaCheia;
+    document.documentElement.removeAttribute("data-jj-tabela-cheia");
+  }
+}
+
 const DISPLAY_ACIMA = {
   sm: { base: "none", sm: "table-cell" },
   md: { base: "none", md: "table-cell" },
@@ -292,7 +316,8 @@ export function DataTable<T>({
   dense?: boolean;
   /** Seleção em massa (checkbox por linha + selecionar todos). Opt-in. */
   selection?: Selection;
-  /** Nome da tabela — só aparece na barra do modo expandido (tela cheia). */
+  /** Nome da tabela — vira o `aria-label` do modo expandido (tela cheia). Não é
+   *  desenhado em lugar nenhum: a tela cheia é só a tabela. */
   titulo?: string;
   /** false = esconde o botão "expandir" do rodapé. */
   expansivel?: boolean;
@@ -487,15 +512,20 @@ export function DataTable<T>({
     [medirLargura],
   );
 
-  const topoBase = expandido || emScrollport ? "0px" : "var(--admin-sticky-top, 0px)";
-  const stickyToolbar = modoJanela || expandido ? topoBase : undefined;
-  const stickyCabecalho: string | number | undefined =
-    modoJanela || expandido
+  // Duas geometrias, nunca as duas ao mesmo tempo. Em `modoPagina` quem rola é a
+  // JANELA: toolbar, `thead` e rodapé grudam nela, e o `thead` desce a altura da
+  // toolbar porque ambos disputam o mesmo topo. Quando a tabela tem scrollport
+  // próprio (`rolaDentro`: expandida, mini ou offset legado) a toolbar é IRMÃ da
+  // área que rola, não filha — ela sai do caminho sozinha e o `thead` gruda em
+  // `top: 0`. Somar a toolbar aqui empurrava o cabeçalho para dentro das linhas.
+  const topoBase = emScrollport ? "0px" : "var(--admin-sticky-top, 0px)";
+  const stickyToolbar = modoJanela ? topoBase : undefined;
+  const stickyCabecalho: string | number | undefined = rolaDentro
+    ? 0
+    : modoJanela
       ? `calc(${topoBase} + ${alturaToolbar}px)`
-      : rolaDentro
-        ? 0
-        : undefined;
-  const stickyRodape = !modoJanela || expandido
+      : undefined;
+  const stickyRodape = !modoJanela
     ? undefined
     : emScrollport
       ? "0px"
@@ -517,17 +547,18 @@ export function DataTable<T>({
     return regras;
   }, [rolaDentro, apertado]);
 
-  // Tela cheia: ESC fecha e a página de trás não rola junto.
+  // Tela cheia: ESC fecha, a página de trás não rola junto e os FABs somem —
+  // o `<html>` marcado é lido pelo CSS estrutural, que os esconde e devolve a
+  // coluna do painel acoplado (ver `theme/structural-css.ts`).
   useEffect(() => {
     if (!expandido) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setExpandido(false);
     };
-    const anterior = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    abrirTelaCheia();
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = anterior;
+      fecharTelaCheia();
       window.removeEventListener("keydown", onKey);
     };
   }, [expandido]);
@@ -875,6 +906,9 @@ export function DataTable<T>({
       flexDirection={expandido ? "column" : undefined}
       flex={expandido ? "1" : undefined}
       minH={expandido ? 0 : undefined}
+      borderWidth={expandido ? 0 : undefined}
+      borderRadius={expandido ? 0 : undefined}
+      boxShadow={expandido ? "none" : undefined}
     >
       {toolbarNode}
       <Box
@@ -1212,6 +1246,9 @@ export function DataTable<T>({
   // Tela cheia: sai do fluxo da página (por isso o Portal — dentro da tela ele
   // herdaria qualquer `transform`/`overflow` de ancestral e o `fixed` viraria
   // relativo). Aqui o scrollport é este box, então o sticky volta a ser `top: 0`.
+  // É a tabela inteira e nada mais: quem fecha é o ESC ou o botão recolher que o
+  // rodapé já carrega, então não há faixa de título por cima roubando linha. Com
+  // os FABs escondidos, `--jj-fab-dock` volta a 0 e o `right` também.
   return (
     <Portal>
       <Box
@@ -1219,32 +1256,15 @@ export function DataTable<T>({
         top={0}
         left={0}
         bottom={0}
-        // Não é `inset: 0`: com um FAB ACOPLADO à direita, a janela útil termina
-        // onde o painel começa — senão a tela cheia nasceria por baixo dele
-        // (o painel está em z-index maior) e a última coluna ficava tapada.
         right="var(--jj-fab-dock, 0px)"
         zIndex={1300}
         bg="var(--admin-bg)"
         display="flex"
         flexDirection="column"
-        gap={2}
-        p={{ base: 2, md: 3 }}
         role="dialog"
         aria-modal="true"
         aria-label={titulo ? fmtTexto(textos.telaCheiaDe, { titulo }) : textos.tabelaTelaCheia}
       >
-        <HStack justify="space-between" px={1} flexShrink={0}>
-          <Text fontSize="sm" fontWeight="600" lineClamp={1}>
-            {titulo ?? textos.tabela}{" "}
-            <Text as="span" color="var(--admin-text-soft)" fontWeight="400">
-              · {plural(linhasVisiveis.length, textos.umItem, textos.muitosItens)}
-              {linhasVisiveis.length !== totalGeral ? fmtTexto(textos.itensDeTotal, { total: totalGeral }) : ""}
-            </Text>
-          </Text>
-          <Button size="xs" tone="ghost" onClick={() => setExpandido(false)}>
-            <Minimize2 size={14} /> {textos.fechar}
-          </Button>
-        </HStack>
         {cartao}
       </Box>
     </Portal>

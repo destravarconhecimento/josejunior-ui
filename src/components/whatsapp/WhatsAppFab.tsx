@@ -544,6 +544,7 @@ export function WhatsAppFab({
         setOpen(true);
       }}
       position="fixed"
+      data-jj-fab=""
       {...arrastoHandlers}
       style={{ background: "#25d366", boxShadow: "0 8px 22px rgba(7,26,51,0.28)", ...arrastoStyle }}
       bottom={`${bottom}px`}
@@ -613,6 +614,7 @@ export function WhatsAppFab({
     <>
       <Flex
         position="fixed"
+        data-jj-fab=""
         zIndex={1400}
         {...moldura}
         bg="var(--admin-surface, white)"
