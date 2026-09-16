@@ -33,7 +33,7 @@ export function Modal({
         <Dialog.Backdrop bg="rgba(15,23,42,0.5)" backdropFilter="blur(4px)" />
         <Dialog.Positioner p={4}>
           <Dialog.Content
-            bg="var(--admin-surface)"
+            bg="var(--admin-surface, #fff)"
             borderRadius="16px"
             boxShadow="0 24px 60px rgba(15,23,42,0.22)"
             maxH="85vh"
@@ -42,11 +42,11 @@ export function Modal({
             {title ? (
               <Dialog.Header
                 borderBottomWidth="1px"
-                borderColor="var(--admin-border)"
+                borderColor="var(--admin-border, rgba(0,0,0,.1))"
                 pb={3}
                 flexShrink={0}
               >
-                <Dialog.Title className="admin-h" color="var(--admin-primary)">
+                <Dialog.Title className="admin-h" color="var(--admin-primary, inherit)">
                   {title}
                 </Dialog.Title>
                 <Dialog.CloseTrigger asChild>
@@ -60,7 +60,7 @@ export function Modal({
             {footer ? (
               <Dialog.Footer
                 borderTopWidth="1px"
-                borderColor="var(--admin-border)"
+                borderColor="var(--admin-border, rgba(0,0,0,.1))"
                 pt={3}
                 gap={2}
                 flexShrink={0}

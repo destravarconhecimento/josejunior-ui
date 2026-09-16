@@ -86,10 +86,13 @@ export {
   TextoCopiavel, BotaoCopiar, LinhaCopiavel, useCopiar, copiarTexto,
 } from "./components/TextoCopiavel";
 export { Tooltip, type TooltipProps } from "./components/Tooltip";
+export {
+  BotaoDivulgar, ModalDivulgar, PainelDivulgar, canaisDeDivulgacao, type CanalDivulgacao,
+} from "./components/Divulgar";
 export { LinkDaUi, useNavegar } from "./components/LinkDaUi";
 // Telefone de linha de lista: selo "tem WhatsApp?" + o número clicável pra copiar
 export { NumeroWhats, type SituacaoWhats } from "./components/NumeroWhats";
-export { Tag, StatusBadge, DeliveryBadge, PontoDeEstado, estiloDeStatus } from "./components/Badge";
+export { Tag, StatusBadge, DeliveryBadge, estiloDeStatus } from "./components/Badge";
 // A ficha do lead — a MESMA nos dois painéis (José e representante)
 export {
   FichaLead,
