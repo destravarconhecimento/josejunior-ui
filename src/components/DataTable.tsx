@@ -273,6 +273,7 @@ export function DataTable<T>({
   filtrosDaTelaAtivos,
   onLimparDaTela,
   totalSemFiltro,
+  semCabecalho = false,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -371,6 +372,13 @@ export function DataTable<T>({
    * conjunto inteiro tem o tamanho do recorte.
    */
   totalSemFiltro?: number;
+  /**
+   * Esconde a linha de cabeçalho. Só para lista de UMA coluna, em que o rótulo
+   * não informa nada (caixa de e-mail, feed): a faixa de `th` come uma linha
+   * inteira para repetir o óbvio. Ordenar/filtrar por coluna sai junto — sem
+   * `th` não há onde clicar.
+   */
+  semCabecalho?: boolean;
 }) {
   const acoesPorLinha = acoesDaLinha ? rows.map((r) => acoesDaLinha(r)) : null;
   const celulaAcoes = acoesDaLinha
@@ -922,134 +930,136 @@ export function DataTable<T>({
         css={cssArea}
       >
         <Table.Root size={dense ? "sm" : "md"} width="full" css={CORES_LINHA}>
-          <Table.Header
-            position={stickyCabecalho !== undefined ? "sticky" : undefined}
-            top={stickyCabecalho}
-            zIndex={2}
-            bg="var(--admin-surface)"
-            boxShadow="0 1px 0 var(--admin-divider)"
-          >
-            <Table.Row>
-              {selection ? (
-                <Table.ColumnHeader width="40px" data-jj-fixa="">
-                  <Checkbox.Root
-                    size="sm"
-                    checked={allChecked ? true : someChecked ? "indeterminate" : false}
-                    onCheckedChange={(e) => selection.onToggleAll(allKeys, e.checked === true)}
-                    aria-label={textos.selecionarTodos}
-                  >
-                    <Checkbox.HiddenInput />
-                    <Checkbox.Control />
-                  </Checkbox.Root>
-                </Table.ColumnHeader>
-              ) : null}
-              {onReorder ? <Table.ColumnHeader width="34px" data-jj-fixa="" /> : null}
-              {columns.map((c) => {
-                const ordenavel = !!c.value && c.sortable !== false;
-                const filtravel = !!c.value && c.filterable !== false;
-                const ordem = sortAtivo && sortAtivo.key === c.key ? sortAtivo.dir : null;
-                const rotuloProps = c.headerWrap
-                  ? {}
-                  : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const };
-                return (
+          {semCabecalho ? null : (
+            <Table.Header
+              position={stickyCabecalho !== undefined ? "sticky" : undefined}
+              top={stickyCabecalho}
+              zIndex={2}
+              bg="var(--admin-surface)"
+              boxShadow="0 1px 0 var(--admin-divider)"
+            >
+              <Table.Row>
+                {selection ? (
+                  <Table.ColumnHeader width="40px" data-jj-fixa="">
+                    <Checkbox.Root
+                      size="sm"
+                      checked={allChecked ? true : someChecked ? "indeterminate" : false}
+                      onCheckedChange={(e) => selection.onToggleAll(allKeys, e.checked === true)}
+                      aria-label={textos.selecionarTodos}
+                    >
+                      <Checkbox.HiddenInput />
+                      <Checkbox.Control />
+                    </Checkbox.Root>
+                  </Table.ColumnHeader>
+                ) : null}
+                {onReorder ? <Table.ColumnHeader width="34px" data-jj-fixa="" /> : null}
+                {columns.map((c) => {
+                  const ordenavel = !!c.value && c.sortable !== false;
+                  const filtravel = !!c.value && c.filterable !== false;
+                  const ordem = sortAtivo && sortAtivo.key === c.key ? sortAtivo.dir : null;
+                  const rotuloProps = c.headerWrap
+                    ? {}
+                    : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const };
+                  return (
+                    <Table.ColumnHeader
+                      key={c.key}
+                      textAlign={c.align}
+                      width={c.width}
+                      fontSize="xs"
+                      fontWeight="600"
+                      textTransform="uppercase"
+                      letterSpacing="0.04em"
+                      color="var(--admin-text-soft)"
+                      whiteSpace={c.headerWrap ? "normal" : "nowrap"}
+                      overflow={c.headerWrap || ordenavel || filtravel ? undefined : "hidden"}
+                      textOverflow={c.headerWrap || ordenavel || filtravel ? undefined : "ellipsis"}
+                      aria-sort={ordem ? (ordem === "asc" ? "ascending" : "descending") : undefined}
+                      {...hideProps(c)}
+                      {...presoProps(c, true)}
+                    >
+                      {ordenavel || filtravel ? (
+                        <HStack
+                          gap={0.5}
+                          flexWrap="nowrap"
+                          justify={c.align === "end" ? "flex-end" : c.align === "center" ? "center" : undefined}
+                        >
+                          {ordenavel ? (
+                            // O th INTEIRO (menos o funil) é o botão de ordenar:
+                            // ciclo sem → asc → desc → sem (volta à ordem da tela).
+                            <Box
+                              as="button"
+                              onClick={() => mudarSort(proximoSort(sortAtivo, c.key))}
+                              display="inline-flex"
+                              alignItems="center"
+                              gap={0.5}
+                              minW={0}
+                              cursor="pointer"
+                              fontSize="inherit"
+                              fontWeight="inherit"
+                              textTransform="inherit"
+                              letterSpacing="inherit"
+                              color={ordem ? "var(--admin-primary)" : "inherit"}
+                              _hover={{ color: "var(--admin-primary)" }}
+                              title={fmtTexto(textos.ordenarPor, { coluna: rotuloColuna(c) })}
+                            >
+                              <Box as="span" {...rotuloProps}>
+                                {c.header}
+                              </Box>
+                              <Box as="span" display="inline-flex" flexShrink={0} opacity={ordem ? 1 : 0.6}>
+                                {ordem === "asc" ? (
+                                  <ArrowUp size={12} />
+                                ) : ordem === "desc" ? (
+                                  <ArrowDown size={12} />
+                                ) : (
+                                  <ChevronsUpDown size={12} />
+                                )}
+                              </Box>
+                            </Box>
+                          ) : (
+                            <Box as="span" {...rotuloProps} minW={0}>
+                              {c.header}
+                            </Box>
+                          )}
+                          {filtravel ? (
+                            <FiltroColunaMenu
+                              rotulo={rotuloColuna(c)}
+                              ativo={ativoDe(c.key)}
+                              facetas={facetasDe(c)}
+                              onChange={(valores) => mudarFiltroColuna(c.key, valores)}
+                              textos={textos}
+                            />
+                          ) : null}
+                        </HStack>
+                      ) : (
+                        c.header
+                      )}
+                    </Table.ColumnHeader>
+                  );
+                })}
+                {celulaAcoes ? (
                   <Table.ColumnHeader
-                    key={c.key}
-                    textAlign={c.align}
-                    width={c.width}
+                    data-jj-fixa=""
+                    textAlign="end"
                     fontSize="xs"
                     fontWeight="600"
                     textTransform="uppercase"
                     letterSpacing="0.04em"
                     color="var(--admin-text-soft)"
-                    whiteSpace={c.headerWrap ? "normal" : "nowrap"}
-                    overflow={c.headerWrap || ordenavel || filtravel ? undefined : "hidden"}
-                    textOverflow={c.headerWrap || ordenavel || filtravel ? undefined : "ellipsis"}
-                    aria-sort={ordem ? (ordem === "asc" ? "ascending" : "descending") : undefined}
-                    {...hideProps(c)}
-                    {...presoProps(c, true)}
+                    whiteSpace="nowrap"
+                    width={larguraAcoes}
+                    minW={larguraAcoes}
+                    position="sticky"
+                    right={0}
+                    zIndex={2}
+                    bg="var(--admin-surface)"
+                    boxShadow="inset 1px 0 0 var(--admin-divider)"
                   >
-                    {ordenavel || filtravel ? (
-                      <HStack
-                        gap={0.5}
-                        flexWrap="nowrap"
-                        justify={c.align === "end" ? "flex-end" : c.align === "center" ? "center" : undefined}
-                      >
-                        {ordenavel ? (
-                          // O th INTEIRO (menos o funil) é o botão de ordenar:
-                          // ciclo sem → asc → desc → sem (volta à ordem da tela).
-                          <Box
-                            as="button"
-                            onClick={() => mudarSort(proximoSort(sortAtivo, c.key))}
-                            display="inline-flex"
-                            alignItems="center"
-                            gap={0.5}
-                            minW={0}
-                            cursor="pointer"
-                            fontSize="inherit"
-                            fontWeight="inherit"
-                            textTransform="inherit"
-                            letterSpacing="inherit"
-                            color={ordem ? "var(--admin-primary)" : "inherit"}
-                            _hover={{ color: "var(--admin-primary)" }}
-                            title={fmtTexto(textos.ordenarPor, { coluna: rotuloColuna(c) })}
-                          >
-                            <Box as="span" {...rotuloProps}>
-                              {c.header}
-                            </Box>
-                            <Box as="span" display="inline-flex" flexShrink={0} opacity={ordem ? 1 : 0.6}>
-                              {ordem === "asc" ? (
-                                <ArrowUp size={12} />
-                              ) : ordem === "desc" ? (
-                                <ArrowDown size={12} />
-                              ) : (
-                                <ChevronsUpDown size={12} />
-                              )}
-                            </Box>
-                          </Box>
-                        ) : (
-                          <Box as="span" {...rotuloProps} minW={0}>
-                            {c.header}
-                          </Box>
-                        )}
-                        {filtravel ? (
-                          <FiltroColunaMenu
-                            rotulo={rotuloColuna(c)}
-                            ativo={ativoDe(c.key)}
-                            facetas={facetasDe(c)}
-                            onChange={(valores) => mudarFiltroColuna(c.key, valores)}
-                            textos={textos}
-                          />
-                        ) : null}
-                      </HStack>
-                    ) : (
-                      c.header
-                    )}
+                    {textos.acoes}
                   </Table.ColumnHeader>
-                );
-              })}
-              {celulaAcoes ? (
-                <Table.ColumnHeader
-                  data-jj-fixa=""
-                  textAlign="end"
-                  fontSize="xs"
-                  fontWeight="600"
-                  textTransform="uppercase"
-                  letterSpacing="0.04em"
-                  color="var(--admin-text-soft)"
-                  whiteSpace="nowrap"
-                  width={larguraAcoes}
-                  minW={larguraAcoes}
-                  position="sticky"
-                  right={0}
-                  zIndex={2}
-                  bg="var(--admin-surface)"
-                  boxShadow="inset 1px 0 0 var(--admin-divider)"
-                >
-                  {textos.acoes}
-                </Table.ColumnHeader>
-              ) : null}
-            </Table.Row>
-          </Table.Header>
+                ) : null}
+              </Table.Row>
+            </Table.Header>
+          )}
           <Table.Body>
             {visible.map((row, i) => {
               const rowKey = getRowKey(row, i);
