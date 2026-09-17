@@ -362,6 +362,24 @@ export {
   type Variante,
   type CampoParaDegrau,
 } from "./components/Modal";
+// As regras PURAS do diálogo. Saem pelo index porque quem tem a suíte delas é o
+// 8899br (aqui não há runner) — e uma regra sem teste é uma regra que ninguém
+// defende.
+export {
+  DEGRAUS,
+  LARGURA_DO_DEGRAU,
+  NIVEL_MAXIMO,
+  degrauMaior,
+  alturaDaFolha,
+  nivelExcedido,
+  montarRodape,
+  contarPrimarias,
+  type AcaoDescritor,
+  type BotaoRodape,
+  type EntradaDoRodape,
+  type Rodape,
+  type PapelDoRodape,
+} from "./components/modal/calc";
 export { ImageCropper } from "./components/ImageCropper";
 export { CrudManager } from "./components/CrudManager";
 export {
