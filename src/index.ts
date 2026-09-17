@@ -78,7 +78,7 @@ export { PageHeader } from "./components/PageHeader";
 export { PageBody } from "./components/PageBody";
 export { ScrollArea } from "./components/ScrollArea";
 export { Card } from "./components/Card";
-export { Button, type ButtonTone } from "./components/Button";
+export { Button, TONE_DO_PAPEL, type ButtonTone, type PapelDeBotao } from "./components/Button";
 // Botão de ícone COM significado (a cor diz o que a ação faz) — listas de trabalho
 export { AcaoIcone, type AcaoTone } from "./components/AcaoIcone";
 // Dado que se copia no próprio clique (e-mail, telefone) — poupa botão na linha
@@ -146,7 +146,7 @@ export { LinhasEditaveis, type ColunaEditavel } from "./components/LinhasEditave
 export { MaskedInput } from "./components/MaskedInput";
 export { BuscaServidor } from "./components/BuscaServidor";
 export { AutoScrollArea, useViewportMaxH } from "./components/AutoScrollArea";
-export { CampoCor, corDoSeletor, hexValido } from "./components/CampoCor";
+export { CampoCor, corDoSeletor, hexValido, HEX } from "./components/CampoCor";
 // ─────────────────────────────────────────────────────────────────────────────
 // UM FORMULÁRIO, UM MOTOR (17/09). A tela não escreve `<form>` nem
 // `useActionState`: quem é dono do elemento é o `<Formulario>` (na tela) ou o
@@ -166,7 +166,6 @@ export {
   CamposDoFormulario,
   BotaoDeEnvio,
   useEstadoDoFormulario,
-  type PapelDeBotao,
 } from "./components/form/Formulario";
 export { FormDialog } from "./components/form/FormDialog";
 // Tempo real por INJEÇÃO (o ui não conhece transporte — ver components/realtime.ts)
@@ -302,7 +301,13 @@ export {
   formatarData,
   formatarDataHora,
 } from "./format";
-export { UiTextosProvider, useUiTextos, useUiFormato, useUiEnums } from "./provider/textos";
+export {
+  UiTextosProvider, useUiTextos, useUiFormato, useUiEnums,
+  // Injetados pelo app: a traducao da `messageKey` que a action devolve e as
+  // mascaras de campo (CPF, CNPJ, CEP, telefone) — regra de cada sistema, que
+  // vale tambem no servidor dele.
+  useUiTraducao, useUiMascaras, type MascaraUi,
+} from "./provider/textos";
 export { FunilLeadsTable } from "./components/funil/FunilLeadsTable";
 export {
   CONTATO_META,
@@ -338,7 +343,25 @@ export {
   MOTIVOS_CONTATO,
 } from "./components/funil/modais";
 export { Pagination } from "./components/Pagination";
-export { Modal } from "./components/Modal";
+// O diálogo do painel — o do 8899br, que substituiu o de 76 linhas daqui.
+// A grafia curta (`open`/`onClose`/`title`/`footer`/`size`) continua valendo.
+export {
+  Modal,
+  ModalSecao,
+  ModalScrollRegion,
+  NivelModal,
+  AberturaExterna,
+  degrauPorConteudo,
+  degrauDoNivel,
+  type ModalProps,
+  type ModalPropsCurto,
+  type Abertura,
+  type Acao,
+  type Degrau,
+  type Tom,
+  type Variante,
+  type CampoParaDegrau,
+} from "./components/Modal";
 export { ImageCropper } from "./components/ImageCropper";
 export { CrudManager } from "./components/CrudManager";
 export {

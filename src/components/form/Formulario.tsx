@@ -3,7 +3,7 @@
 import { createContext, useContext, useRef, useState, type ReactNode } from "react";
 import { Flex, SimpleGrid, Stack } from "../../primitives";
 import { chakra } from "../../chakra-controls";
-import { Button, type ButtonTone } from "../Button";
+import { Button, TONE_DO_PAPEL, type PapelDeBotao } from "../Button";
 import { Campo, type CampoSpec } from "./Campo";
 import { useEnvioDeFormulario, type AcaoDeFormulario, type EstadoDoFormulario } from "./envio";
 
@@ -34,15 +34,7 @@ export function useEstadoDoFormulario() {
   return useContext(CtxFormulario);
 }
 
-/** Papel visual do botão de envio — o mesmo vocabulário do resto do painel. */
-export type PapelDeBotao = "principal" | "secundario" | "perigoso" | "discreto";
-
-const TONE_DO_PAPEL: Record<PapelDeBotao, ButtonTone> = {
-  principal: "primary",
-  secundario: "outline",
-  perigoso: "danger",
-  discreto: "ghost",
-};
+export type { PapelDeBotao } from "../Button";
 
 export function BotaoDeEnvio({
   rotulo,

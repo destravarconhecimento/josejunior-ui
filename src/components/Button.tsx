@@ -2,6 +2,24 @@ import { Button as ChakraButton, type ButtonProps } from "@chakra-ui/react";
 
 export type ButtonTone = "primary" | "outline" | "ghost" | "danger" | "whatsapp";
 
+/**
+ * O PAPEL do botão — o vocabulário que veio do 8899br, onde nasceu de uma
+ * medição: `Button` do Chakra importado direto em 120 telas, cada uma
+ * escolhendo `size`/`variant`/`colorPalette` por conta. A mesma ação ("salvar",
+ * "excluir", "ver") tinha três caras em três telas. O papel tem UMA cara.
+ *
+ * É o mesmo eixo do `tone`, em português e do ponto de vista de quem escreve a
+ * tela; o mapa abaixo é a tradução entre os dois.
+ */
+export type PapelDeBotao = "principal" | "secundario" | "perigoso" | "discreto";
+
+export const TONE_DO_PAPEL: Record<PapelDeBotao, ButtonTone> = {
+  principal: "primary",
+  secundario: "outline",
+  perigoso: "danger",
+  discreto: "ghost",
+};
+
 const toneProps: Record<ButtonTone, ButtonProps> = {
   primary: {
     bg: "var(--admin-primary)",

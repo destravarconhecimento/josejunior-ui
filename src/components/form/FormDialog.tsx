@@ -1,119 +1,141 @@
 "use client";
 
-import { useId, useRef, useState, type ReactNode } from "react";
-import { Stack } from "../../primitives";
-import { chakra } from "../../chakra-controls";
-import { Modal } from "../Modal";
+import { useRef, useState, type ReactNode } from "react";
+import { Box, Stack } from "../../primitives";
 import { Button } from "../Button";
+import { Modal, type Degrau, type Tom } from "../Modal";
 import { CamposDoFormulario } from "./Formulario";
 import { useEnvioDeFormulario, type AcaoDeFormulario, type EstadoDoFormulario } from "./envio";
 import type { CampoSpec } from "./Campo";
 import { useUiTextos } from "../../provider/textos";
 
 /**
- * Formulário em DIÁLOGO — o "novo cliente", o "editar", o "convidar". Mesma
- * lista de `campos` do `<Formulario>`, mesmo motor de envio, mesmo toast.
+ * Formulário em DIÁLOGO — o "novo", o "editar", o "convidar". A mesma lista de
+ * `campos` do `<Formulario>`, o mesmo motor de envio, o mesmo toast.
  *
  * Duas coisas que ele resolve e que a tela sempre errava sozinha:
  *
- * · **o diálogo fecha no SUCESSO, e só nele.** Fechar no clique perde o erro
- *   (a pessoa não vê o que deu errado e o que digitou já foi embora); não
- *   fechar nunca deixa o diálogo aberto sobre a lista já atualizada.
- * · **o botão do rodapé envia o formulário do corpo.** No diálogo o rodapé fica
- *   FORA do `<form>` (é irmão dele na árvore do Dialog), então um `type=submit`
- *   ali não envia nada — o que liga os dois é o atributo `form="<id>"`. Sem
- *   isso o "Salvar" do canto vira um botão morto, que foi exatamente o defeito
- *   que apareceu em telas que montaram o diálogo à mão.
+ * · **o diálogo fecha no SUCESSO, e só nele.** Fechar no clique perde o erro (a
+ *   pessoa não vê o que deu errado e o que digitou já foi embora); não fechar
+ *   nunca deixa o diálogo aberto por cima da lista já atualizada.
+ * · **o botão do rodapé envia o formulário do corpo.** Aqui isso sai de graça
+ *   porque o `Modal` embrulha o diálogo INTEIRO num `<form display:contents>` —
+ *   é a razão de o `form` ser prop dele e não um elemento que a tela escreve.
  *
- * Reabrir depois de salvar tem de mostrar o formulário LIMPO: além do `reset()`
+ * Reabrir depois de salvar mostra o formulário limpo: além do `reset()`,
  * trocamos a `key`, porque `reset` não zera campo controlado por estado.
  */
 export function FormDialog<E extends EstadoDoFormulario = EstadoDoFormulario>({
-  gatilho,
-  titulo,
-  campos,
+  triggerLabel,
+  triggerIcone,
+  title,
+  fields,
   action,
   hidden,
-  rotuloEnviar,
-  descricao,
-  aberto: abertoProp,
-  aoMudarAberto,
+  triggerProps,
+  triggerVariant = "solid",
+  triggerSize = "sm",
+  triggerPalette = "brand",
+  submitLabel,
+  description,
+  open: openProp,
+  onOpenChange,
+  showTrigger = true,
+  degrauDesktop = "lg",
+  tom = "neutro",
+  lazy = true,
   aoConcluir,
-  tamanho = "lg",
   children,
 }: {
-  /** O que abre o diálogo. Sem gatilho, o diálogo é controlado de fora. */
-  gatilho?: ReactNode;
-  titulo: string;
-  campos: CampoSpec[];
+  triggerLabel: ReactNode;
+  triggerIcone?: ReactNode;
+  title: string;
+  fields: CampoSpec[];
   action: AcaoDeFormulario<E>;
   hidden?: Record<string, string>;
-  rotuloEnviar?: string;
-  descricao?: ReactNode;
-  aberto?: boolean;
-  aoMudarAberto?: (aberto: boolean) => void;
+  triggerProps?: Record<string, unknown>;
+  triggerVariant?: "solid" | "outline" | "ghost" | "subtle";
+  triggerSize?:
+    | "2xs"
+    | "xs"
+    | "sm"
+    | "md"
+    | { base: "2xs" | "xs" | "sm" | "md"; md: "2xs" | "xs" | "sm" | "md" };
+  triggerPalette?: string;
+  submitLabel?: string;
+  description?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
+  degrauDesktop?: Degrau;
+  tom?: Tom;
+  lazy?: boolean;
   aoConcluir?: (state: Awaited<E>) => void;
-  tamanho?: "sm" | "md" | "lg" | "xl";
   children?: ReactNode;
 }) {
   const textos = useUiTextos();
-  const idDoForm = useId();
-  const [internoAberto, setInternoAberto] = useState(false);
-  const controlado = abertoProp !== undefined;
-  const aberto = controlado ? abertoProp : internoAberto;
-  const setAberto = (o: boolean) => {
-    if (controlado) aoMudarAberto?.(o);
-    else setInternoAberto(o);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : internalOpen;
+  const setOpen = (o: boolean) => {
+    if (isControlled) onOpenChange?.(o);
+    else setInternalOpen(o);
   };
   const formRef = useRef<HTMLFormElement>(null);
-  const [chaveDoForm, setChaveDoForm] = useState(0);
+  const [formKey, setFormKey] = useState(0);
 
   const { formAction, pending } = useEnvioDeFormulario<E>(action, {
     // o diálogo já responde fechando; o toast de sucesso viria por cima dele
     toastDeSucesso: false,
     aoConcluir,
     aoTerSucesso: () => {
-      setAberto(false);
+      setOpen(false);
       formRef.current?.reset();
-      setChaveDoForm((k) => k + 1);
+      setFormKey((k) => k + 1);
     },
   });
 
+  const soIcone = triggerIcone ? "md" : undefined;
+  const gatilho = (
+    <Button
+      colorPalette={triggerPalette}
+      variant={triggerVariant}
+      size={triggerSize}
+      title={soIcone ? (typeof triggerLabel === "string" ? triggerLabel : title) : undefined}
+      aria-label={soIcone ? (typeof triggerLabel === "string" ? triggerLabel : title) : undefined}
+      {...triggerProps}
+    >
+      {triggerIcone}
+      {soIcone ? (
+        <Box as="span" hideBelow="md">
+          {triggerLabel}
+        </Box>
+      ) : (
+        triggerLabel
+      )}
+    </Button>
+  );
+
   return (
-    <>
-      {gatilho ? (
-        <chakra.span onClick={() => setAberto(true)} display="contents">
-          {gatilho}
-        </chakra.span>
-      ) : null}
-      <Modal
-        open={aberto}
-        onClose={() => setAberto(false)}
-        title={titulo}
-        size={tamanho}
-        footer={
-          <>
-            <Button tone="ghost" type="button" onClick={() => setAberto(false)}>
-              {textos.cancelar}
-            </Button>
-            <Button tone="primary" type="submit" form={idDoForm} loading={pending}>
-              {rotuloEnviar ?? textos.salvar}
-            </Button>
-          </>
-        }
-      >
-        <chakra.form key={chaveDoForm} id={idDoForm} ref={formRef} action={formAction}>
-          <Stack gap="4">
-            {hidden &&
-              Object.entries(hidden).map(([k, v]) => (
-                <input key={k} type="hidden" name={k} value={v} />
-              ))}
-            {descricao}
-            <CamposDoFormulario campos={campos} />
-            {children}
-          </Stack>
-        </chakra.form>
-      </Modal>
-    </>
+    <Modal
+      abertura={
+        showTrigger
+          ? { modo: "gatilho", children: gatilho, aberto: open, aoMudar: setOpen }
+          : { modo: "controlado", aberto: open, aoMudar: setOpen }
+      }
+      titulo={title}
+      degrauDesktop={degrauDesktop}
+      tom={tom}
+      lazy={lazy}
+      form={{ action: formAction, ref: formRef, key: formKey }}
+      acaoPrimaria={{ rotulo: submitLabel ?? textos.salvar, submit: true, carregando: pending }}
+      rotuloCancelar={textos.cancelar}
+    >
+      {hidden &&
+        Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+      {description && <Stack>{description}</Stack>}
+      <CamposDoFormulario campos={fields} />
+      {children}
+    </Modal>
   );
 }

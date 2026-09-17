@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { HStack, Text } from "@chakra-ui/react";
 import { Plus } from "lucide-react";
 import { Button } from "./Button";
-import { Modal } from "./Modal";
+import { Modal, type ModalPropsCurto } from "./Modal";
 
 /**
  * Casca padrão de telas CRUD: a LISTA é a tela principal (sem espaço morto), um
@@ -35,7 +35,7 @@ export function CrudManager({
   editorTitle: string;
   editor: ReactNode;
   editorFooter?: ReactNode;
-  modalSize?: React.ComponentProps<typeof Modal>["size"];
+  modalSize?: ModalPropsCurto["size"];
   /** Conteúdo extra à esquerda do botão "Novo" (ex.: filtros). */
   toolbar?: ReactNode;
   /** A LISTA (tela principal). */

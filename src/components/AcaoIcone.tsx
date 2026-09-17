@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { IconButton } from "@chakra-ui/react";
 import { LinkDaUi } from "./LinkDaUi";
+import { TONE_DO_PAPEL, type PapelDeBotao } from "./Button";
 
 /**
  * A COR diz o que o botão faz. Numa lista de trabalho (funil, atendimento) os
@@ -42,7 +43,10 @@ const TONES: Record<AcaoTone, { color: string; hover: string }> = {
  * `title` é obrigatório: ícone sem legenda é adivinhação.
  */
 export function AcaoIcone({
-  tone = "neutro",
+  tone,
+  papel,
+  ativo = false,
+  redondo = false,
   title,
   ariaLabel,
   onClick,
@@ -53,6 +57,16 @@ export function AcaoIcone({
   children,
 }: {
   tone?: AcaoTone;
+  /**
+   * Quando a ação NÃO tem um significado do vocabulário acima (é um "editar",
+   * um "excluir", um "ver"), o eixo é o PAPEL — principal, secundário,
+   * perigoso, discreto. Um dos dois, nunca os dois: `tone` diz o que a ação
+   * significa, `papel` diz que peso ela tem na tela.
+   */
+  papel?: PapelDeBotao;
+  /** Estado LIGADO (o filtro que está valendo, a coluna ordenada). */
+  ativo?: boolean;
+  redondo?: boolean;
   /** Legenda do hover — diz o que o clique FAZ, não o nome do ícone. */
   title: string;
   /** Padrão: o próprio `title`. */
@@ -69,14 +83,25 @@ export function AcaoIcone({
   size?: "xs" | "sm" | "md";
   children: ReactNode;
 }) {
-  const t = TONES[tone];
+  const t = TONES[tone ?? "neutro"];
+  // `papel` manda quando vem; senão vale o significado (`tone`), e o padrão
+  // continua sendo o neutro de antes.
+  const porPapel = papel
+    ? {
+        variant: ({ primary: "solid", outline: "outline", ghost: "ghost", danger: "outline", whatsapp: "solid" } as const)[
+          TONE_DO_PAPEL[papel]
+        ],
+        colorPalette: papel === "perigoso" ? "red" : papel === "principal" ? "brand" : "gray",
+      }
+    : null;
   const comum = {
     "aria-label": ariaLabel ?? title,
     title,
     size,
-    variant: "ghost" as const,
-    color: t.color,
-    _hover: { bg: t.hover, color: t.color },
+    rounded: redondo ? "full" : undefined,
+    ...(ativo
+      ? { variant: "subtle" as const, colorPalette: "brand" }
+      : (porPapel ?? { variant: "ghost" as const, color: t.color, _hover: { bg: t.hover, color: t.color } })),
     loading,
     disabled,
   };

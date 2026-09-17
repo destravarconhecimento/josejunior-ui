@@ -54,6 +54,9 @@ export type UiTextos = {
   cancelar: string;
   corPadrao: string;
   restaurarPadrao: string;
+  fechar: string;
+  confirmar: string;
+  naoPodeDesfazer: string;
 };
 
 export const UI_TEXTOS_PT: UiTextos = {
@@ -111,6 +114,9 @@ export const UI_TEXTOS_PT: UiTextos = {
   cancelar: "Cancelar",
   corPadrao: "Cor padrão",
   restaurarPadrao: "Restaurar padrão",
+  fechar: "Fechar",
+  confirmar: "Confirmar",
+  naoPodeDesfazer: "Isto não pode ser desfeito.",
 };
 
 export function fmtTexto(modelo: string, vars: Record<string, string | number>): string {
