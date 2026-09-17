@@ -38,6 +38,22 @@ export type UiTextos = {
   sim: string;
   nao: string;
   semValor: string;
+  // Fora da tabela: peças de formulário e de lista que também falam.
+  buscar: string;
+  copiar: string;
+  copiado: string;
+  revelar: string;
+  ocultar: string;
+  mostrar: string;
+  moverAcima: string;
+  moverAbaixo: string;
+  adicionar: string;
+  remover: string;
+  salvar: string;
+  salvo: string;
+  cancelar: string;
+  corPadrao: string;
+  restaurarPadrao: string;
 };
 
 export const UI_TEXTOS_PT: UiTextos = {
@@ -80,6 +96,21 @@ export const UI_TEXTOS_PT: UiTextos = {
   sim: "Sim",
   nao: "Não",
   semValor: "—",
+  buscar: "Buscar",
+  copiar: "Copiar",
+  copiado: "Copiado",
+  revelar: "Revelar",
+  ocultar: "Ocultar",
+  mostrar: "Mostrar",
+  moverAcima: "Mover para cima",
+  moverAbaixo: "Mover para baixo",
+  adicionar: "Adicionar",
+  remover: "Remover",
+  salvar: "Salvar",
+  salvo: "Salvo",
+  cancelar: "Cancelar",
+  corPadrao: "Cor padrão",
+  restaurarPadrao: "Restaurar padrão",
 };
 
 export function fmtTexto(modelo: string, vars: Record<string, string | number>): string {

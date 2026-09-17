@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { IconButton } from "@chakra-ui/react";
+import { LinkDaUi } from "./LinkDaUi";
 
 /**
  * A COR diz o que o botão faz. Numa lista de trabalho (funil, atendimento) os
@@ -45,6 +46,7 @@ export function AcaoIcone({
   title,
   ariaLabel,
   onClick,
+  href,
   loading,
   disabled,
   size = "xs",
@@ -55,25 +57,38 @@ export function AcaoIcone({
   title: string;
   /** Padrão: o próprio `title`. */
   ariaLabel?: string;
-  onClick: () => void;
+  onClick?: () => void;
+  /**
+   * Ação que NAVEGA (ver a ficha, abrir o pedido). Vira um link de verdade, com
+   * o `Link` do app injetado no shell: ganha o meio-clique, o "abrir em nova
+   * aba" e o menu do botão direito, que um `onClick` com `router.push` engole.
+   */
+  href?: string;
   loading?: boolean;
   disabled?: boolean;
   size?: "xs" | "sm" | "md";
   children: ReactNode;
 }) {
   const t = TONES[tone];
+  const comum = {
+    "aria-label": ariaLabel ?? title,
+    title,
+    size,
+    variant: "ghost" as const,
+    color: t.color,
+    _hover: { bg: t.hover, color: t.color },
+    loading,
+    disabled,
+  };
+  if (href) {
+    return (
+      <IconButton asChild {...comum}>
+        <LinkDaUi href={href}>{children}</LinkDaUi>
+      </IconButton>
+    );
+  }
   return (
-    <IconButton
-      aria-label={ariaLabel ?? title}
-      title={title}
-      size={size}
-      variant="ghost"
-      color={t.color}
-      _hover={{ bg: t.hover, color: t.color }}
-      loading={loading}
-      disabled={disabled}
-      onClick={onClick}
-    >
+    <IconButton {...comum} onClick={onClick}>
       {children}
     </IconButton>
   );

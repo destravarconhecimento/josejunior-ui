@@ -120,6 +120,55 @@ export {
   PROPOSTA_BASE_URL,
 } from "./atendimento";
 export { EmptyState } from "./components/EmptyState";
+// ─────────────────────────────────────────────────────────────────────────────
+// Peças que vieram do 8899br (17/09). O kit de lá tinha 43 componentes genéricos
+// que os dois sistemas precisam; estes são os que NÃO existiam aqui e subiram
+// sem perder nada — texto por `useUiTextos`, cor por `--admin-primary`, e o que
+// era do Next (rota, tradução, máscara) entra por prop.
+// ─────────────────────────────────────────────────────────────────────────────
+export { Aviso, type TomDeAviso } from "./components/Aviso";
+export { Balao } from "./components/Balao";
+export { GraficoBarras, type BarraDoGrafico } from "./components/GraficoBarras";
+export { Chips } from "./components/Chips";
+export { CampoNumero, lerNumero } from "./components/CampoNumero";
+export { CampoMarcacao, CampoOpcoes } from "./components/CampoOpcoes";
+export { CampoArquivo } from "./components/CampoArquivo";
+export { CampoSegredo } from "./components/CampoSegredo";
+export {
+  Demonstrativo,
+  linhasVisiveis,
+  type LinhaDemonstrativo,
+} from "./components/Demonstrativo";
+export { GradeDeFotos, type FotoDaGrade } from "./components/GradeDeFotos";
+export { CartaoOrdenavel } from "./components/CartaoOrdenavel";
+export { CaixaDeMensagem } from "./components/CaixaDeMensagem";
+export { LinhasEditaveis, type ColunaEditavel } from "./components/LinhasEditaveis";
+export { MaskedInput } from "./components/MaskedInput";
+export { BuscaServidor } from "./components/BuscaServidor";
+export { AutoScrollArea, useViewportMaxH } from "./components/AutoScrollArea";
+export { CampoCor, corDoSeletor, hexValido } from "./components/CampoCor";
+// ─────────────────────────────────────────────────────────────────────────────
+// UM FORMULÁRIO, UM MOTOR (17/09). A tela não escreve `<form>` nem
+// `useActionState`: quem é dono do elemento é o `<Formulario>` (na tela) ou o
+// `<FormDialog>` (em diálogo), e os dois usam por dentro o mesmo
+// `useEnvioDeFormulario` — guard por identidade do estado, toast e refresh.
+// Disparo imperativo (de um menu, de um canvas) chama o HOOK.
+// ─────────────────────────────────────────────────────────────────────────────
+export {
+  useEnvioDeFormulario,
+  useEnvioDeAcao,
+  type EstadoDoFormulario,
+  type AcaoDeFormulario,
+} from "./components/form/envio";
+export { Campo, type CampoSpec, type AtributosNativos } from "./components/form/Campo";
+export {
+  Formulario,
+  CamposDoFormulario,
+  BotaoDeEnvio,
+  useEstadoDoFormulario,
+  type PapelDeBotao,
+} from "./components/form/Formulario";
+export { FormDialog } from "./components/form/FormDialog";
 // Tempo real por INJEÇÃO (o ui não conhece transporte — ver components/realtime.ts)
 export type { UiRealtimeEvent, UiRealtimeSubscribe } from "./components/realtime";
 export { EmailHtmlView } from "./components/EmailHtmlView";
