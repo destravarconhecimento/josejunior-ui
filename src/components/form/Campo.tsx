@@ -242,8 +242,20 @@ export function Campo({
   };
 
   if (f.type === "livre") {
+    // O campo livre e' o unico que embrulha conteudo de fora, e por isso e o
+    // que mais aparece ocupando duas colunas da grade. Sem repassar `colSpan` e
+    // as larguras, quem precisasse disso voltaria a escrever o Field.Root na
+    // tela — que e de onde este componente veio.
     return (
-      <Field.Root invalid={!!erro} required={f.required}>
+      <Field.Root
+        invalid={!!erro}
+        required={f.required}
+        gridColumn={{ base: "auto", sm: f.colSpan === 2 ? "span 2" : "auto" }}
+        w={f.w}
+        minW={f.minW}
+        maxW={f.larguraMax}
+        flex={f.flex}
+      >
         <Field.Label>{f.label}</Field.Label>
         {children}
         {f.hint && !erro && <Field.HelperText>{f.hint}</Field.HelperText>}

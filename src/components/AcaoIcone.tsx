@@ -45,6 +45,7 @@ const TONES: Record<AcaoTone, { color: string; hover: string }> = {
 export function AcaoIcone({
   tone,
   papel,
+  paleta,
   ativo = false,
   redondo = false,
   title,
@@ -55,6 +56,7 @@ export function AcaoIcone({
   disabled,
   size = "xs",
   children,
+  ...rest
 }: {
   tone?: AcaoTone;
   /**
@@ -64,6 +66,12 @@ export function AcaoIcone({
    * significa, `papel` diz que peso ela tem na tela.
    */
   papel?: PapelDeBotao;
+  /**
+   * Cor explícita, para o botão cujo ESTADO tem cor própria e não cabe nos
+   * tons acima: o anexo aberto em verde, a gravação em vermelho, a IA em roxo.
+   * Vale junto com `ativo` — é ela que pinta o "ligado".
+   */
+  paleta?: string;
   /** Estado LIGADO (o filtro que está valendo, a coluna ordenada). */
   ativo?: boolean;
   redondo?: boolean;
@@ -80,9 +88,9 @@ export function AcaoIcone({
   href?: string;
   loading?: boolean;
   disabled?: boolean;
-  size?: "xs" | "sm" | "md";
+  size?: "2xs" | "xs" | "sm" | "md" | { base: "2xs" | "xs" | "sm" | "md"; md: "2xs" | "xs" | "sm" | "md" };
   children: ReactNode;
-}) {
+} & Record<string, unknown>) {
   const t = TONES[tone ?? "neutro"];
   // `papel` manda quando vem; senão vale o significado (`tone`), e o padrão
   // continua sendo o neutro de antes.
@@ -100,10 +108,16 @@ export function AcaoIcone({
     size,
     rounded: redondo ? "full" : undefined,
     ...(ativo
-      ? { variant: "subtle" as const, colorPalette: "brand" }
+      ? { variant: "subtle" as const, colorPalette: paleta ?? "brand" }
       : (porPapel ?? { variant: "ghost" as const, color: t.color, _hover: { bg: t.hover, color: t.color } })),
+    // `paleta` explícita vence a do papel também no estado normal
+    ...(paleta && !ativo ? { colorPalette: paleta } : {}),
     loading,
     disabled,
+    // o resto vai para o botão: `display` responsivo, `data-testid`, `mt`…
+    // sem isto a tela que precisa esconder o botão no celular teria de
+    // embrulhá-lo num Box só para conseguir uma prop de layout.
+    ...rest,
   };
   if (href) {
     return (

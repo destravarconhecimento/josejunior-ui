@@ -144,10 +144,25 @@ export function KpiRow({
 }) {
   const lista = items.filter((item): item is KpiRowItem => Boolean(item));
   if (lista.length === 0 && !acoes) return null;
+  const amplo = lista.length <= 5;
+  const espalhar = amplo && lista.length >= 3;
   return (
-    <HStack className="admin-card" px={3} py={2} gap={3} align="center" flexWrap={{ base: "wrap", md: "nowrap" }}>
+    <HStack
+      className="admin-card"
+      px={amplo ? 4 : 3}
+      py={amplo ? 3 : 2}
+      gap={3}
+      align="center"
+      flexWrap={{ base: "wrap", md: "nowrap" }}
+    >
       <Box className="admin-scroll" flex="1 1 auto" minW={0} overflowX="auto" overflowY="hidden">
-        <HStack gap={0} align="center" minW="max-content">
+        <HStack
+          gap={0}
+          align="center"
+          minW="max-content"
+          w={espalhar ? "100%" : undefined}
+          justify={espalhar ? "space-between" : undefined}
+        >
           {lista.map((item, i) => {
             const t = TONES[item.tone ?? "neutral"];
             const clicavel = Boolean(item.onClick);
@@ -155,10 +170,10 @@ export function KpiRow({
               <HStack
                 key={i}
                 {...item.atributos}
-                gap={2}
+                gap={amplo ? 2.5 : 2}
                 align="baseline"
                 flexShrink={0}
-                px={3}
+                px={amplo ? 4 : 3}
                 py={clicavel ? 1 : 0}
                 borderLeftWidth={i === 0 ? 0 : "1px"}
                 borderColor="var(--admin-divider)"
@@ -189,7 +204,7 @@ export function KpiRow({
                   </Box>
                 ) : null}
                 <Text
-                  fontSize="10px"
+                  fontSize={amplo ? "11px" : "10px"}
                   fontWeight="600"
                   color="var(--admin-text-soft)"
                   textTransform="uppercase"
@@ -199,7 +214,7 @@ export function KpiRow({
                   {item.label}
                 </Text>
                 <Text
-                  fontSize="md"
+                  fontSize={amplo ? { base: "lg", md: "2xl" } : "md"}
                   fontWeight="700"
                   lineHeight="1.2"
                   color={item.tone && item.tone !== "neutral" ? t.strong : "var(--admin-text)"}
@@ -209,7 +224,12 @@ export function KpiRow({
                   {item.value}
                 </Text>
                 {item.trend != null && item.trend !== "" ? (
-                  <Text fontSize="xs" fontWeight="700" color={TREND[item.trendTone ?? "neutral"]} whiteSpace="nowrap">
+                  <Text
+                    fontSize={amplo ? "sm" : "xs"}
+                    fontWeight="700"
+                    color={TREND[item.trendTone ?? "neutral"]}
+                    whiteSpace="nowrap"
+                  >
                     {item.trend}
                   </Text>
                 ) : null}
