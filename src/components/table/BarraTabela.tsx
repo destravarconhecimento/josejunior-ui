@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type FocusEvent, type ReactNode } from "react";
 import { Box, HStack, NativeSelect, Stack, Text } from "@chakra-ui/react";
-import { ArrowDownUp, ListFilter, X } from "lucide-react";
+import { ArrowDownUp, ListFilter, Search, X } from "lucide-react";
 import { Button } from "../Button";
 import { Modal } from "../Modal";
 import { Accordion } from "../Accordion";
@@ -56,6 +56,61 @@ export function ChipFiltro({ children, onRemove, removeLabel }: { children: Reac
 }
 
 /**
+ * A busca que vira botão quando a linha da toolbar está cheia (título + filtros
+ * + ações): fechada é só a lupa; o clique abre o campo — que fica MONTADO o
+ * tempo todo, então o texto digitado sobrevive ao fechar — e foca; perder o
+ * foco com o campo VAZIO fecha de novo. Com texto ela não fecha: fechada
+ * implica vazia, e por isso a lupa não precisa de bolinha de "tem filtro".
+ */
+export function BuscaRecolhivel({
+  busca,
+  rotulo,
+  largura = "14rem",
+}: {
+  busca: ReactNode;
+  rotulo: string;
+  largura?: string;
+}) {
+  const [aberta, setAberta] = useState(false);
+  const caixaRef = useRef<HTMLDivElement | null>(null);
+  const vazia = () => {
+    const input = caixaRef.current?.querySelector("input");
+    return !input || input.value.trim() === "";
+  };
+  const abrir = () => {
+    setAberta(true);
+    requestAnimationFrame(() => caixaRef.current?.querySelector("input")?.focus());
+  };
+  const aoSairFoco = (e: FocusEvent<HTMLDivElement>) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+    if (vazia()) setAberta(false);
+  };
+  return (
+    <HStack gap={0} flexShrink={0} minW={0}>
+      {!aberta ? (
+        <Button size="sm" tone="ghost" aria-label={rotulo} title={rotulo} onClick={abrir}>
+          <Search size={16} />
+        </Button>
+      ) : null}
+      <Box
+        ref={caixaRef}
+        onBlur={aoSairFoco}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && vazia()) setAberta(false);
+        }}
+        w={aberta ? largura : "0"}
+        overflow="hidden"
+        transition="width .18s ease"
+        style={{ visibility: aberta ? "visible" : "hidden" }}
+        aria-hidden={!aberta}
+      >
+        {busca}
+      </Box>
+    </HStack>
+  );
+}
+
+/**
  * Estado combinado dos filtros/ordenação da DataTable, DENTRO do box medido da
  * toolbar (o sticky do `thead` se ajusta sozinho quando os chips aparecem).
  *
@@ -79,6 +134,7 @@ export function BarraTabela({
   filtrosDaTelaAtivos = 0,
   podeLimparDaTela = false,
   acoes,
+  titulo,
 }: {
   ordenaveis: ColunaOrdenavel[];
   filtraveis: ColunaFiltravel[];
@@ -101,9 +157,25 @@ export function BarraTabela({
   podeLimparDaTela?: boolean;
   /** Botão "Ações" da tabela, já montado — fica no fim da linha de controles. */
   acoes?: ReactNode;
+  /**
+   * Título da tabela NA LINHA de controles do mobile: ele ocupa a esquerda, a
+   * busca vira lupa e, tocada, expande sobre o título até fechar. Sem título,
+   * a linha continua a de sempre (campo de busca aberto à esquerda).
+   */
+  titulo?: string;
 }) {
   const t = useUiTextos(textos);
   const [modalFiltro, setModalFiltro] = useState(false);
+  const [buscaAberta, setBuscaAberta] = useState(false);
+  const caixaBuscaRef = useRef<HTMLDivElement | null>(null);
+  const buscaVazia = () => {
+    const input = caixaBuscaRef.current?.querySelector("input");
+    return !input || input.value.trim() === "";
+  };
+  const abrirBusca = () => {
+    setBuscaAberta(true);
+    requestAnimationFrame(() => caixaBuscaRef.current?.querySelector("input")?.focus());
+  };
 
   const ativos = filtros.filter((f) => f.valores.length > 0);
   const unificado = busca != null || filtrosDaTela != null || acoes != null;
@@ -180,16 +252,48 @@ export function BarraTabela({
       borderBottomWidth="1px"
       borderColor="var(--admin-divider)"
     >
-      <Box flex="1" minW={0}>
-        {busca}
-      </Box>
-      {temPainel ? (
-        <Button size="md" tone="outline" flexShrink={0} onClick={() => setModalFiltro((v) => !v)}>
-          <ListFilter size={16} />{" "}
-          {qtdFiltros > 0 ? fmtTexto(t.filtrarContagem, { n: qtdFiltros }) : t.filtrar}
-        </Button>
-      ) : null}
-      {acoes}
+      {titulo && busca != null && buscaAberta ? (
+        <>
+          <Box
+            ref={caixaBuscaRef}
+            flex="1"
+            minW={0}
+            onBlur={(e) => {
+              if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+              if (buscaVazia()) setBuscaAberta(false);
+            }}
+          >
+            {busca}
+          </Box>
+          <Button size="md" tone="ghost" flexShrink={0} aria-label={t.fechar} onClick={() => setBuscaAberta(false)}>
+            <X size={16} />
+          </Button>
+        </>
+      ) : (
+        <>
+          {titulo ? (
+            <Text flex="1" minW={0} fontSize="sm" fontWeight={600} lineClamp={1} color="var(--admin-text)">
+              {titulo}
+            </Text>
+          ) : (
+            <Box flex="1" minW={0}>
+              {busca}
+            </Box>
+          )}
+          {titulo && busca != null ? (
+            <Button size="md" tone="outline" flexShrink={0} aria-label={t.buscar} title={t.buscar} onClick={abrirBusca}>
+              <Search size={16} />
+            </Button>
+          ) : null}
+          {temPainel ? (
+            <Button size="md" tone="outline" flexShrink={0} onClick={() => setModalFiltro((v) => !v)}>
+              <ListFilter size={16} />{" "}
+              {qtdFiltros > 0 ? fmtTexto(t.filtrarContagem, { n: qtdFiltros }) : t.filtrar}
+            </Button>
+          ) : null}
+          {acoes}
+        </>
+      )}
     </HStack>
   ) : temControles ? (
     <HStack

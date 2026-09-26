@@ -32,7 +32,7 @@ import {
 import { AcoesDaTabela } from "./table/AcoesTabela";
 import { aplicarFiltros, valoresDistintos, type FiltroColuna } from "./table/filtros";
 import { FiltroColunaMenu } from "./table/FiltroColunaMenu";
-import { BarraTabela } from "./table/BarraTabela";
+import { BarraTabela, BuscaRecolhivel } from "./table/BarraTabela";
 import { renderCelulaDeclarativa, type ColunaCelula } from "./table/celula-declarativa";
 import { useUiEnums, useUiFormato, useUiTextos } from "../provider/textos";
 import { fmtTexto, plural, type UiTextos } from "../textos";
@@ -247,6 +247,7 @@ export function DataTable<T>({
   fillHeight = true,
   fill = false,
   toolbar,
+  tituloNaBarra,
   paginate = true,
   onReorder,
   dense = false,
@@ -317,9 +318,18 @@ export function DataTable<T>({
   dense?: boolean;
   /** Seleção em massa (checkbox por linha + selecionar todos). Opt-in. */
   selection?: Selection;
-  /** Nome da tabela — vira o `aria-label` do modo expandido (tela cheia). Não é
-   *  desenhado em lugar nenhum: a tela cheia é só a tabela. */
+  /** Nome da tabela — vira o `aria-label` do modo expandido (tela cheia). Sem
+   *  `tituloNaBarra`, não é desenhado em lugar nenhum. */
   titulo?: string;
+  /**
+   * Desenha o `titulo` NA LINHA da toolbar, no lugar onde a busca ficava: o
+   * título ocupa a esquerda e a busca vai para a direita, junto de filtros e
+   * ações — quando a linha está cheia, a busca vira lupa e expande ao clicar.
+   * É o que mata o card-dentro-de-card: a tabela sozinha, com `titulo` +
+   * `tituloNaBarra`, substitui o `Card title` que a embrulhava. Opt-in porque
+   * `TelaDeLista` já põe o mesmo título no cabeçalho da página.
+   */
+  tituloNaBarra?: boolean;
   /** false = esconde o botão "expandir" do rodapé. */
   expansivel?: boolean;
   /** Ordenação inicial (modo interno). Só vale pra colunas com `value`. */
@@ -676,6 +686,24 @@ export function DataTable<T>({
     ) : null;
 
   const unificado = busca != null || filtrosDaTela != null || acoesNode != null;
+  const tituloNode =
+    tituloNaBarra && titulo ? (
+      <Text fontSize="sm" fontWeight={600} lineClamp={1} minW={0} color="var(--admin-text)">
+        {titulo}
+      </Text>
+    ) : null;
+  // Com título, a busca muda de lado — e de forma: linha cheia (filtros,
+  // toolbar ou ações ao lado) recolhe a busca numa lupa; sozinha com o título,
+  // ela fica aberta à direita.
+  const linhaCheia = filtrosDaTela != null || toolbar != null || acoesNode != null;
+  const buscaDireita =
+    busca == null ? null : linhaCheia ? (
+      <BuscaRecolhivel busca={busca} rotulo={textos.buscar} />
+    ) : (
+      <Box w="16rem" maxW="50%" minW="8rem">
+        {busca}
+      </Box>
+    );
   const painelDaTela =
     filtrosDaTela != null || (unificado && toolbar) ? (
       <>
@@ -685,7 +713,7 @@ export function DataTable<T>({
     ) : undefined;
 
   const toolbarNode =
-    unificado || toolbar || temChips || chipsExtras != null || ordenaveis.length > 0 || filtraveis.length > 0 ? (
+    unificado || tituloNode || toolbar || temChips || chipsExtras != null || ordenaveis.length > 0 || filtraveis.length > 0 ? (
       <Box
         ref={medirToolbar}
         flexShrink={0}
@@ -698,20 +726,22 @@ export function DataTable<T>({
         zIndex={stickyToolbar ? 3 : undefined}
         bg="var(--admin-surface)"
       >
-        {unificado ? (
+        {unificado || tituloNode ? (
           <Box
-            display={{ base: "none", md: "block" }}
+            // Sem controle nenhum (só o título), a mesma faixa serve o celular —
+            // a linha do mobile da BarraTabela só existe quando há controles.
+            display={{ base: unificado ? "none" : "block", md: "block" }}
             px={3}
             py={2.5}
             borderBottomWidth="1px"
             borderColor="var(--admin-divider)"
           >
             <HStack gap={2} flexWrap="nowrap" align="center">
-              {busca != null ? (
+              {tituloNode ?? (busca != null ? (
                 <Box flex="1" minW="10rem" maxW="sm">
                   {busca}
                 </Box>
-              ) : null}
+              ) : null)}
               <HStack
                 gap={2}
                 flexWrap="nowrap"
@@ -722,6 +752,7 @@ export function DataTable<T>({
                 overflowX="auto"
                 css={{ scrollbarWidth: "thin" }}
               >
+                {tituloNode ? buscaDireita : null}
                 {filtrosDaTela}
                 {toolbar}
                 {acoesNode}
@@ -753,6 +784,7 @@ export function DataTable<T>({
           filtrosDaTela={painelDaTela}
           filtrosDaTelaAtivos={filtrosDaTelaAtivos}
           acoes={acoesNode}
+          titulo={tituloNaBarra ? titulo : undefined}
         />
       </Box>
     ) : null;
