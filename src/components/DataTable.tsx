@@ -688,7 +688,7 @@ export function DataTable<T>({
   const unificado = busca != null || filtrosDaTela != null || acoesNode != null;
   const tituloNode =
     tituloNaBarra && titulo ? (
-      <Text fontSize="sm" fontWeight={600} lineClamp={1} minW={0} color="var(--admin-text)">
+      <Text fontSize="sm" fontWeight={700} lineClamp={1} minW={0} color="var(--admin-primary)">
         {titulo}
       </Text>
     ) : null;

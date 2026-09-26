@@ -272,7 +272,7 @@ export function BarraTabela({
       ) : (
         <>
           {titulo ? (
-            <Text flex="1" minW={0} fontSize="sm" fontWeight={600} lineClamp={1} color="var(--admin-text)">
+            <Text flex="1" minW={0} fontSize="sm" fontWeight={700} lineClamp={1} color="var(--admin-primary)">
               {titulo}
             </Text>
           ) : (

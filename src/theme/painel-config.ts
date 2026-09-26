@@ -222,7 +222,12 @@ export const PAINEL_CONFIG = defineConfig({
           subtle: { value: { _light: "{colors.graphite.50}", _dark: "{colors.graphite.900}" } },
           muted: { value: { _light: "{colors.graphite.100}", _dark: "{colors.graphite.750}" } },
           emphasized: { value: { _light: "{colors.graphite.200}", _dark: "{colors.graphite.700}" } },
-          panel: { value: { _light: "white", _dark: "{colors.graphite.800}" } },
+          /*
+            No escuro o painel desceu um degrau (800→900) em 26/09, a pedido do
+            dono, para casar com o hero da home do 8899br: card e hero na MESMA
+            cor, e quem desenha o card sobre o body 950 é a borda hairline.
+          */
+          panel: { value: { _light: "white", _dark: "{colors.graphite.900}" } },
           inset: { value: { _light: "{colors.graphite.100}", _dark: "{colors.graphite.750}" } },
           canvas: { value: { _light: "{colors.graphite.150}", _dark: "{colors.graphite.950}" } },
         },
